@@ -1,21 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
+      // All theme-sensitive colors are CSS-variable backed.
+      // Light values live in :root, dark values in .dark — defined in index.css.
+      // Opacity modifiers (bg-panel-bg/50) work because of the /alpha-value syntax.
       colors: {
         panel: {
-          bg:      '#060B17',
-          surface: '#0B1220',
-          raised:  '#111B2E',
-          border:  '#1C2A42',
-          accent:  '#1E3A6E',
+          bg:      'rgb(var(--panel-bg)      / <alpha-value>)',
+          surface: 'rgb(var(--panel-surface) / <alpha-value>)',
+          raised:  'rgb(var(--panel-raised)  / <alpha-value>)',
+          border:  'rgb(var(--panel-border)  / <alpha-value>)',
+          accent:  'rgb(var(--panel-accent)  / <alpha-value>)',
         },
         ink: {
-          DEFAULT: '#E8ECF6',
-          dim:     '#8B99B8',
-          faint:   '#4C5A78',
+          DEFAULT: 'rgb(var(--ink)       / <alpha-value>)',
+          dim:     'rgb(var(--ink-dim)   / <alpha-value>)',
+          faint:   'rgb(var(--ink-faint) / <alpha-value>)',
         },
+        // Lamp / status colours are the same in both themes
         lamp: {
           live:      '#F5A623',
           available: '#27C98A',
@@ -34,12 +39,13 @@ export default {
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
-        card:        '0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.6)',
-        'card-hover':'0 4px 12px rgba(0,0,0,0.6)',
-        'lamp-green':'0 0 8px 2px rgba(39,201,138,0.4)',
-        'lamp-amber':'0 0 8px 2px rgba(245,166,35,0.4)',
-        'lamp-red':  '0 0 8px 2px rgba(239,68,68,0.4)',
-        'lamp-blue': '0 0 8px 2px rgba(76,142,245,0.4)',
+        card:          '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+        'card-dark':   '0 1px 3px rgba(0,0,0,0.50), 0 1px 2px rgba(0,0,0,0.60)',
+        'card-hover':  '0 4px 12px rgba(0,0,0,0.12)',
+        'lamp-green':  '0 0 8px 2px rgba(39,201,138,0.4)',
+        'lamp-amber':  '0 0 8px 2px rgba(245,166,35,0.4)',
+        'lamp-red':    '0 0 8px 2px rgba(239,68,68,0.4)',
+        'lamp-blue':   '0 0 8px 2px rgba(76,142,245,0.4)',
       },
       borderRadius: {
         sm:      '3px',

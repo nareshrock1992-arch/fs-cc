@@ -6,42 +6,41 @@ import QueueCard          from '../components/QueueCard.jsx';
 import LiveCallPanel      from '../components/LiveCallPanel.jsx';
 import EslBadge           from '../components/EslBadge.jsx';
 import PerformanceCard    from '../components/PerformanceCard.jsx';
+import ThemeToggle        from '../components/ThemeToggle.jsx';
 
-const QUEUE_INTERVAL = 3_000;   // 3 s — live call counts refresh
-const PERF_INTERVAL  = 30_000;  // 30 s — performance metrics refresh
+const QUEUE_INTERVAL = 3_000;
+const PERF_INTERVAL  = 30_000;
 
-// ─── Status helpers ────────────────────────────────────────────────────────────
 function statusDotClass(status) {
   switch (status) {
-    case 'Available':  return 'bg-lamp-available shadow-lamp-green';
-    case 'On Break':   return 'bg-lamp-break shadow-lamp-blue';
-    default:           return 'bg-ink-faint';
+    case 'Available': return 'bg-lamp-available shadow-lamp-green';
+    case 'On Break':  return 'bg-lamp-break shadow-lamp-blue';
+    default:          return 'bg-ink-faint';
   }
 }
 function statusTextClass(status) {
   switch (status) {
-    case 'Available':  return 'text-lamp-available';
-    case 'On Break':   return 'text-lamp-break';
-    default:           return 'text-ink-faint';
+    case 'Available': return 'text-lamp-available';
+    case 'On Break':  return 'text-lamp-break';
+    default:          return 'text-ink-faint';
   }
 }
 
-export default function Dashboard({ auth }) {
+export default function Dashboard({ auth, theme }) {
   const { agent, logout, updateAgent } = auth;
 
-  const [queues,    setQueues]    = useState([]);
-  const [perf,      setPerf]      = useState(null);
+  const [queues,      setQueues]      = useState([]);
+  const [perf,        setPerf]        = useState(null);
   const [perfLoading, setPerfLoading] = useState(true);
-  const [eslConn,   setEslConn]   = useState(false);
-  const [callState, setCallState] = useState(null);
-  // callState: { phase:'ringing'|'talking', callUuid, ani, queueName, startedAt }
+  const [eslConn,     setEslConn]     = useState(false);
+  const [callState,   setCallState]   = useState(null);
 
   const agentId     = agent?.agent_id;
   const agentStatus = agent?.status || 'Logged Out';
 
-  // ── Queue stats polling ─────────────────────────────────────────────────────
+  // ── Queue stats polling ───────────────────────────────────────────────────
   const fetchQueues = useCallback(async () => {
-    try { setQueues(await api.queues()); } catch { /* ignore — keep last data */ }
+    try { setQueues(await api.queues()); } catch {}
   }, []);
 
   useEffect(() => {
@@ -50,15 +49,11 @@ export default function Dashboard({ auth }) {
     return () => clearInterval(id);
   }, [fetchQueues]);
 
-  // ── Performance polling ─────────────────────────────────────────────────────
+  // ── Performance polling ───────────────────────────────────────────────────
   const fetchPerf = useCallback(async () => {
-    try {
-      setPerf(await api.performance());
-    } catch {
-      // keep old data on error
-    } finally {
-      setPerfLoading(false);
-    }
+    try { setPerf(await api.performance()); }
+    catch {}
+    finally { setPerfLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -67,14 +62,13 @@ export default function Dashboard({ auth }) {
     return () => clearInterval(id);
   }, [fetchPerf]);
 
-  // ── Active call polling (fallback for missed socket events) ────────────────
+  // ── Active call polling (fallback) ────────────────────────────────────────
   const fetchCalls = useCallback(async () => {
     try {
       const calls  = await api.calls();
       const active = calls.find(c => !c.end_time);
       if (active) {
         setCallState(prev => {
-          // Don't downgrade talking→ringing based on a stale poll
           if (prev?.phase === 'talking' && prev.callUuid === active.call_uuid) return prev;
           return {
             phase:     active.agent_answer_time ? 'talking' : 'ringing',
@@ -87,7 +81,7 @@ export default function Dashboard({ auth }) {
       } else {
         setCallState(null);
       }
-    } catch { /* ignore */ }
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -96,22 +90,22 @@ export default function Dashboard({ auth }) {
     return () => clearInterval(id);
   }, [fetchCalls]);
 
-  // ── Socket.IO real-time events ──────────────────────────────────────────────
+  // ── Socket.IO real-time events ────────────────────────────────────────────
   useEffect(() => {
-    function onEslStatus({ connected }) { setEslConn(connected); }
+    const onEslStatus   = ({ connected }) => setEslConn(connected);
+    const onQueueUpdate = () => fetchQueues();
+    const onHangup      = () => fetchCalls();
 
-    // Ringing: mod_callcenter offered a call to this agent
-    function onAgentOffering({ callUuid, agentId: evtAgent }) {
+    const onAgentOffering = ({ callUuid, agentId: evtAgent }) => {
       if (evtAgent !== agentId) return;
-      setCallState(prev => {
-        if (prev?.callUuid === callUuid) return prev;
-        return { phase: 'ringing', callUuid, ani: null, queueName: null, startedAt: new Date().toISOString() };
-      });
-      fetchCalls(); // pull ANI + queue from DB immediately
-    }
+      setCallState(prev =>
+        prev?.callUuid === callUuid ? prev
+          : { phase: 'ringing', callUuid, ani: null, queueName: null, startedAt: new Date().toISOString() }
+      );
+      fetchCalls();
+    };
 
-    // Answered: agent picked up
-    function onCallBridged({ callUuid, agentId: evtAgent }) {
+    const onCallBridged = ({ callUuid, agentId: evtAgent }) => {
       if (evtAgent !== agentId) return;
       setCallState(prev =>
         prev?.callUuid === callUuid
@@ -119,37 +113,28 @@ export default function Dashboard({ auth }) {
           : prev
       );
       fetchCalls();
-    }
+    };
 
-    // Ended: call finished
-    function onCallEnd({ callUuid }) {
-      setCallState(prev => (prev?.callUuid === callUuid ? null : prev));
-      // Refresh performance after a call ends
+    const onCallEnd = ({ callUuid }) => {
+      setCallState(prev => prev?.callUuid === callUuid ? null : prev);
       setTimeout(fetchPerf, 2000);
-    }
+    };
 
-    // Agent no-answer (missed) — also update performance
-    function onAgentNoAnswer({ callUuid, agentId: evtAgent }) {
+    const onAgentNoAnswer = ({ callUuid, agentId: evtAgent }) => {
       if (evtAgent !== agentId) return;
-      setCallState(prev => (prev?.callUuid === callUuid ? null : prev));
+      setCallState(prev => prev?.callUuid === callUuid ? null : prev);
       setTimeout(fetchPerf, 2000);
-    }
+    };
 
-    // Hangup — use poll to confirm call state
-    function onHangup() { fetchCalls(); }
-
-    // Own status/state updates from FS
-    function onAgentStatus({ agentId: evtAgent, status }) {
+    const onAgentStatus = ({ agentId: evtAgent, status }) => {
       if (evtAgent !== agentId) return;
       updateAgent({ status });
-    }
-    function onAgentState({ agentId: evtAgent, status, state }) {
+    };
+
+    const onAgentState = ({ agentId: evtAgent, status, state }) => {
       if (evtAgent !== agentId) return;
       updateAgent({ status, state });
-    }
-
-    // Queue events — trigger queue stats refresh
-    function onQueueUpdate() { fetchQueues(); }
+    };
 
     socket.on('esl:status',      onEslStatus);
     socket.on('agent:offering',  onAgentOffering);
@@ -176,7 +161,6 @@ export default function Dashboard({ auth }) {
     };
   }, [agentId, fetchQueues, fetchCalls, fetchPerf, updateAgent]);
 
-  // ── Logout ──────────────────────────────────────────────────────────────────
   async function handleLogout() {
     try { await api.setStatus('Logged Out'); } catch {}
     logout();
@@ -184,10 +168,7 @@ export default function Dashboard({ auth }) {
 
   function handleStatusChange(newStatus) {
     updateAgent({ status: newStatus });
-    // If the agent chose "Logged Out", clean up the session
-    if (newStatus === 'Logged Out') {
-      setTimeout(logout, 500);   // brief delay so the API call completes first
-    }
+    if (newStatus === 'Logged Out') setTimeout(logout, 500);
   }
 
   return (
@@ -196,13 +177,13 @@ export default function Dashboard({ auth }) {
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="bg-panel-surface border-b border-panel-border px-4 py-3
                          flex items-center gap-3 sticky top-0 z-10">
-        {/* Logo mark */}
+        {/* Logo */}
         <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shrink-0">
           <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13
-                 a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498
-                 a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21
+                 l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502
+                 l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
           </svg>
         </div>
 
@@ -212,7 +193,6 @@ export default function Dashboard({ auth }) {
 
         <div className="flex-1" />
 
-        {/* ESL connection badge */}
         <EslBadge connected={eslConn} />
 
         {/* Agent pill */}
@@ -228,32 +208,33 @@ export default function Dashboard({ auth }) {
           </div>
         </div>
 
-        {/* Logout button */}
+        {/* Theme toggle */}
+        <ThemeToggle isDark={theme.isDark} onToggle={theme.toggle} />
+
+        {/* Logout */}
         <button
           onClick={handleLogout}
           title="Logout"
-          className="p-2 rounded-lg text-ink-faint hover:text-ink-dim hover:bg-panel-raised transition-colors"
+          className="p-2 rounded-lg text-ink-faint hover:text-ink-dim
+                     hover:bg-panel-raised transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0
+                 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
         </button>
       </header>
 
-      {/* ── Main content ───────────────────────────────────────────────────── */}
+      {/* ── Main ───────────────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 space-y-4 max-w-5xl w-full mx-auto">
 
-        {/* Live call panel — floats to top, animated border */}
         {callState && <LiveCallPanel callState={callState} />}
 
-        {/* Status controls */}
         <StatusControls currentStatus={agentStatus} onStatusChange={handleStatusChange} />
 
-        {/* Performance metrics */}
         <PerformanceCard perf={perf} loading={perfLoading} />
 
-        {/* Queue cards */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-ink-dim uppercase tracking-wider">
@@ -264,7 +245,7 @@ export default function Dashboard({ auth }) {
 
           {queues.length === 0 ? (
             <div className="card p-8 text-center text-ink-faint text-sm">
-              No queues assigned. Ask your supervisor to add you to a queue in the Admin UI.
+              No queues assigned — ask your supervisor to add you to a queue in the Admin UI.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -273,16 +254,17 @@ export default function Dashboard({ auth }) {
           )}
         </div>
 
-        {/* Agent metadata strip */}
-        <div className="text-[11px] text-ink-faint flex flex-wrap gap-4 border-t border-panel-border pt-3">
+        <div className="text-[11px] text-ink-faint flex flex-wrap gap-4
+                        border-t border-panel-border pt-3">
           <span>Agent: <code className="text-ink-dim">{agent?.agent_id}</code></span>
           <span>Extension: <code className="text-ink-dim">{agent?.avaya_extension}</code></span>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-panel-border px-4 py-2 text-center">
-        <p className="text-[11px] text-ink-faint">CC Version 1.0.0 · © Naresh — All Rights Reserved</p>
+        <p className="text-[11px] text-ink-faint">
+          CC Version 1.0.0 · © Naresh — All Rights Reserved
+        </p>
       </footer>
     </div>
   );
