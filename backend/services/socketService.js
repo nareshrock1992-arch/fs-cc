@@ -38,7 +38,8 @@ export function initSocket(httpServer, corsOrigin) {
     cors: {
       origin: corsOrigin,
       methods: ['GET', 'POST']
-    }
+    },
+    path: process.env.SOCKET_PATH || '/socket.io',
   });
 
   io.on('connection', (socket) => {

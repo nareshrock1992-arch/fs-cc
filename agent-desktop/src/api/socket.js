@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 // Connect to the current page origin — Nginx (prod) and Vite proxy (dev)
 // both forward /socket.io to the backend.
 export const socket = io('/', {
-  path:              '/socket.io',
+  path:              import.meta.env.VITE_SOCKET_PATH || '/socket.io',
   autoConnect:       true,
   reconnection:      true,
   reconnectionDelay: 2000,

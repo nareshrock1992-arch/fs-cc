@@ -10,7 +10,7 @@ import { io } from 'socket.io-client';
 //
 // Either way, no absolute URL or IP is required in this file.
 export const socket = io('/', {
-  path:             '/socket.io',
+  path:             import.meta.env.VITE_SOCKET_PATH || '/socket.io',
   autoConnect:      true,
   reconnection:     true,
   reconnectionDelay: 2000,
