@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs';
 import jwt    from 'jsonwebtoken';
-import { query }  from '../db/pool.js';
-import { config } from '../config/index.js';
-import { cc }     from '../services/eslService.js';
+import { query }      from '../db/pool.js';
+import { config }     from '../config/index.js';
+import { cc, isConnected } from '../services/eslService.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/agent-desk/login
@@ -274,6 +274,17 @@ export async function agentPerformance(req, res) {
     ...perf,
     status_log: stateRows.rows,
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/agent-desk/esl-status
+// Returns current FreeSWITCH ESL connection state. Called by the Agent Desktop
+// on every Socket.IO connect/reconnect so the UI re-syncs after any outage
+// without requiring a browser refresh.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function eslStatus(_req, res) {
+  res.json({ connected: isConnected() });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
