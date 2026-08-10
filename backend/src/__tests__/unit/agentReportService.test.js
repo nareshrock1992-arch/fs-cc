@@ -542,3 +542,148 @@ describe('Scenario P — getActivitySummary: agent only in call metrics', () => 
     expect(row.occupancy_pct).toBeNull();
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Scenario Q — getActivityDetail: missed-calls-only (no answered calls)
+// Agent received calls but none were answered; talk_seconds = 0.
+// Occupancy formula uses ring+talk — ring-only still counts as engaged.
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Scenario Q — getActivityDetail: missed-calls-only agent', () => {
+  it('sets calls_missed and uses ring time in occupancy without crashing', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', session_count: 1,
+          first_login: FROM, last_activity: TO,
+          total_login_seconds: 3600, has_open_session: false },
+      ]})
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', status: 'Available',
+          segment_count: 1, total_seconds: 3600,
+          max_segment_seconds: 3600, avg_segment_seconds: 3600 },
+      ]})
+      // All 5 calls missed — talk = 0
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice',
+          calls_offered: 5, calls_answered: 0, calls_missed: 5,
+          total_ring_seconds: 150, total_talk_seconds: 0,
+          avg_talk_seconds: 0, max_talk_seconds: 0, min_talk_seconds: 0 },
+      ]})
+      .mockResolvedValueOnce({ rows: [] });
+
+    const detail = await getActivityDetail(AGENT, FROM, TO);
+
+    expect(detail.call_metrics.calls_answered).toBe(0);
+    expect(detail.call_metrics.calls_missed).toBe(5);
+    expect(detail.call_metrics.total_talk_seconds).toBe(0);
+
+    // occupancy = (150 + 0) / 3600 * 100 = 4.166…
+    expect(detail.occupancy.pct).toBeCloseTo(4.17, 1);
+    expect(detail.occupancy.null_reason).toBeNull();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Scenario R — getActivityDetail: answered call with zero talk duration
+// Could occur when a call is answered and immediately abandoned or when
+// the CDR has a race (talk_seconds rounds to 0).
+// avg_talk_seconds = 0 must not produce NaN or crash.
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Scenario R — getActivityDetail: zero-talk answered call', () => {
+  it('returns avg_talk_seconds=0 and computes occupancy from ring only', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', session_count: 1,
+          first_login: FROM, last_activity: TO,
+          total_login_seconds: 1800, has_open_session: false },
+      ]})
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', status: 'Available',
+          segment_count: 1, total_seconds: 1800,
+          max_segment_seconds: 1800, avg_segment_seconds: 1800 },
+      ]})
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice',
+          calls_offered: 1, calls_answered: 1, calls_missed: 0,
+          total_ring_seconds: 20, total_talk_seconds: 0,
+          avg_talk_seconds: 0, max_talk_seconds: 0, min_talk_seconds: 0 },
+      ]})
+      .mockResolvedValueOnce({ rows: [] });
+
+    const detail = await getActivityDetail(AGENT, FROM, TO);
+
+    expect(detail.call_metrics.calls_answered).toBe(1);
+    expect(detail.call_metrics.avg_talk_seconds).toBe(0);
+
+    // occupancy = (20 + 0) / 1800 * 100 = 1.11…
+    expect(detail.occupancy.pct).toBeCloseTo(1.11, 1);
+    expect(detail.occupancy.null_reason).toBeNull();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Scenario S — getActivityDetail: occupancy exactly 100%
+// Agent was on ring or talk for the entire available window.
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Scenario S — getActivityDetail: occupancy = 100%', () => {
+  it('computes occupancy.pct = 100 when engaged_seconds = available_seconds', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', session_count: 1,
+          first_login: FROM, last_activity: TO,
+          total_login_seconds: 5000, has_open_session: false },
+      ]})
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', status: 'Available',
+          segment_count: 1, total_seconds: 5000,
+          max_segment_seconds: 5000, avg_segment_seconds: 5000 },
+      ]})
+      // ring 1000 + talk 4000 = 5000 = available → 100%
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice',
+          calls_offered: 8, calls_answered: 8, calls_missed: 0,
+          total_ring_seconds: 1000, total_talk_seconds: 4000,
+          avg_talk_seconds: 500, max_talk_seconds: 800, min_talk_seconds: 200 },
+      ]})
+      .mockResolvedValueOnce({ rows: [] });
+
+    const detail = await getActivityDetail(AGENT, FROM, TO);
+
+    expect(detail.occupancy.pct).toBe(100);
+    expect(detail.occupancy.null_reason).toBeNull();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Scenario T — getActivityDetail: occupancy > 100% (clock-drift anomaly)
+// Can occur when FreeSWITCH CDR timestamps are slightly inconsistent.
+// The service must not cap or reject this — report the raw value so the
+// UI can flag it rather than silently truncating.
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Scenario T — getActivityDetail: occupancy > 100% (anomaly)', () => {
+  it('returns occupancy.pct > 100 without capping or throwing', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', session_count: 1,
+          first_login: FROM, last_activity: TO,
+          total_login_seconds: 3000, has_open_session: false },
+      ]})
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice', status: 'Available',
+          segment_count: 1, total_seconds: 1000,
+          max_segment_seconds: 1000, avg_segment_seconds: 1000 },
+      ]})
+      // ring 200 + talk 900 = 1100 > available 1000 → 110%
+      .mockResolvedValueOnce({ rows: [
+        { agent_id: AGENT, full_name: 'Alice',
+          calls_offered: 4, calls_answered: 4, calls_missed: 0,
+          total_ring_seconds: 200, total_talk_seconds: 900,
+          avg_talk_seconds: 225, max_talk_seconds: 350, min_talk_seconds: 100 },
+      ]})
+      .mockResolvedValueOnce({ rows: [] });
+
+    const detail = await getActivityDetail(AGENT, FROM, TO);
+
+    expect(detail.occupancy.pct).toBeCloseTo(110, 0);
+    expect(detail.occupancy.null_reason).toBeNull();
+  });
+});

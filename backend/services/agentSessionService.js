@@ -47,10 +47,22 @@ async function getOpenEvent(client, agentId) {
 }
 
 async function openSession(client, agentId) {
+  // ON CONFLICT handles the race where two concurrent status events (e.g. agent_self
+  // from the REST handler + fs_event from ESL ~200ms later) both see no open session
+  // and both try to INSERT.  If the conflict fires, the UNION ALL falls through to
+  // SELECT so we always return a valid session id.
   const { rows } = await client.query(
-    `INSERT INTO agent_sessions (agent_id, login_at)
-     VALUES ($1, now())
-     RETURNING id`,
+    `WITH ins AS (
+       INSERT INTO agent_sessions (agent_id, login_at)
+       VALUES ($1, now())
+       ON CONFLICT (agent_id) WHERE logout_at IS NULL DO NOTHING
+       RETURNING id
+     )
+     SELECT id FROM ins
+     UNION ALL
+     SELECT id FROM agent_sessions
+       WHERE agent_id = $1 AND logout_at IS NULL
+     LIMIT 1`,
     [agentId]
   );
   return rows[0].id;
@@ -68,10 +80,14 @@ async function closeSession(client, sessionId, reason) {
 }
 
 async function openEvent(client, agentId, sessionId, status, source) {
+  // ON CONFLICT handles the same dual-trigger race as openSession.
+  // idx_ase_one_open enforces at most one open event per agent;
+  // DO NOTHING lets the first writer win rather than throwing.
   await client.query(
     `INSERT INTO agent_state_events
        (agent_id, session_id, status, started_at, source)
-     VALUES ($1, $2, $3, now(), $4)`,
+     VALUES ($1, $2, $3, now(), $4)
+     ON CONFLICT (agent_id) WHERE ended_at IS NULL DO NOTHING`,
     [agentId, sessionId, status, source]
   );
 }

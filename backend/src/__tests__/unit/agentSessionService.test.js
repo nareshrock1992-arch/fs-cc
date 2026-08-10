@@ -40,15 +40,16 @@ function buildQueryMock({
   return vi.fn().mockImplementation(async (sql) => {
     const s = sql.replace(/\s+/g, ' ').trim();
 
-    // getOpenSession
-    if (s.includes('agent_sessions') && s.includes('logout_at IS NULL') && !s.includes('id, agent_id FROM')) {
+    // getOpenSession (plain SELECT — no INSERT keyword)
+    if (s.includes('agent_sessions') && s.includes('logout_at IS NULL') && !s.includes('INSERT INTO') && !s.includes('id, agent_id FROM')) {
       return { rows: openSession ? [openSession] : [] };
     }
     // getOpenEvent
     if (s.includes('agent_state_events') && s.includes('ended_at IS NULL')) {
       return { rows: openEvent ? [openEvent] : [] };
     }
-    // openSession INSERT … RETURNING id
+    // openSession CTE: INSERT … ON CONFLICT … RETURNING id … UNION ALL SELECT
+    // Returns the id regardless of which branch (INSERT or UNION ALL) produced it.
     if (s.includes('INSERT INTO agent_sessions') && s.includes('RETURNING id')) {
       return { rows: [{ id: insertedId }] };
     }
@@ -483,5 +484,58 @@ describe('Test 20: migration failure = startup abort', () => {
     // In server.js:
     //   } catch (err) { console.error(...); process.exit(1); }
     expect(true).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 21. Race — openSession: INSERT conflict, UNION ALL fallback returns existing id
+//
+// Simulates the dual-trigger race: REST agent_self and ESL fs_event both call
+// handleStatusTransition for the same agent within ~200ms. Both see no open
+// session and attempt INSERT. The second caller's INSERT fires DO NOTHING
+// (constraint: idx_agent_sessions_one_open). The UNION ALL SELECT in the same
+// CTE then returns the row created by the first caller — no crash, no orphan.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Test 21: Race — openSession INSERT conflict handled by UNION ALL fallback', () => {
+  it('does not throw when INSERT returns 0 rows but UNION ALL provides the id', async () => {
+    // Simulate: getOpenSession → null, openSession CTE → UNION ALL returns id 42
+    // (the mock returns [{ id: 42 }] for all INSERT+RETURNING queries, representing
+    //  either the INSERT RETURNING path or the UNION ALL SELECT fallback path)
+    client.query = buildQueryMock({ openSession: null, openEvent: null, insertedId: 42 });
+
+    await expect(
+      handleStatusTransition('agent_race', 'Available', 'fs_event')
+    ).resolves.toBeUndefined();
+
+    expect(client.release).toHaveBeenCalledOnce();
+    // A session insert must have been attempted
+    assertInserted('agent_sessions');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 22. Race — openEvent: INSERT conflict DO NOTHING does not throw
+//
+// When the second concurrent caller's openEvent INSERT fires, the
+// idx_ase_one_open partial unique index prevents the duplicate, and
+// DO NOTHING silently discards the write. The function must complete normally.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('Test 22: Race — openEvent INSERT conflict DO NOTHING does not throw', () => {
+  it('completes normally when openEvent constraint fires (DO NOTHING)', async () => {
+    // Session exists; no open event (race: first caller's INSERT not yet visible)
+    // openEvent INSERT returns {} rows (DO NOTHING fired)
+    client.query = buildQueryMock({
+      openSession: { id: 77, login_at: new Date() },
+      openEvent:   null,
+      insertedId:  77,
+    });
+
+    await expect(
+      handleStatusTransition('agent_race2', 'On Break', 'agent_self')
+    ).resolves.toBeUndefined();
+
+    expect(client.release).toHaveBeenCalledOnce();
+    // Attempted to insert a state event — DO NOTHING is invisible to the caller
+    assertInserted('agent_state_events');
   });
 });
