@@ -441,3 +441,104 @@ describe('Scenario N — UTC date param pass-through', () => {
     expect(params[1].toISOString()).toBe('2026-08-01T23:59:59.000Z');
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Scenario O — getActivityDetail: agent with no data in any table
+// All four parallel queries return empty results. Verifies no crash and that
+// all fields default to safe zero/null values.
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Scenario O — getActivityDetail: agent absent from all tables', () => {
+  it('returns zero/null defaults without crashing', async () => {
+    // All four parallel queries return empty: getSessionsSummary, getStateDurations,
+    // getCallMetrics, getBreakList
+    mockQuery(
+      [],   // sessSum → []
+      [],   // stateDur → []
+      [],   // callMet → []
+      [],   // breakList → []
+    );
+
+    const result = await getActivityDetail('nobody', FROM, TO);
+
+    expect(result.agent_id).toBe('nobody');
+    expect(result.full_name).toBeNull();
+
+    // Sessions: all zero defaults
+    expect(result.sessions.count).toBe(0);
+    expect(result.sessions.first_login).toBeNull();
+    expect(result.sessions.total_login_seconds).toBe(0);
+    expect(result.sessions.has_open_session).toBe(false);
+
+    // State durations: all zero
+    expect(result.state_durations.available_seconds).toBe(0);
+    expect(result.state_durations.break_seconds).toBe(0);
+    expect(result.state_durations.break_count).toBe(0);
+
+    // Call metrics: all zero
+    expect(result.call_metrics.calls_offered).toBe(0);
+    expect(result.call_metrics.calls_answered).toBe(0);
+    expect(result.call_metrics.calls_missed).toBe(0);
+    expect(result.call_metrics.avg_talk_seconds).toBe(0);
+
+    // Occupancy: null (available_seconds = 0)
+    expect(result.occupancy.pct).toBeNull();
+    expect(result.occupancy.null_reason).not.toBeNull();
+
+    // Breaks: all zero
+    expect(result.breaks.count).toBe(0);
+    expect(result.breaks.total_seconds).toBe(0);
+    expect(result.breaks.longest_seconds).toBe(0);
+
+    // No open warnings (no session, no breaks)
+    expect(result.open_warnings).toHaveLength(0);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Scenario P — getActivitySummary: agent appears only in call metrics
+// Verifies JS union logic: agent_id is picked up from callMap even when
+// sessMap and stateMap have no entry for it.
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Scenario P — getActivitySummary: agent only in call metrics', () => {
+  it('includes agent and sets session/state defaults to zero, occupancy to null', async () => {
+    // Three parallel queries: getSessionsSummary, getStateDurations, getCallMetrics
+    mockQuery(
+      [],   // sessSum → no sessions for this agent
+      [],   // stateDur → no state events
+      [{
+        agent_id: 'call_only', full_name: 'Call Only Agent',
+        calls_offered: 3, calls_answered: 2, calls_missed: 1,
+        total_ring_seconds: 60, total_talk_seconds: 300,
+        avg_talk_seconds: 150, max_talk_seconds: 200, min_talk_seconds: 100,
+      }],
+    );
+
+    const result = await getActivitySummary(FROM, TO);
+
+    expect(result).toHaveLength(1);
+    const row = result[0];
+
+    expect(row.agent_id).toBe('call_only');
+    expect(row.full_name).toBe('Call Only Agent');
+
+    // Session defaults
+    expect(row.session_count).toBe(0);
+    expect(row.total_login_seconds).toBe(0);
+    expect(row.has_open_session).toBe(false);
+
+    // State defaults
+    expect(row.available_seconds).toBe(0);
+    expect(row.break_seconds).toBe(0);
+
+    // Call metrics preserved
+    expect(row.calls_offered).toBe(3);
+    expect(row.calls_answered).toBe(2);
+    expect(row.calls_missed).toBe(1);
+    expect(row.total_ring_seconds).toBe(60);
+    expect(row.total_talk_seconds).toBe(300);
+    expect(row.avg_talk_seconds).toBe(150);
+
+    // Occupancy null: available_seconds = 0
+    expect(row.occupancy_pct).toBeNull();
+  });
+});
