@@ -2,6 +2,7 @@ import esl from 'modesl';
 import { EventEmitter } from 'events';
 import { config } from '../config/index.js';
 import { query } from '../db/pool.js';
+import * as agentSession from './agentSessionService.js';
 
 const { host: FS_ESL_HOST, port: FS_ESL_PORT,
         password: FS_ESL_PASSWORD, reconnectMs: RECONNECT_MS } = config.esl;
@@ -580,6 +581,18 @@ async function runStartupSequence() {
   try { await syncAgentStates(); }
   catch (err) { console.error('[esl] syncAgentStates failed:', err.message); }
 
+  // Reconcile open agent sessions against current FreeSWITCH state.
+  // This prevents false logouts — sessions stay open unless FS confirms logout.
+  try {
+    const agentList = await cc.agentList();
+    await agentSession.reconcileOnStartup(agentList);
+    console.log('[esl] ✓ session reconciliation complete');
+  } catch (err) {
+    // ESL may not be fully ready yet; leave sessions open rather than
+    // guessing — they will self-correct as status events arrive.
+    console.warn('[esl] session reconciliation skipped:', err.message);
+  }
+
   ccEvents.emit('agent:update', { reason: 'startup' });
   console.log('[esl] ✓ startup sequence complete');
 
@@ -677,6 +690,7 @@ async function handleCallcenterEvent(evt) {
           `INSERT INTO agent_state_log (agent_id, status, reason) VALUES ($1,$2,'fs_event')`,
           [agentId, status]
         );
+        await agentSession.handleStatusTransition(agentId, status, 'fs_event');
       } catch (err) { console.error('[esl] agent-status-change:', err.message); }
       ccEvents.emit('agent:status', { agentId, status });
       break;

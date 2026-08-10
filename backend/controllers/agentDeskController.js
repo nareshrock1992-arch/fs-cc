@@ -3,6 +3,7 @@ import jwt    from 'jsonwebtoken';
 import { query }      from '../db/pool.js';
 import { config }     from '../config/index.js';
 import { cc, isConnected } from '../services/eslService.js';
+import * as agentSession from '../services/agentSessionService.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/agent-desk/login
@@ -84,6 +85,8 @@ export async function agentSetStatus(req, res) {
     `INSERT INTO agent_state_log (agent_id, status, reason) VALUES ($1,$2,'agent_self')`,
     [req.agentId, status]
   );
+  try { await agentSession.handleStatusTransition(req.agentId, status, 'agent_self'); }
+  catch (err) { console.error('[sessions] agentSetStatus transition failed:', err.message); }
 
   res.json({ agent_id: req.agentId, status });
 }
