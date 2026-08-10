@@ -48,6 +48,12 @@ export function initSocket(httpServer, corsOrigin) {
     // Send current ESL status immediately
     socket.emit('esl:status', { connected: isConnected() });
 
+    // Allow clients to request current ESL status at any time (e.g. after
+    // mounting a component that missed the connect-time broadcast).
+    socket.on('esl:get-status', () => {
+      socket.emit('esl:status', { connected: isConnected() });
+    });
+
     // ── Agent Desktop authentication ──────────────────────────────────────────
     // Agent Desktop clients authenticate after connecting by sending their JWT.
     // On success the socket joins room agent:{agentId} and agent-specific events
