@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Key, ShieldCheck, User, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Key, ShieldCheck, User, Search, Settings2 } from 'lucide-react';
 import { Users as UsersApi } from '../api/client.js';
 import { useAuth } from '../hooks/useAuth.js';
 import Panel  from '../components/Panel.jsx';
@@ -8,6 +8,20 @@ import { FormField, inputClass, buttonPrimary, buttonSecondary, buttonDanger } f
 
 const EMPTY_CREATE = { username: '', password: '', role: 'supervisor' };
 const EMPTY_EDIT   = { username: '', role: 'supervisor' };
+const ALL_PERMISSIONS = [
+  {
+    key:         'view_reports',
+    group:       'Reports',
+    label:       'View Reports',
+    description: 'Access to all reporting dashboards and data exports',
+  },
+  {
+    key:         'change_agent_state',
+    group:       'Agent Control',
+    label:       'Change Agent State',
+    description: 'Set agents to Available, On Break, or Logged Out',
+  },
+];
 
 function RoleBadge({ role }) {
   return role === 'admin'
@@ -40,7 +54,9 @@ export default function UserManagement() {
   const [editOpen,   setEditOpen]   = useState(false);
   const [resetOpen,  setResetOpen]  = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [permsOpen,  setPermsOpen]  = useState(false);
   const [selected,   setSelected]   = useState(null);  // user being acted on
+  const [permsForm,  setPermsForm]  = useState([]);
 
   const [createForm, setCreateForm] = useState(EMPTY_CREATE);
   const [editForm,   setEditForm]   = useState(EMPTY_EDIT);
@@ -86,6 +102,34 @@ export default function UserManagement() {
   function openDelete(user) {
     setSelected(user);
     setDeleteOpen(true);
+  }
+
+  function openPerms(user) {
+    setSelected(user);
+    setPermsForm(user.permissions ?? []);
+    setFormErr('');
+    setPermsOpen(true);
+  }
+
+  function togglePerm(key) {
+    setPermsForm(prev =>
+      prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
+    );
+  }
+
+  async function handlePerms(e) {
+    e.preventDefault();
+    setFormErr('');
+    setSaving(true);
+    try {
+      const updated = await UsersApi.updatePermissions(selected.id, permsForm);
+      setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+      setPermsOpen(false);
+    } catch (err) {
+      setFormErr(err.response?.data?.error || err.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleCreate(e) {
@@ -276,6 +320,16 @@ export default function UserManagement() {
                       >
                         <Pencil size={14} />
                       </button>
+                      {u.role === 'supervisor' && (
+                        <button
+                          onClick={() => openPerms(u)}
+                          title="Permissions"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50
+                            dark:hover:bg-violet-500/10 dark:hover:text-violet-400 transition-colors"
+                        >
+                          <Settings2 size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => openReset(u)}
                         title="Reset password"
@@ -440,6 +494,62 @@ export default function UserManagement() {
           <span className="font-semibold text-gray-900 dark:text-ink capitalize">{selected?.username}</span>?
           This action cannot be undone.
         </p>
+      </Modal>
+
+      {/* ── Permissions modal (supervisor only) ──────────────────────────── */}
+      <Modal
+        open={permsOpen}
+        title={`Permissions — ${selected?.username}`}
+        onClose={() => setPermsOpen(false)}
+        footer={
+          <>
+            <button className={buttonSecondary} onClick={() => setPermsOpen(false)}>Cancel</button>
+            <button className={buttonPrimary} onClick={handlePerms} disabled={saving}>
+              {saving ? 'Saving…' : 'Save Permissions'}
+            </button>
+          </>
+        }
+      >
+        {formErr && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            {formErr}
+          </div>
+        )}
+        <p className="text-xs text-gray-500 dark:text-ink-faint mb-4">
+          Grant or revoke feature access for this supervisor account.
+          Changes take effect on their next login.
+        </p>
+        <div className="space-y-5">
+          {/* Group permissions by their group label */}
+          {[...new Set(ALL_PERMISSIONS.map(p => p.group))].map(group => (
+            <div key={group}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400
+                dark:text-ink-faint mb-2">{group}</p>
+              <div className="space-y-2">
+                {ALL_PERMISSIONS.filter(p => p.group === group).map(({ key, label, description }) => (
+                  <label
+                    key={key}
+                    className="flex items-start gap-3 p-3 rounded-lg border border-gray-200
+                      dark:border-panel-border cursor-pointer hover:bg-gray-50
+                      dark:hover:bg-panel-raised/50 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600
+                        focus:ring-blue-500/30 focus:ring-2 cursor-pointer"
+                      checked={permsForm.includes(key)}
+                      onChange={() => togglePerm(key)}
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800 dark:text-ink">{label}</p>
+                      <p className="text-xs text-gray-500 dark:text-ink-faint mt-0.5">{description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </Modal>
     </div>
   );

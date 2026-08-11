@@ -3,17 +3,25 @@ import {
   LayoutDashboard, PhoneCall, Users, Layers,
   Activity, BarChart3, Radio
 } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth.js';
 
-const NAV_ITEMS = [
+const BASE_NAV = [
   { to: '/',            label: 'Dashboard',   icon: LayoutDashboard, end: true },
   { to: '/live-calls',  label: 'Live Calls',  icon: PhoneCall },
   { to: '/agents',      label: 'Agents',      icon: Users },
   { to: '/queues',      label: 'Queues',      icon: Layers },
   { to: '/queue-stats', label: 'Queue Stats', icon: Activity },
-  { to: '/reports',     label: 'Reports',     icon: BarChart3 }
 ];
 
+const REPORTS_ITEM = { to: '/reports', label: 'Reports', icon: BarChart3 };
+
 export default function Sidebar() {
+  const { user } = useAuth();
+  const canViewReports =
+    user?.role === 'admin' ||
+    (Array.isArray(user?.permissions) && user.permissions.includes('view_reports'));
+  const navItems = canViewReports ? [...BASE_NAV, REPORTS_ITEM] : BASE_NAV;
+
   return (
     <aside className="hidden md:flex md:flex-col w-60 shrink-0
       bg-[#08111E] border-r border-[#1C2A42]">
@@ -31,7 +39,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+        {navItems.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

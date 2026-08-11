@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, Search, KeyRound } from 'lucide-react';
 import { Agents as AgentsApi } from '../api/client.js';
+import { useAuth } from '../hooks/useAuth.js';
 import { useSocketEvent } from '../api/socket.js';
 import Panel from '../components/Panel.jsx';
 import Modal from '../components/Modal.jsx';
@@ -15,6 +16,10 @@ const EMPTY_FORM = {
 const STATUS_OPTIONS = ['Available', 'On Break', 'Logged Out'];
 
 export default function Agents() {
+  const { user } = useAuth();
+  const isAdmin        = user?.role === 'admin';
+  const canChangeState = isAdmin || (Array.isArray(user?.permissions) && user.permissions.includes('change_agent_state'));
+
   const [agents, setAgents]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
@@ -190,9 +195,11 @@ export default function Agents() {
             className={`${inputClass} pl-9`}
           />
         </div>
-        <button onClick={openCreate} className={buttonPrimary}>
-          <Plus size={15} /> Add Agent
-        </button>
+        {isAdmin && (
+          <button onClick={openCreate} className={buttonPrimary}>
+            <Plus size={15} /> Add Agent
+          </button>
+        )}
       </div>
 
       <Panel>
@@ -230,18 +237,22 @@ export default function Agents() {
                   <td className={tdBase}>
                     <div className="flex items-center gap-2">
                       <StatusLamp status={a.status} />
-                      <select
-                        value={a.status || ''}
-                        onChange={(e) => handleStatusChange(a.agent_id, e.target.value)}
-                        className="bg-transparent text-xs dark:text-ink-faint text-gray-500
-                                   border dark:border-panel-border border-gray-200 rounded-sm
-                                   px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-lamp-live/50
-                                   dark:bg-transparent"
-                      >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s} className="dark:bg-panel-surface bg-white">{s}</option>
-                        ))}
-                      </select>
+                      {canChangeState ? (
+                        <select
+                          value={a.status || ''}
+                          onChange={(e) => handleStatusChange(a.agent_id, e.target.value)}
+                          className="bg-transparent text-xs dark:text-ink-faint text-gray-500
+                                     border dark:border-panel-border border-gray-200 rounded-sm
+                                     px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-lamp-live/50
+                                     dark:bg-transparent"
+                        >
+                          {STATUS_OPTIONS.map((s) => (
+                            <option key={s} value={s} className="dark:bg-panel-surface bg-white">{s}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs dark:text-ink-faint text-gray-500">{a.status}</span>
+                      )}
                     </div>
                   </td>
                   <td className={tdBase}>
@@ -256,32 +267,36 @@ export default function Agents() {
                   </td>
                   <td className={tdBase}>
                     <div className="flex justify-end gap-1.5">
-                      <button
-                        onClick={() => openPinModal(a)}
-                        title="Set Agent Desktop PIN"
-                        className="p-1.5 rounded-sm dark:text-ink-dim text-gray-400
-                                   hover:text-blue-500 hover:bg-blue-500/10 transition-colors"
-                        aria-label="Set PIN"
-                      >
-                        <KeyRound size={14} />
-                      </button>
-                      <button
-                        onClick={() => openEdit(a)}
-                        className="p-1.5 rounded-sm dark:text-ink-dim text-gray-400
-                                   hover:text-gray-800 dark:hover:text-ink hover:bg-gray-100
-                                   dark:hover:bg-panel-raised transition-colors"
-                        aria-label="Edit agent"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(a.agent_id)}
-                        className="p-1.5 rounded-sm dark:text-ink-dim text-gray-400
-                                   hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors"
-                        aria-label="Delete agent"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => openPinModal(a)}
+                            title="Set Agent Desktop PIN"
+                            className="p-1.5 rounded-sm dark:text-ink-dim text-gray-400
+                                       hover:text-blue-500 hover:bg-blue-500/10 transition-colors"
+                            aria-label="Set PIN"
+                          >
+                            <KeyRound size={14} />
+                          </button>
+                          <button
+                            onClick={() => openEdit(a)}
+                            className="p-1.5 rounded-sm dark:text-ink-dim text-gray-400
+                                       hover:text-gray-800 dark:hover:text-ink hover:bg-gray-100
+                                       dark:hover:bg-panel-raised transition-colors"
+                            aria-label="Edit agent"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(a.agent_id)}
+                            className="p-1.5 rounded-sm dark:text-ink-dim text-gray-400
+                                       hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors"
+                            aria-label="Delete agent"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
