@@ -8,9 +8,9 @@ import { useAuth } from '../../hooks/useAuth.js';
 const BASE_NAV = [
   { to: '/',            label: 'Dashboard',   icon: LayoutDashboard, end: true },
   { to: '/live-calls',  label: 'Live Calls',  icon: PhoneCall },
+  { to: '/queue-stats', label: 'Queue Stats', icon: Activity },
   { to: '/agents',      label: 'Agents',      icon: Users },
   { to: '/queues',      label: 'Queues',      icon: Layers },
-  { to: '/queue-stats', label: 'Queue Stats', icon: Activity },
 ];
 
 const REPORTS_ITEM = { to: '/reports', label: 'Reports', icon: BarChart3 };
