@@ -361,22 +361,10 @@ export default function Reports() {
         <Panel eyebrow="IVR" title="Call Flow Activity">
           {loading ? (
             <p className="text-sm dark:text-ink-dim text-gray-500">Loading…</p>
-          ) : (ivrPaths.dtmf.length === 0 && ivrPaths.queues.length === 0 && ivrPaths.other.length === 0) ? (
+          ) : (ivrPaths.queues.length === 0 && ivrPaths.other.length === 0) ? (
             <p className="text-sm dark:text-ink-dim text-gray-500">No IVR data in this date range.</p>
           ) : (
             <div className="space-y-6">
-
-              {/* ── Section: In-Call Digit Presses ───────────────────────── */}
-              {ivrPaths.dtmf.length > 0 && (
-                <IvrSection
-                  title="In-Call Digit Presses"
-                  subtitle="DTMF digits received during the call. This may include IVR, queue hold, or agent conversation."
-                  rows={ivrPaths.dtmf}
-                  labelKey="digit"
-                  labelHeader="Digit"
-                  color="text-amber-500 dark:text-amber-400"
-                />
-              )}
 
               {/* ── Section: Queue Destinations ───────────────────────────── */}
               {ivrPaths.queues.length > 0 && (
