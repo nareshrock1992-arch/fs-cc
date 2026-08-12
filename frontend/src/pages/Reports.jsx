@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download } from 'lucide-react';
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar,
+  ResponsiveContainer, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  PieChart, Pie, Cell
 } from 'recharts';
 import { Reports as ReportsApi } from '../api/client.js';
 import Panel from '../components/Panel.jsx';
@@ -22,11 +21,50 @@ const COLORS = {
   ivr:       '#F5A623',   // amber
 };
 
-// Distinct palette for IVR pie slices
-const PIE_PALETTE = [
-  '#4C8EF5', '#27C98A', '#F5A623', '#EF4444',
-  '#A78BFA', '#F472B6', '#34D399', '#FB923C',
-];
+// ── IVR section table — reused for all three IVR Paths sections ──────────────
+
+function IvrSection({ title, subtitle, rows, labelKey, labelHeader, color }) {
+  const total = rows.reduce((s, r) => s + Number(r.calls), 0);
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider dark:text-ink text-gray-800 mb-0.5">
+        {title}
+      </p>
+      <p className="text-[11px] dark:text-ink-faint text-gray-400 mb-2">{subtitle}</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b dark:border-panel-border border-gray-100 text-left">
+            <th className="pb-2 text-[11px] font-bold uppercase tracking-wider dark:text-ink-faint text-gray-400">
+              {labelHeader}
+            </th>
+            <th className="pb-2 text-[11px] font-bold uppercase tracking-wider dark:text-ink-faint text-gray-400 text-right">
+              Calls
+            </th>
+            <th className="pb-2 text-[11px] font-bold uppercase tracking-wider dark:text-ink-faint text-gray-400 text-right">
+              Share
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y dark:divide-panel-border divide-gray-100">
+          {rows.map(r => (
+            <tr key={r[labelKey]}
+              className="hover:dark:bg-panel-raised/30 hover:bg-gray-50 transition-colors">
+              <td className={`py-2 font-medium font-mono tnum ${color}`}>
+                {r[labelKey] || '(unknown)'}
+              </td>
+              <td className="py-2 font-mono tnum dark:text-ink-dim text-gray-600 text-right">
+                {r.calls}
+              </td>
+              <td className="py-2 font-mono tnum dark:text-ink-faint text-gray-400 text-right">
+                {total > 0 ? `${r.share}%` : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function useIsDark() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
@@ -91,7 +129,7 @@ export default function Reports() {
   const [volume,    setVolume]    = useState([]);
   const [queuePerf, setQueuePerf] = useState([]);
   const [agentPerf, setAgentPerf] = useState([]);
-  const [ivrPaths,  setIvrPaths]  = useState([]);
+  const [ivrPaths,  setIvrPaths]  = useState({ dtmf: [], queues: [], other: [] });
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
 
@@ -318,81 +356,52 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ── IVR Paths ─────────────────────────────────────────────────────── */}
+      {/* ── IVR / Call-Flow Activity ──────────────────────────────────────── */}
       {tab === 'ivr' && (
-        <Panel eyebrow="IVR" title="Selection Distribution">
+        <Panel eyebrow="IVR" title="Call Flow Activity">
           {loading ? (
             <p className="text-sm dark:text-ink-dim text-gray-500">Loading…</p>
-          ) : ivrPaths.length === 0 ? (
+          ) : (ivrPaths.dtmf.length === 0 && ivrPaths.queues.length === 0 && ivrPaths.other.length === 0) ? (
             <p className="text-sm dark:text-ink-dim text-gray-500">No IVR data in this date range.</p>
           ) : (
-            <div className="flex flex-col md:flex-row items-center gap-8">
-              {/* Pie chart */}
-              <div className="h-52 w-52 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={ivrPaths}
-                      dataKey="calls"
-                      nameKey="ivr_option"
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={48}
-                      outerRadius={88}
-                      paddingAngle={3}
-                      strokeWidth={0}
-                    >
-                      {ivrPaths.map((_, i) => (
-                        <Cell key={i} fill={PIE_PALETTE[i % PIE_PALETTE.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={ttip}
-                      formatter={(v, name) => [`${v} calls`, name]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="space-y-6">
 
-              {/* Legend table */}
-              <div className="flex-1 w-full">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b dark:border-panel-border border-gray-100 text-left">
-                      <th className="pb-2 text-[11px] font-bold uppercase tracking-wider
-                        dark:text-ink-faint text-gray-400">IVR Option</th>
-                      <th className="pb-2 text-[11px] font-bold uppercase tracking-wider
-                        dark:text-ink-faint text-gray-400 text-right">Calls</th>
-                      <th className="pb-2 text-[11px] font-bold uppercase tracking-wider
-                        dark:text-ink-faint text-gray-400 text-right">Share</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y dark:divide-panel-border divide-gray-100">
-                    {(() => {
-                      const total = ivrPaths.reduce((s, r) => s + Number(r.calls), 0);
-                      return ivrPaths.map((r, i) => (
-                        <tr key={r.ivr_option} className="hover:dark:bg-panel-raised/30 hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 flex items-center gap-2.5">
-                            <span
-                              className="h-2.5 w-2.5 rounded-full shrink-0"
-                              style={{ background: PIE_PALETTE[i % PIE_PALETTE.length] }}
-                            />
-                            <span className="dark:text-ink text-gray-800 font-medium">
-                              {r.ivr_option || '(untracked)'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 font-mono tnum dark:text-ink-dim text-gray-600 text-right">
-                            {r.calls}
-                          </td>
-                          <td className="py-2.5 font-mono tnum dark:text-ink-dim text-gray-500 text-right">
-                            {total > 0 ? `${Math.round((r.calls / total) * 100)}%` : '—'}
-                          </td>
-                        </tr>
-                      ));
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+              {/* ── Section: In-Call Digit Presses ───────────────────────── */}
+              {ivrPaths.dtmf.length > 0 && (
+                <IvrSection
+                  title="In-Call Digit Presses"
+                  subtitle="DTMF digits received during the call. This may include IVR, queue hold, or agent conversation."
+                  rows={ivrPaths.dtmf}
+                  labelKey="digit"
+                  labelHeader="Digit"
+                  color="text-amber-500 dark:text-amber-400"
+                />
+              )}
+
+              {/* ── Section: Queue Destinations ───────────────────────────── */}
+              {ivrPaths.queues.length > 0 && (
+                <IvrSection
+                  title="Queue Destinations"
+                  subtitle="Calls that actually entered a FreeSWITCH queue (based on confirmed queue membership)."
+                  rows={ivrPaths.queues}
+                  labelKey="queue"
+                  labelHeader="Queue"
+                  color="text-lamp-ok"
+                />
+              )}
+
+              {/* ── Section: Other System Events ──────────────────────────── */}
+              {ivrPaths.other.length > 0 && (
+                <IvrSection
+                  title="Other System Events"
+                  subtitle="FreeSWITCH application and system events recorded during the call."
+                  rows={ivrPaths.other}
+                  labelKey="step"
+                  labelHeader="Event"
+                  color="dark:text-ink-dim text-gray-500"
+                />
+              )}
+
             </div>
           )}
         </Panel>
