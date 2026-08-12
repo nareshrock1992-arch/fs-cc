@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Phone, LogOut } from 'lucide-react';
 import { api }            from '../api/client.js';
 import { socket }         from '../api/socket.js';
 import StatusControls     from '../components/StatusControls.jsx';
@@ -233,12 +234,7 @@ export default function Dashboard({ auth, theme }) {
                          flex items-center gap-3 sticky top-0 z-10">
         {/* Logo */}
         <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shrink-0">
-          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21
-                 l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502
-                 l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-          </svg>
+          <Phone size={16} className="text-white" strokeWidth={2} />
         </div>
 
         <span className="text-xs font-bold text-brand-light tracking-wide uppercase hidden sm:block">
@@ -272,11 +268,7 @@ export default function Dashboard({ auth, theme }) {
           className="p-2 rounded-lg text-ink-faint hover:text-ink-dim
                      hover:bg-panel-raised transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0
-                 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
+          <LogOut size={16} strokeWidth={1.75} />
         </button>
       </header>
 

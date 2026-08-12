@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Key, ShieldCheck, User, Search, Settings2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Key, ShieldCheck, User, Search, Settings2, Users } from 'lucide-react';
+import KpiCard from '../components/KpiCard.jsx';
 import { Users as UsersApi } from '../api/client.js';
 import { useAuth } from '../hooks/useAuth.js';
 import Panel  from '../components/Panel.jsx';
@@ -25,17 +26,21 @@ const ALL_PERMISSIONS = [
 
 function RoleBadge({ role }) {
   return role === 'admin'
-    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700 ring-1 ring-blue-200">
+    ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
+                       bg-brand/10 dark:bg-brand/15 text-brand dark:text-brand-light
+                       border border-brand/20 dark:border-brand/25">
         <ShieldCheck size={9} /> Admin
       </span>
-    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-gray-100 text-gray-500 ring-1 ring-gray-200">
+    : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide
+                       bg-gray-100 dark:bg-panel-raised text-gray-500 dark:text-ink-dim
+                       border border-gray-200 dark:border-panel-border">
         <User size={9} /> Supervisor
       </span>;
 }
 
 function Avatar({ username }) {
   return (
-    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+    <div className="h-8 w-8 rounded-full bg-brand flex items-center justify-center text-white text-xs font-bold shrink-0">
       {(username || '?').slice(0, 2).toUpperCase()}
     </div>
   );
@@ -195,59 +200,43 @@ export default function UserManagement() {
     }
   }
 
-  const thClass = 'px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap';
+  const thClass = 'th whitespace-nowrap';
 
   return (
     <div className="space-y-5">
 
       {/* Header KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Total Users',   value: users.length },
-          { label: 'Admins',        value: users.filter(u => u.role === 'admin').length },
-          { label: 'Supervisors',   value: users.filter(u => u.role === 'supervisor').length },
-        ].map(({ label, value }) => (
-          <div key={label} className="bg-white dark:bg-panel-surface rounded-xl border border-gray-200 dark:border-panel-border shadow-sm px-5 py-4">
-            <p className="text-2xl font-bold text-gray-900 dark:text-ink">{value}</p>
-            <p className="text-xs text-gray-500 dark:text-ink-faint mt-0.5 font-medium">{label}</p>
-          </div>
-        ))}
+        <KpiCard label="Total Users"  value={users.length}                                   icon={Users}       tone="blue" />
+        <KpiCard label="Admins"       value={users.filter(u => u.role === 'admin').length}    icon={ShieldCheck} tone="purple" />
+        <KpiCard label="Supervisors"  value={users.filter(u => u.role === 'supervisor').length} icon={User}      tone="default" />
       </div>
 
       {/* Main table panel */}
-      <div className="bg-white dark:bg-panel-surface rounded-xl shadow-md border border-gray-200 dark:border-panel-border overflow-hidden">
+      <Panel noPad
+             action={
+               <div className="flex items-center gap-2">
+                 <div className="relative">
+                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                   <input
+                     type="text"
+                     placeholder="Search users…"
+                     value={search}
+                     onChange={e => setSearch(e.target.value)}
+                     className="field-input pl-7 py-1.5 w-44 text-xs"
+                   />
+                 </div>
+                 <button
+                   onClick={() => { setCreateForm(EMPTY_CREATE); setFormErr(''); setCreateOpen(true); }}
+                   className="btn-primary text-xs px-3 py-1.5"
+                 >
+                   <Plus size={13} /> Add User
+                 </button>
+               </div>
+             }
+             eyebrow="Admin"
+             title="Accounts">
 
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-panel-border">
-          <div>
-            <h3 className="text-base font-bold text-gray-800 dark:text-ink">Accounts</h3>
-            <p className="text-xs text-gray-400 dark:text-ink-faint mt-0.5">
-              Manage admin and supervisor access
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search users…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-7 pr-3 py-1.5 rounded-lg border border-gray-300 dark:border-panel-border
-                  bg-white dark:bg-panel-raised text-sm text-gray-700 dark:text-ink-dim
-                  focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 w-44"
-              />
-            </div>
-            <button
-              onClick={() => { setCreateForm(EMPTY_CREATE); setFormErr(''); setCreateOpen(true); }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                bg-blue-600 text-white shadow-sm shadow-blue-600/20
-                hover:bg-blue-700 active:bg-blue-800 transition-colors"
-            >
-              <Plus size={13} /> Add User
-            </button>
-          </div>
-        </div>
 
         {error && (
           <div className="mx-6 mt-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
@@ -293,7 +282,7 @@ export default function UserManagement() {
                         <p className="font-semibold text-gray-800 dark:text-ink capitalize">
                           {u.username}
                           {u.id === me?.id && (
-                            <span className="ml-1.5 text-[10px] font-bold text-blue-500">(you)</span>
+                            <span className="ml-1.5 text-[10px] font-bold text-brand dark:text-brand-light">(you)</span>
                           )}
                         </p>
                         <p className="text-[11px] text-gray-400 dark:text-ink-faint font-mono">
@@ -355,7 +344,7 @@ export default function UserManagement() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Panel>
 
       {/* ── Create user modal ─────────────────────────────────────────────── */}
       <Modal

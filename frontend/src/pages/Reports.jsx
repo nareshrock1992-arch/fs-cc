@@ -99,8 +99,8 @@ function TabBar({ active, onChange }) {
           className={[
             'px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-colors border-b-2 -mb-px',
             active === t.id
-              ? 'border-lamp-live dark:text-ink text-gray-900'
-              : 'border-transparent dark:text-ink-faint text-gray-400 hover:dark:text-ink-dim hover:text-gray-600'
+              ? 'border-brand text-brand dark:text-brand-light font-bold'
+              : 'border-transparent text-gray-500 dark:text-ink-faint hover:text-gray-700 dark:hover:text-ink-dim'
           ].join(' ')}
         >
           {t.label}
@@ -227,17 +227,11 @@ export default function Reports() {
 
       {/* ── Queue Performance ─────────────────────────────────────────────── */}
       {tab === 'queues' && (
-        <div className="bg-white dark:bg-panel-surface rounded-xl shadow-md border border-gray-200 dark:border-panel-border overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-panel-border">
-            <h3 className="text-base font-bold text-gray-800 dark:text-ink">Queue Performance</h3>
-            <p className="text-xs text-gray-400 dark:text-ink-faint mt-0.5">
-              Abandoned Queue = caller hung up before any agent offered · Missed by Agent = agent offered but did not answer
-            </p>
-          </div>
+        <Panel eyebrow="Historical" title="Queue Performance" noPad>
           {loading ? (
-            <p className="text-sm dark:text-ink-dim text-gray-500 px-6 py-6">Loading…</p>
+            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">Loading…</p></div>
           ) : queuePerf.length === 0 ? (
-            <p className="text-sm dark:text-ink-dim text-gray-500 px-6 py-6">No calls in this date range.</p>
+            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">No calls in this date range.</p></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -276,25 +270,16 @@ export default function Reports() {
               </table>
             </div>
           )}
-        </div>
+        </Panel>
       )}
 
       {/* ── Agent Performance ─────────────────────────────────────────────── */}
       {tab === 'agents' && (
-        <div className="bg-white dark:bg-panel-surface rounded-xl shadow-md border border-gray-200 dark:border-panel-border overflow-hidden">
-          {/* Toolbar */}
-          <div className="px-6 py-4 border-b border-gray-200 dark:border-panel-border">
-            <h3 className="text-base font-bold text-gray-800 dark:text-ink">Agent Performance</h3>
-            <p className="text-xs text-gray-400 dark:text-ink-faint mt-0.5">
-              Sourced from agent_history — each row is one offer event
-            </p>
-          </div>
+        <Panel eyebrow="Historical" title="Agent Performance" noPad>
           {loading ? (
-            <p className="text-sm dark:text-ink-dim text-gray-500 px-6 py-6">Loading…</p>
+            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">Loading…</p></div>
           ) : agentPerf.length === 0 ? (
-            <p className="text-sm dark:text-ink-dim text-gray-500 px-6 py-6">
-              No agent activity in this date range.
-            </p>
+            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">No agent activity in this date range.</p></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -353,7 +338,7 @@ export default function Reports() {
               </table>
             </div>
           )}
-        </div>
+        </Panel>
       )}
 
       {/* ── IVR / Call-Flow Activity ──────────────────────────────────────── */}
