@@ -90,9 +90,24 @@ export default function Dashboard({ auth, theme }) {
     return () => clearInterval(id);
   }, [fetchCalls]);
 
+  // ── Authoritative status sync on mount ───────────────────────────────────
+  // localStorage agent_info is written at login time and can be stale (e.g.
+  // status='Logged Out') while the DB/FreeSWITCH already have status='Available'.
+  // A single GET /api/agent-desk/me at mount corrects the snapshot without
+  // polling. Failure is silent — the existing localStorage value is preserved.
+  useEffect(() => {
+    let mounted = true;
+    api.me()
+      .then(fresh => {
+        if (mounted) updateAgent({ status: fresh.status, state: fresh.state });
+      })
+      .catch(err => console.warn('[agent-desktop] mount status sync failed — keeping existing status:', err.message));
+    return () => { mounted = false; };
+  }, [updateAgent]);
+
   // ── Socket.IO real-time events ────────────────────────────────────────────
   useEffect(() => {
-    // Re-sync ESL status on every socket connect/reconnect.
+    // Re-sync ESL status and agent status on every socket connect/reconnect.
     // The backend emits esl:status immediately on connection (socketService.js),
     // but that event can be missed if the Socket.IO transport drops during the
     // FreeSWITCH restart window. This REST call guarantees the UI reflects the
@@ -102,6 +117,12 @@ export default function Dashboard({ auth, theme }) {
         const { connected } = await api.eslStatus();
         setEslConn(connected);
       } catch { /* ignore — esl:status socket event is the primary path */ }
+      // Re-sync agent status from DB on reconnect — guards against stale
+      // localStorage after a backend restart that doesn't emit agent:status.
+      try {
+        const fresh = await api.me();
+        updateAgent({ status: fresh.status, state: fresh.state });
+      } catch { /* ignore — mount sync or next agent:status event will correct */ }
     };
 
     const onEslStatus   = ({ connected }) => setEslConn(connected);
