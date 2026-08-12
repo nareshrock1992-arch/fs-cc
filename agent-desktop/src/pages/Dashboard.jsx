@@ -161,12 +161,26 @@ export default function Dashboard({ auth, theme }) {
 
     const onAgentStatus = ({ agentId: evtAgent, status }) => {
       if (evtAgent !== agentId) return;
-      updateAgent({ status });
+      // Guard: only apply status when the event carries a real value.
+      // agent-status-change payloads can have status: null if the FreeSWITCH
+      // header is absent; spreading null onto agent.status then causes
+      // `null || 'Logged Out'` to display incorrectly.
+      if (status != null) updateAgent({ status });
     };
 
     const onAgentState = ({ agentId: evtAgent, status, state }) => {
       if (evtAgent !== agentId) return;
-      updateAgent({ status, state });
+      // agent-state-change events report state transitions (Waiting → Receiving →
+      // In a queue call) but do NOT always include CC-Agent-Status.  When the
+      // header is absent modesl returns null, and spreading { status: null } onto
+      // prev.agent overwrites a valid 'Available' with null, which then renders as
+      // 'Logged Out' via `agent?.status || 'Logged Out'`.
+      // Fix: include each field in the patch only when the event actually provides
+      // a value — identical logic to the Admin UI's `status ?? a.status` guard.
+      updateAgent({
+        ...(status != null && { status }),
+        ...(state  != null && { state  }),
+      });
     };
 
     socket.on('connect',         onConnect);
