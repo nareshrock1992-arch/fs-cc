@@ -1,20 +1,25 @@
 -- ── Phase: Agent History Deduplication + Unique Constraint ───────────────────
 -- Business rule: one row per (call_uuid, agent_id) in agent_history.
 -- FreeSWITCH mod_callcenter may fire repeated agent-offering events for the
--- same agent/call pair during retry cycles. The application layer now uses
--- ON CONFLICT to upsert rather than blindly INSERT on every event.
+-- same agent/call pair during retry cycles. The application layer uses
+-- ON CONFLICT ON CONSTRAINT agent_history_call_agent_unique to upsert.
 --
 -- This migration:
 --   1. Repairs historical data (phantoms, duplicates, zombie calls, RC-4 rows).
---      All repair steps run in a single transaction and are idempotent.
 --   2. Adds UNIQUE(call_uuid, agent_id) to enforce the one-row-per-pair model.
 --
--- Prerequisites:
---   - Run only after the application code that uses ON CONFLICT is deployed.
---   - Data repair runs first; constraint is added only if no duplicates remain.
+-- IMPORTANT: This file must NOT contain its own BEGIN/COMMIT. The migration
+-- runner wraps every migration file in a single transaction. Embedding a nested
+-- BEGIN/COMMIT would commit the runner's outer transaction early, breaking the
+-- atomicity guarantee and leaving schema_migrations recording outside the
+-- transaction. All steps here — including the DO $$ constraint creation —
+-- run under the runner's single transaction and are rolled back together on
+-- any failure.
+--
+-- The DO $$ block makes constraint creation idempotent: safe to run on a fresh
+-- database (constraint does not yet exist) and safe to retry after a failure
+-- (constraint may already exist if a previous run partially succeeded).
 -- ─────────────────────────────────────────────────────────────────────────────
-
-BEGIN;
 
 -- ── Step 1: Consolidate ring_end to MAX across each duplicate group ───────────
 -- Winner row keeps earliest ring_start (full offer start) + latest ring_end
@@ -113,9 +118,19 @@ WHERE end_time       IS NOT NULL
   AND disposition    = 'waiting'
   AND agent_answer_time IS NULL;
 
-COMMIT;
-
--- ── Add UNIQUE constraint (outside transaction — safe after data is clean) ────
--- Fails with clear error if any duplicate pairs remain; never silently drops data.
-ALTER TABLE agent_history
-  ADD CONSTRAINT agent_history_call_agent_unique UNIQUE (call_uuid, agent_id);
+-- ── Step 8: Add UNIQUE constraint (idempotent) ───────────────────────────────
+-- The DO $$ block skips the ALTER TABLE if the constraint already exists.
+-- This makes the migration safe to retry after a partial failure, and safe
+-- on databases where a previous partial run already created the constraint.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname    = 'agent_history_call_agent_unique'
+       AND conrelid   = 'public.agent_history'::regclass
+  ) THEN
+    ALTER TABLE agent_history
+      ADD CONSTRAINT agent_history_call_agent_unique UNIQUE (call_uuid, agent_id);
+  END IF;
+END
+$$;
