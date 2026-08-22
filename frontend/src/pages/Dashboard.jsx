@@ -762,27 +762,42 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Row 2: Queue Performance + Real-Time Overview ────────────────── */}
-      {/* items-start: each card sizes to its own content, no dead stretching */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
+      {/*
+        ── Unified 3-column grid ─────────────────────────────────────────────
+        Real-Time Overview spans BOTH inner rows (xl:row-span-2).
+        This means Queue Snapshot starts immediately below Queue Performance
+        with no gap — there is no separate grid container between them.
+
+        Layout at xl+:
+          col 1-2 row 1 │ col 3 row 1-2
+          Queue Perf     │ Real-Time Overview (spans both rows)
+          col 1-2 row 2  │
+          Snap + Roster  │
+      */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Queue Performance: col 1-2, row 1 */}
         <div className="xl:col-span-2">
           <QueuePerformanceSection distribution={queueDist} />
         </div>
-        <RealTimeOverview stats={stats} />
+
+        {/* Real-Time Overview: col 3, spans rows 1 AND 2 — fills right column */}
+        <div className="xl:row-span-2 xl:row-start-1 xl:col-start-3">
+          <RealTimeOverview stats={stats} />
+        </div>
+
+        {/* Bottom-left: col 1-2, row 2 — starts directly below Queue Perf */}
+        <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+          <LiveQueueSnapshot queueStats={queueStats} />
+          <AgentRoster agents={agents} tick={tick} />
+        </div>
       </div>
 
-      {/* ── Row 3: Queue Snapshot · Agent Status · Activity Feed ─────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-        <LiveQueueSnapshot queueStats={queueStats} />
-        <AgentRoster agents={agents} tick={tick} />
-        <ActivityFeed activities={activities} />
-      </div>
-
-      {/* ── Row 4: Alerts (compact single row) ───────────────────────────── */}
+      {/* ── Activity Feed + Alerts ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <div className="xl:col-span-2">
-          <RecentAlerts />
+          <ActivityFeed activities={activities} />
         </div>
+        <RecentAlerts />
       </div>
 
     </div>
