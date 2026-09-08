@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, PhoneCall, Users, Layers,
-  Activity, BarChart3, Radio, ShieldCheck,
+  Activity, BarChart3, Radio, ShieldCheck, Coffee, History,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
@@ -13,19 +13,26 @@ const BASE_NAV = [
   { to: '/queues',      label: 'Queues',      icon: Layers },
 ];
 
-const REPORTS_ITEM = { to: '/reports',  label: 'Reports',         icon: BarChart3 };
-const USERS_ITEM   = { to: '/users',    label: 'User Management', icon: ShieldCheck };
+const MANAGEMENT_PATHS = ['/reports', '/reports/break-history', '/reports/call-history', '/break-codes', '/users'];
+
+const REPORTS_ITEM       = { to: '/reports',                label: 'Reports',         icon: BarChart3 };
+const BREAK_HISTORY_ITEM = { to: '/reports/break-history',  label: 'Break History',   icon: History };
+const CALL_HISTORY_ITEM  = { to: '/reports/call-history',   label: 'Call History',    icon: PhoneCall };
+const BREAK_CODES_ITEM   = { to: '/break-codes',            label: 'Break Codes',     icon: Coffee };
+const USERS_ITEM         = { to: '/users',                  label: 'User Management', icon: ShieldCheck };
 
 export default function Sidebar() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const canViewReports =
-    isAdmin || (Array.isArray(user?.permissions) && user.permissions.includes('view_reports'));
+  const perms = Array.isArray(user?.permissions) ? user.permissions : [];
+  const canViewReports    = isAdmin || perms.includes('view_reports');
+  const canManageBreaks   = isAdmin || perms.includes('manage_break_codes');
 
   const navItems = [
     ...BASE_NAV,
-    ...(canViewReports ? [REPORTS_ITEM] : []),
-    ...(isAdmin        ? [USERS_ITEM]   : []),
+    ...(canViewReports  ? [REPORTS_ITEM, BREAK_HISTORY_ITEM, CALL_HISTORY_ITEM] : []),
+    ...(canManageBreaks ? [BREAK_CODES_ITEM] : []),
+    ...(isAdmin         ? [USERS_ITEM] : []),
   ];
 
   return (
@@ -54,7 +61,7 @@ export default function Sidebar() {
         </p>
         <div className="space-y-0.5">
           {navItems
-            .filter(({ to }) => to !== '/reports' && to !== '/users')
+            .filter(({ to }) => !MANAGEMENT_PATHS.includes(to))
             .map(({ to, label, icon: Icon, end }) => (
               <NavLink key={to} to={to} end={end}
                 className={({ isActive }) =>
@@ -74,14 +81,14 @@ export default function Sidebar() {
             ))}
         </div>
 
-        {(canViewReports || isAdmin) && (
+        {(canViewReports || canManageBreaks || isAdmin) && (
           <>
             <p className="px-3 pt-4 pb-1.5 text-[9px] uppercase tracking-[0.18em] font-bold text-ink-faint/50">
               Management
             </p>
             <div className="space-y-0.5">
               {navItems
-                .filter(({ to }) => to === '/reports' || to === '/users')
+                .filter(({ to }) => MANAGEMENT_PATHS.includes(to))
                 .map(({ to, label, icon: Icon }) => (
                   <NavLink key={to} to={to}
                     className={({ isActive }) =>
