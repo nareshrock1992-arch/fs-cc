@@ -23,12 +23,15 @@ export async function queuePerformance(req, res) {
        c.queue_name,
        COUNT(*)::INT                                                              AS offered,
        COUNT(*) FILTER (WHERE c.disposition = 'answered')::INT                   AS answered,
-       -- abandoned_queue: caller hung up before ANY agent was offered
+       -- abandoned_queue: abandoned AND NOT agent-missed (complement of
+       -- abandoned_agent over abandoned, so queue+agent === direct abandoned).
+       -- Keyed on missed=true (NOT bare EXISTS agent_history) so a stale
+       -- offering row (missed=false) is counted here, never dropped from both.
        COUNT(*) FILTER (
          WHERE c.abandoned = true
            AND NOT EXISTS (
              SELECT 1 FROM agent_history ah
-             WHERE ah.call_uuid = c.call_uuid
+             WHERE ah.call_uuid = c.call_uuid AND ah.missed = true
            )
        )::INT                                                                     AS abandoned_queue,
        -- abandoned_agent: at least one agent was offered but did not answer
@@ -245,7 +248,7 @@ export async function exportReport(req, res) {
          COUNT(*)::INT AS offered,
          COUNT(*) FILTER (WHERE c.disposition='answered')::INT AS answered,
          COUNT(*) FILTER (WHERE c.abandoned=true AND NOT EXISTS(
-           SELECT 1 FROM agent_history ah WHERE ah.call_uuid=c.call_uuid))::INT AS abandoned_queue,
+           SELECT 1 FROM agent_history ah WHERE ah.call_uuid=c.call_uuid AND ah.missed=true))::INT AS abandoned_queue,
          COUNT(*) FILTER (WHERE c.abandoned=true AND EXISTS(
            SELECT 1 FROM agent_history ah WHERE ah.call_uuid=c.call_uuid AND ah.missed=true))::INT AS abandoned_agent,
          COALESCE(AVG(c.wait_seconds) FILTER (WHERE c.disposition='answered'),0)::INT AS asa_seconds,
@@ -405,9 +408,11 @@ export async function getCDRReport(req, res) {
   if (dispFilter === 'answered') {
     conditions.push(`ch.disposition = 'answered'`);
   } else if (dispFilter === 'abandoned_queue') {
-    // Caller hung up before any agent was ever offered the call
-    conditions.push(`ch.abandoned = true AND ch.agent_id IS NULL`);
-    conditions.push(`NOT EXISTS (SELECT 1 FROM agent_history ah WHERE ah.call_uuid = ch.call_uuid)`);
+    // Abandoned AND NOT agent-missed — matches the abandoned_queue aggregate and
+    // the row-level disposition CASE below (which classifies by a missed=true row).
+    // Keyed on missed=true so a stale offering row (missed=false) still lists here.
+    conditions.push(`ch.abandoned = true`);
+    conditions.push(`NOT EXISTS (SELECT 1 FROM agent_history ah WHERE ah.call_uuid = ch.call_uuid AND ah.missed = true)`);
   } else if (dispFilter === 'abandoned_agent') {
     // Agent was offered the call but missed; caller eventually hung up
     conditions.push(`ch.abandoned = true`);

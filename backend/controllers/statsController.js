@@ -65,9 +65,13 @@ export async function getDashboardStats(req, res) {
          q.display_name,
          COUNT(*) FILTER (WHERE c.start_time >= $1 AND c.start_time < $2)::INT                           AS offered_today,
          COUNT(*) FILTER (WHERE c.start_time >= $1 AND c.start_time < $2 AND c.disposition = 'answered')::INT AS answered_today,
+         -- abandoned_queue = abandoned AND NOT agent-missed. Complement of
+         -- abandoned_agent over abandoned, so queue+agent === direct abandoned.
+         -- Keyed on missed=true (NOT bare EXISTS agent_history) so a stale
+         -- offering row (missed=false) never makes the call vanish from both.
          COUNT(*) FILTER (
            WHERE c.start_time >= $1 AND c.start_time < $2 AND c.abandoned = true
-             AND NOT EXISTS (SELECT 1 FROM agent_history ah WHERE ah.call_uuid = c.call_uuid)
+             AND NOT EXISTS (SELECT 1 FROM agent_history ah WHERE ah.call_uuid = c.call_uuid AND ah.missed = true)
          )::INT AS abandoned_queue_today,
          COUNT(*) FILTER (
            WHERE c.start_time >= $1 AND c.start_time < $2 AND c.abandoned = true
@@ -162,12 +166,15 @@ export async function getQueueStats(req, res) {
           WHERE (c.start_time >= $1 AND c.start_time < $2) AND c.abandoned = true
         )::INT AS abandoned_today,
 
-        -- abandoned before any agent was offered
+        -- abandoned in queue = abandoned AND NOT agent-missed (complement of
+        -- abandoned_agent over abandoned → queue+agent === direct abandoned).
+        -- Keyed on missed=true so a stale offering row (missed=false) is still
+        -- counted here rather than disappearing from both buckets.
         COUNT(*) FILTER (
           WHERE (c.start_time >= $1 AND c.start_time < $2)
             AND c.abandoned = true
             AND NOT EXISTS (
-              SELECT 1 FROM agent_history ah WHERE ah.call_uuid = c.call_uuid
+              SELECT 1 FROM agent_history ah WHERE ah.call_uuid = c.call_uuid AND ah.missed = true
             )
         )::INT AS abandoned_queue_today,
 
