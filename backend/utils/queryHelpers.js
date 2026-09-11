@@ -5,6 +5,9 @@
 // parameters by the caller — these helpers never concatenate user input.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { config } from '../config/index.js';
+import { businessDayRange, toBusinessDateStr } from './timezone.js';
+
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT     = 200;
 
@@ -30,19 +33,24 @@ function isValidDate(v) {
 
 /**
  * Build date-range SQL conditions for `column`, pushing bound params onto
- * `params`. Accepts start_date (inclusive) and end_date (inclusive). Invalid
- * dates are ignored (not an error) so a bad filter never leaks or throws.
- * Returns an array of condition strings to spread into the WHERE clause.
+ * `params`. start_date / end_date are business CALENDAR dates (YYYY-MM-DD, or an
+ * ISO string whose date portion is used), interpreted in BUSINESS_TIMEZONE — NOT
+ * UTC and NOT the container/session tz. The range is HALF-OPEN:
+ *   column >= start-of(start_date)   AND   column < start-of(end_date + 1 day)
+ * so the entire end_date business day is included (fixing the old inclusive-`<=`
+ * end that truncated the day to its first instant). Invalid dates are ignored.
  */
-export function applyDateRange(q = {}, params, column) {
+export function applyDateRange(q = {}, params, column, tz = config.businessTimezone) {
   const conds = [];
-  if (isValidDate(q.start_date)) {
-    params.push(new Date(q.start_date).toISOString());
+  const startStr = toBusinessDateStr(q.start_date);
+  if (startStr) {
+    params.push(businessDayRange(startStr, tz).fromUTC.toISOString());
     conds.push(`${column} >= $${params.length}`);
   }
-  if (isValidDate(q.end_date)) {
-    params.push(new Date(q.end_date).toISOString());
-    conds.push(`${column} <= $${params.length}`);
+  const endStr = toBusinessDateStr(q.end_date);
+  if (endStr) {
+    params.push(businessDayRange(endStr, tz).toUTC.toISOString());
+    conds.push(`${column} < $${params.length}`);
   }
   return conds;
 }

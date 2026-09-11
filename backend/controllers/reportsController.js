@@ -1,14 +1,19 @@
 import { query } from '../db/pool.js';
+import { config } from '../config/index.js';
+import { businessToday, businessDayRange, shiftDate, toBusinessDateStr } from '../utils/timezone.js';
 
+// Half-open UTC range for a report request. `from`/`to` are business CALENDAR
+// dates (YYYY-MM-DD) interpreted in BUSINESS_TIMEZONE, not UTC and not the
+// container/session tz. Default = last 7 business days ending today. The upper
+// bound is the START of the day AFTER `to`, so queries use [from, to) — no
+// inclusive-end 23:59:59 truncation.
 function dateRange(req) {
-  // "2026-06-26" parses to midnight UTC — add 23:59:59 so the full day is included.
-  const from = req.query.from
-    ? new Date(req.query.from + 'T00:00:00')
-    : new Date(Date.now() - 7 * 86400000);
-  const to = req.query.to
-    ? new Date(req.query.to + 'T23:59:59.999')
-    : new Date();
-  return { from, to };
+  const toStr   = toBusinessDateStr(req.query.to)   || businessToday();
+  const fromStr = toBusinessDateStr(req.query.from) || shiftDate(toStr, -6);
+  return {
+    from: businessDayRange(fromStr).fromUTC,
+    to:   businessDayRange(toStr).toUTC,
+  };
 }
 
 export async function queuePerformance(req, res) {
@@ -59,7 +64,7 @@ export async function queuePerformance(req, res) {
          0
        )::NUMERIC(5,1)                                                            AS sla_pct
      FROM calls c
-     WHERE c.start_time BETWEEN $1 AND $2 AND c.queue_name IS NOT NULL
+     WHERE c.start_time >= $1 AND c.start_time < $2 AND c.queue_name IS NOT NULL
      GROUP BY c.queue_name
      ORDER BY offered DESC`,
     [from, to]
@@ -100,7 +105,7 @@ export async function agentPerformance(req, res) {
        )                                                                     AS total_talk_min
      FROM agent_history ah
      LEFT JOIN agents a ON a.agent_id = ah.agent_id
-     WHERE ah.ring_start BETWEEN $1 AND $2
+     WHERE ah.ring_start >= $1 AND ah.ring_start < $2
      GROUP BY ah.agent_id, a.full_name
      ORDER BY calls_answered DESC, calls_offered DESC`,
     [from, to]
@@ -142,7 +147,7 @@ export async function ivrPathDistribution(req, res) {
          step_obj->>'digit' AS digit_val
        FROM calls c,
             jsonb_array_elements(c.ivr_path) AS step_obj
-       WHERE c.start_time BETWEEN $1 AND $2
+       WHERE c.start_time >= $1 AND c.start_time < $2
          AND jsonb_array_length(c.ivr_path) > 0
          AND (step_obj->>'digit') IS NOT NULL
          AND (step_obj->>'digit') <> ''
@@ -162,7 +167,7 @@ export async function ivrPathDistribution(req, res) {
        split_part(queue_name, '@', 1) AS queue,
        COUNT(*)::INT                  AS calls
      FROM calls
-     WHERE start_time BETWEEN $1 AND $2
+     WHERE start_time >= $1 AND start_time < $2
        AND queue_name IS NOT NULL
      GROUP BY split_part(queue_name, '@', 1)
      ORDER BY calls DESC`,
@@ -184,7 +189,7 @@ export async function ivrPathDistribution(req, res) {
          COALESCE(step_obj->>'step', '(unknown)') AS step_val
        FROM calls c,
             jsonb_array_elements(c.ivr_path) AS step_obj
-       WHERE c.start_time BETWEEN $1 AND $2
+       WHERE c.start_time >= $1 AND c.start_time < $2
          AND jsonb_array_length(c.ivr_path) > 0
          AND (step_obj->>'digit') IS NULL
          AND COALESCE(step_obj->>'app', '') <> 'callcenter'
@@ -215,14 +220,14 @@ export async function callVolumeByDay(req, res) {
   const { from, to } = dateRange(req);
   const { rows } = await query(
     `SELECT
-       date_trunc('day', start_time)::DATE AS day,
+       date_trunc('day', start_time AT TIME ZONE $3)::date AS day,
        COUNT(*)::INT AS offered,
        COUNT(*) FILTER (WHERE disposition = 'answered')::INT AS answered,
        COUNT(*) FILTER (WHERE abandoned = true)::INT AS abandoned
      FROM calls
-     WHERE start_time BETWEEN $1 AND $2
+     WHERE start_time >= $1 AND start_time < $2
      GROUP BY day ORDER BY day ASC`,
-    [from, to]
+    [from, to, config.businessTimezone]
   );
   res.json(rows);
 }
@@ -251,7 +256,7 @@ export async function exportReport(req, res) {
                (SELECT max_wait_time FROM queues WHERE name=c.queue_name LIMIT 1),300))
            / NULLIF(COUNT(*) FILTER (WHERE c.disposition='answered') +
                     COUNT(*) FILTER (WHERE c.abandoned=true), 0), 0)::NUMERIC(5,1) AS sla_pct
-       FROM calls c WHERE c.start_time BETWEEN $1 AND $2 AND c.queue_name IS NOT NULL
+       FROM calls c WHERE c.start_time >= $1 AND c.start_time < $2 AND c.queue_name IS NOT NULL
        GROUP BY c.queue_name ORDER BY offered DESC`,
       [from, to]
     );
@@ -271,7 +276,7 @@ export async function exportReport(req, res) {
          ROUND(COALESCE(SUM(ah.talk_seconds) FILTER (WHERE ah.missed=false)::NUMERIC/60.0,0),2) AS total_talk_min
        FROM agent_history ah
        LEFT JOIN agents a ON a.agent_id=ah.agent_id
-       WHERE ah.ring_start BETWEEN $1 AND $2
+       WHERE ah.ring_start >= $1 AND ah.ring_start < $2
        GROUP BY ah.agent_id, a.full_name
        ORDER BY calls_answered DESC`,
       [from, to]
@@ -281,13 +286,13 @@ export async function exportReport(req, res) {
 
   } else if (type === 'call-volume') {
     const r = await query(
-      `SELECT date_trunc('day',start_time)::DATE AS day,
+      `SELECT date_trunc('day',start_time AT TIME ZONE $3)::date AS day,
          COUNT(*)::INT AS offered,
          COUNT(*) FILTER (WHERE disposition='answered')::INT AS answered,
          COUNT(*) FILTER (WHERE abandoned=true)::INT AS abandoned
-       FROM calls WHERE start_time BETWEEN $1 AND $2
+       FROM calls WHERE start_time >= $1 AND start_time < $2
        GROUP BY day ORDER BY day ASC`,
-      [from, to]
+      [from, to, config.businessTimezone]
     );
     rows = r.rows;
     columns = ['day','offered','answered','abandoned'];
@@ -300,7 +305,7 @@ export async function exportReport(req, res) {
          FROM (
            SELECT c.call_uuid, step_obj->>'digit' AS digit_val
            FROM calls c, jsonb_array_elements(c.ivr_path) AS step_obj
-           WHERE c.start_time BETWEEN $1 AND $2
+           WHERE c.start_time >= $1 AND c.start_time < $2
              AND jsonb_array_length(c.ivr_path) > 0
              AND (step_obj->>'digit') IS NOT NULL
              AND (step_obj->>'digit') <> ''
@@ -311,7 +316,7 @@ export async function exportReport(req, res) {
       query(
         `SELECT 'queue' AS type, split_part(queue_name,'@',1) AS label, COUNT(*)::INT AS calls
          FROM calls
-         WHERE start_time BETWEEN $1 AND $2
+         WHERE start_time >= $1 AND start_time < $2
            AND queue_name IS NOT NULL
          GROUP BY split_part(queue_name,'@',1) ORDER BY calls DESC`,
         [from, to]
@@ -321,7 +326,7 @@ export async function exportReport(req, res) {
          FROM (
            SELECT c.call_uuid, COALESCE(step_obj->>'step','(unknown)') AS step_val
            FROM calls c, jsonb_array_elements(c.ivr_path) AS step_obj
-           WHERE c.start_time BETWEEN $1 AND $2
+           WHERE c.start_time >= $1 AND c.start_time < $2
              AND jsonb_array_length(c.ivr_path) > 0
              AND (step_obj->>'digit') IS NULL
              AND COALESCE(step_obj->>'app','') <> 'callcenter'
@@ -383,7 +388,7 @@ export async function getCDRReport(req, res) {
   const limit        = Math.min(parseInt(req.query.limit)  || 500, 5000);
   const offset       = Math.max(parseInt(req.query.offset) || 0,   0);
 
-  const conditions = ['ch.start_time BETWEEN $1 AND $2'];
+  const conditions = ['ch.start_time >= $1 AND ch.start_time < $2'];
   const params     = [from, to];
   let   p          = 3;
 

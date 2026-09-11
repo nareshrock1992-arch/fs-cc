@@ -3,7 +3,7 @@ import http    from 'http';
 import cors    from 'cors';
 import morgan  from 'morgan';
 
-import { config }          from './config/index.js';
+import { config, assertBusinessTimezone } from './config/index.js';
 import { connectESL, isConnected } from './services/eslService.js';
 import { initSocket }      from './services/socketService.js';
 import { requireAuth, requireAdmin } from './middleware/auth.js';
@@ -92,6 +92,9 @@ initSocket(server, config.cors.origin);
 // application against a partially migrated schema.
 async function start() {
   try {
+    // Fail fast if the business/reporting timezone is missing or invalid — a wrong
+    // BUSINESS_TIMEZONE silently corrupts every business-day report, so refuse to start.
+    assertBusinessTimezone();
     await warmPool();
     await runMigrations();
   } catch (err) {
