@@ -24,7 +24,7 @@ export async function getDashboardStats(req, res) {
          COUNT(*)::INT AS total,
          COUNT(*) FILTER (WHERE disposition = 'answered')::INT AS answered,
          COUNT(*) FILTER (WHERE abandoned = true)::INT AS abandoned,
-         COALESCE(AVG(wait_seconds) FILTER (WHERE wait_seconds IS NOT NULL), 0)::INT AS avg_wait_seconds,
+         COALESCE(AVG(wait_seconds) FILTER (WHERE wait_seconds IS NOT NULL AND wait_seconds >= 0), 0)::INT AS avg_wait_seconds,
          COALESCE(AVG(talk_seconds) FILTER (WHERE talk_seconds IS NOT NULL), 0)::INT AS avg_talk_seconds
        FROM calls WHERE start_time >= $1 AND start_time < $2`,
       day
@@ -190,6 +190,7 @@ export async function getQueueStats(req, res) {
 
         COALESCE(AVG(c.wait_seconds) FILTER (
           WHERE (c.start_time >= $1 AND c.start_time < $2) AND c.disposition = 'answered'
+            AND c.wait_seconds >= 0
         ), 0)::INT AS avg_wait_today,
 
         -- SLA %: answered-within-threshold / (answered + abandoned)
