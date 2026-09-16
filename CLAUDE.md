@@ -30,6 +30,8 @@ This repository is one of three:
 | **fs-cc** | Contact Center application — authoritative source (this repo) |
 | **fs-cp** | Integration + deployment only — consumer of fs-enrs and fs-cc |
 
+> **Operational rules** — environment layers, "restart is not a deploy", repository hygiene, the env-var same-commit rule, the generic add/change-a-service checklist, and the known `.env` secrets debt live in `fs-enrs/GOVERNANCE.md` → Multi-Repository Governance. Read them before any deploy/restart or dependency change.
+
 ## Non-Negotiable Rules
 
 1. **All CC application changes originate here.** Never develop CC code in fs-cp.
