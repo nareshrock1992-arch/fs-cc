@@ -10,6 +10,7 @@ const router = Router();
 router.get('/',                asyncHandler(agents.listAgents));
 router.get('/:agentId',        asyncHandler(agents.getAgent));
 router.get('/:agentId/history', asyncHandler(agents.getAgentHistory));
+router.get('/:agentId/live',    asyncHandler(agents.getAgentLive));  // LIVE FS snapshot (runtime only)
 
 // ── Agent availability status (admin OR supervisor with change_agent_state) ───
 // Controls Ready / On Break / Logged Out — human supervisory action.

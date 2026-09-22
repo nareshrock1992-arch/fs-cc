@@ -69,6 +69,7 @@ export const Queues = {
   update:     (name, payload) => api.put(`/queues/${encodeURIComponent(name)}`, payload).then(r => r.data),
   remove:     (name)          => api.delete(`/queues/${encodeURIComponent(name)}`),
   addTier:    (name, payload) => api.post(`/queues/${encodeURIComponent(name)}/tiers`, payload).then(r => r.data),
+  setTier:    (name, agentId, payload) => api.put(`/queues/${encodeURIComponent(name)}/tiers/${agentId}`, payload).then(r => r.data),
   removeTier: (name, agentId) => api.delete(`/queues/${encodeURIComponent(name)}/tiers/${agentId}`),
 };
 

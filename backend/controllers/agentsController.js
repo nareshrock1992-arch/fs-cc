@@ -1,5 +1,5 @@
 import { query } from '../db/pool.js';
-import { cc } from '../services/eslService.js';
+import { cc, isConnected } from '../services/eslService.js';
 import { config } from '../config/index.js';
 import * as agentSession from '../services/agentSessionService.js';
 
@@ -22,8 +22,15 @@ import * as agentSession from '../services/agentSessionService.js';
 // The function is deterministic and idempotent:
 //   - Calling it twice with the same inputs produces the same output.
 //   - An input that already contains {sip_cid_type=pid} is not double-prefixed.
-export function buildContact({ agentType, extension, gateway, destination, contact }) {
-  const PREFIX = '{sip_cid_type=pid}';
+export function buildContact({ agentType, extension, gateway, destination, contact, ringTimeout }) {
+  // The channel-var block always carries sip_cid_type=pid (PAI). A per-agent ring
+  // timeout is added as leg_timeout=<seconds> in the SAME block (never a second
+  // block, so PAI is never duplicated). ringTimeout null/absent → no leg_timeout,
+  // i.e. exactly the previous behaviour (backward compatible).
+  const rt = (ringTimeout === undefined || ringTimeout === null || ringTimeout === '')
+    ? null
+    : Number(ringTimeout);
+  const PREFIX = rt ? `{sip_cid_type=pid,leg_timeout=${rt}}` : '{sip_cid_type=pid}';
 
   if (agentType === 'internal') {
     if (!extension || !String(extension).trim()) {
@@ -65,6 +72,37 @@ export function buildContact({ agentType, extension, gateway, destination, conta
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Config validation — additive; rejects invalid values with HTTP 400.
+//   fs_agent_type : FreeSWITCH mod_callcenter agent type (callback | uuid-standby)
+//                   — DISTINCT from agents.agent_type (internal | gateway endpoint).
+//   ring_timeout  : NULL (no per-agent override) or 1..600 seconds (matches the DB CHECK).
+//   timing fields : non-negative integers.
+// ─────────────────────────────────────────────────────────────────────────────
+export const FS_AGENT_TYPES = ['callback', 'uuid-standby'];
+
+export function validateAgentConfig({
+  fsAgentType, ringTimeout,
+  maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, noAnswerDelayTime,
+}) {
+  const errors = [];
+  if (fsAgentType !== undefined && fsAgentType !== null && !FS_AGENT_TYPES.includes(fsAgentType)) {
+    errors.push(`fs_agent_type must be one of: ${FS_AGENT_TYPES.join(', ')}`);
+  }
+  if (ringTimeout !== undefined && ringTimeout !== null && ringTimeout !== '') {
+    if (!Number.isInteger(ringTimeout) || ringTimeout < 1 || ringTimeout > 600) {
+      errors.push('ring_timeout must be an integer between 1 and 600 (or null for no override)');
+    }
+  }
+  const timing = { maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, noAnswerDelayTime };
+  for (const [k, v] of Object.entries(timing)) {
+    if (v !== undefined && v !== null && (!Number.isInteger(v) || v < 0 || v > 86400)) {
+      errors.push(`${k} must be a non-negative integer (0..86400)`);
+    }
+  }
+  return errors;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Agents CRUD
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -77,6 +115,7 @@ export async function listAgents(req, res) {
       a.full_name,
       a.avaya_extension,
       a.agent_type,
+      a.fs_agent_type,
       a.contact,
       a.status,
       a.state,
@@ -84,6 +123,8 @@ export async function listAgents(req, res) {
       a.wrap_up_time,
       a.reject_delay_time,
       a.busy_delay_time,
+      a.no_answer_delay_time,
+      a.ring_timeout,
       a.active,
       a.created_at,
       a.updated_at,
@@ -129,6 +170,26 @@ export async function getAgentHistory(req, res) {
   res.json(rows);
 }
 
+// GET /api/agents/:agentId/live — LIVE FreeSWITCH snapshot for one agent.
+// Runtime only (never historical). Degrades gracefully when ESL is offline or
+// the agent is not present in FreeSWITCH: 200 with { live: null, esl_connected }.
+export async function getAgentLive(req, res) {
+  const { agentId } = req.params;
+  const { rows } = await query(`SELECT agent_id FROM agents WHERE agent_id = $1`, [agentId]);
+  if (!rows[0]) return res.status(404).json({ error: 'Agent not found' });
+
+  if (!isConnected()) {
+    return res.json({ agent_id: agentId, esl_connected: false, live: null });
+  }
+  try {
+    const live = await cc.agentLive(agentId);
+    res.json({ agent_id: agentId, esl_connected: true, live });
+  } catch (err) {
+    console.error('[agents] live read failed:', err.message);
+    res.json({ agent_id: agentId, esl_connected: false, live: null, error: 'live read failed' });
+  }
+}
+
 export async function createAgent(req, res) {
   const {
     agentId,
@@ -141,20 +202,29 @@ export async function createAgent(req, res) {
     destination,
     // Legacy raw contact (still accepted; normalized server-side)
     contact: rawContact,
+    // FreeSWITCH mod_callcenter agent type (distinct from agent_type endpoint kind)
+    fsAgentType    = 'callback',
+    ringTimeout    = null,
     // Call behavior
     maxNoAnswer    = 3,
     wrapUpTime     = 20,
     rejectDelayTime = 2,
-    busyDelayTime   = 60
+    busyDelayTime   = 60,
+    noAnswerDelayTime = 10
   } = req.body;
 
   if (!agentId || !fullName || !avayaExtension) {
     return res.status(400).json({ error: 'agentId, fullName, and avayaExtension are required' });
   }
 
+  const cfgErrors = validateAgentConfig({
+    fsAgentType, ringTimeout, maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, noAnswerDelayTime,
+  });
+  if (cfgErrors.length) return res.status(400).json({ error: cfgErrors.join('; ') });
+
   let builtContact;
   try {
-    builtContact = buildContact({ agentType, extension, gateway, destination, contact: rawContact });
+    builtContact = buildContact({ agentType, extension, gateway, destination, contact: rawContact, ringTimeout });
   } catch (err) {
     return res.status(err.status || 400).json({ error: err.message });
   }
@@ -163,20 +233,24 @@ export async function createAgent(req, res) {
 
   const { rows } = await query(
     `INSERT INTO agents
-       (agent_id, full_name, avaya_extension, agent_type, contact,
-        max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       (agent_id, full_name, avaya_extension, agent_type, fs_agent_type, contact,
+        max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time,
+        no_answer_delay_time, ring_timeout)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
      RETURNING *`,
-    [agentId, fullName, avayaExtension, resolvedType, builtContact,
-     maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime]
+    [agentId, fullName, avayaExtension, resolvedType, fsAgentType, builtContact,
+     maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime,
+     noAnswerDelayTime, (ringTimeout === '' ? null : ringTimeout)]
   );
 
   try {
-    await cc.agentAdd(agentId, builtContact);
-    await cc.agentSetParam(agentId, 'max_no_answer',     maxNoAnswer);
-    await cc.agentSetParam(agentId, 'wrap_up_time',      wrapUpTime);
-    await cc.agentSetParam(agentId, 'reject_delay_time', rejectDelayTime);
-    await cc.agentSetParam(agentId, 'busy_delay_time',   busyDelayTime);
+    // fs_agent_type is honored at agent-add time (mod_callcenter sets type on add).
+    await cc.agentAdd(agentId, builtContact, fsAgentType);
+    await cc.agentSetParam(agentId, 'max_no_answer',        maxNoAnswer);
+    await cc.agentSetParam(agentId, 'wrap_up_time',         wrapUpTime);
+    await cc.agentSetParam(agentId, 'reject_delay_time',    rejectDelayTime);
+    await cc.agentSetParam(agentId, 'busy_delay_time',      busyDelayTime);
+    await cc.agentSetParam(agentId, 'no_answer_delay_time', noAnswerDelayTime);
   } catch (err) {
     console.error('[agents] FreeSWITCH sync failed on create:', err.message);
   }
@@ -195,46 +269,76 @@ export async function updateAgent(req, res) {
     destination,
     // Legacy raw contact
     contact: rawContact,
+    // FreeSWITCH agent type + per-agent ring timeout
+    fsAgentType, ringTimeout,
     // Call behavior
-    maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, active
+    maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, noAnswerDelayTime, active
   } = req.body;
 
-  // Build normalized contact only when contact-related fields are present
+  const cfgErrors = validateAgentConfig({
+    fsAgentType, ringTimeout, maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, noAnswerDelayTime,
+  });
+  if (cfgErrors.length) return res.status(400).json({ error: cfgErrors.join('; ') });
+
+  // Build normalized contact when contact-related fields OR ring_timeout change.
+  // Ring-only change: rebuild from the CURRENT stored contact (buildContact's
+  // legacy path strips the old {…} block and re-prefixes), preserving the exact
+  // endpoint + PAI while updating leg_timeout. Never duplicates PAI.
   let builtContact = undefined;
   const hasContactChange = agentType || extension || gateway || destination || rawContact;
+  const ringTimeoutProvided = Object.prototype.hasOwnProperty.call(req.body, 'ringTimeout');
   if (hasContactChange) {
     try {
-      builtContact = buildContact({ agentType, extension, gateway, destination, contact: rawContact });
+      builtContact = buildContact({ agentType, extension, gateway, destination, contact: rawContact, ringTimeout });
     } catch (err) {
       return res.status(err.status || 400).json({ error: err.message });
     }
+  } else if (ringTimeoutProvided) {
+    const cur = await query(`SELECT contact FROM agents WHERE agent_id = $1`, [agentId]);
+    if (cur.rows[0]?.contact) {
+      builtContact = buildContact({ contact: cur.rows[0].contact, ringTimeout });
+    }
   }
 
+  const normRingTimeout = ringTimeout === '' ? null : ringTimeout;
   const { rows } = await query(
     `UPDATE agents SET
-       full_name         = COALESCE($2, full_name),
-       avaya_extension   = COALESCE($3, avaya_extension),
-       agent_type        = COALESCE($4, agent_type),
-       contact           = COALESCE($5, contact),
-       max_no_answer     = COALESCE($6, max_no_answer),
-       wrap_up_time      = COALESCE($7, wrap_up_time),
-       reject_delay_time = COALESCE($8, reject_delay_time),
-       busy_delay_time   = COALESCE($9, busy_delay_time),
-       active            = COALESCE($10, active)
+       full_name            = COALESCE($2, full_name),
+       avaya_extension      = COALESCE($3, avaya_extension),
+       agent_type           = COALESCE($4, agent_type),
+       contact              = COALESCE($5, contact),
+       max_no_answer        = COALESCE($6, max_no_answer),
+       wrap_up_time         = COALESCE($7, wrap_up_time),
+       reject_delay_time    = COALESCE($8, reject_delay_time),
+       busy_delay_time      = COALESCE($9, busy_delay_time),
+       active               = COALESCE($10, active),
+       fs_agent_type        = COALESCE($11, fs_agent_type),
+       no_answer_delay_time = COALESCE($12, no_answer_delay_time),
+       -- ring_timeout is nullable-with-meaning: only overwrite when the key was
+       -- present in the request body (so an omitted field never wipes it, and an
+       -- explicit null clears the override).
+       ring_timeout         = CASE WHEN $14::bool THEN $13 ELSE ring_timeout END
      WHERE agent_id = $1
      RETURNING *`,
     [agentId, fullName, avayaExtension,
      agentType || null, builtContact || null,
-     maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, active]
+     maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, active,
+     fsAgentType || null, noAnswerDelayTime,
+     normRingTimeout, Object.prototype.hasOwnProperty.call(req.body, 'ringTimeout')]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Agent not found' });
 
   try {
-    if (builtContact)                 await cc.agentSetParam(agentId, 'contact',           builtContact);
-    if (maxNoAnswer    !== undefined)  await cc.agentSetParam(agentId, 'max_no_answer',     maxNoAnswer);
-    if (wrapUpTime     !== undefined)  await cc.agentSetParam(agentId, 'wrap_up_time',      wrapUpTime);
-    if (rejectDelayTime !== undefined) await cc.agentSetParam(agentId, 'reject_delay_time', rejectDelayTime);
-    if (busyDelayTime  !== undefined)  await cc.agentSetParam(agentId, 'busy_delay_time',   busyDelayTime);
+    if (builtContact)                    await cc.agentSetParam(agentId, 'contact',              builtContact);
+    if (maxNoAnswer      !== undefined)  await cc.agentSetParam(agentId, 'max_no_answer',        maxNoAnswer);
+    if (wrapUpTime       !== undefined)  await cc.agentSetParam(agentId, 'wrap_up_time',         wrapUpTime);
+    if (rejectDelayTime  !== undefined)  await cc.agentSetParam(agentId, 'reject_delay_time',    rejectDelayTime);
+    if (busyDelayTime    !== undefined)  await cc.agentSetParam(agentId, 'busy_delay_time',      busyDelayTime);
+    if (noAnswerDelayTime !== undefined) await cc.agentSetParam(agentId, 'no_answer_delay_time', noAnswerDelayTime);
+    // NOTE: fs_agent_type and ring_timeout are NOT live-settable via `agent set`
+    // (mod_callcenter fixes type at add-time; ring_timeout is applied via the
+    // agent contact channel var). They persist to the DB now and are applied to
+    // FreeSWITCH on contact rebuild / XML regen — Phases 3–5.
   } catch (err) {
     console.error('[agents] FreeSWITCH sync failed on update:', err.message);
   }

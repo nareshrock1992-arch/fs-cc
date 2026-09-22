@@ -14,7 +14,11 @@ const EMPTY_FORM = {
   // Structured contact fields — backend builds the full contact string server-side.
   // agentType: 'internal' → extension field shown; 'gateway' → gateway + destination shown.
   agentType: 'internal', extension: '', gateway: '', destination: '',
-  maxNoAnswer: 3, wrapUpTime: 20, rejectDelayTime: 2, busyDelayTime: 60
+  // FreeSWITCH mod_callcenter agent type — DISTINCT from agentType (endpoint kind).
+  fsAgentType: 'callback',
+  // Per-agent ring timeout (seconds). '' = no override (backward compatible).
+  ringTimeout: '',
+  maxNoAnswer: 3, wrapUpTime: 20, rejectDelayTime: 2, busyDelayTime: 60, noAnswerDelayTime: 10
 };
 
 const STATUS_OPTIONS = ['Available', 'On Break', 'Logged Out'];
@@ -130,10 +134,13 @@ export default function Agents() {
       extension,
       gateway,
       destination,
+      fsAgentType:     agent.fs_agent_type || 'callback',
+      ringTimeout:     agent.ring_timeout ?? '',
       maxNoAnswer:     agent.max_no_answer,
       wrapUpTime:      agent.wrap_up_time,
       rejectDelayTime: agent.reject_delay_time,
       busyDelayTime:   agent.busy_delay_time,
+      noAnswerDelayTime: agent.no_answer_delay_time ?? 10,
     });
     setFormError(null);
     setModalOpen(true);
@@ -141,6 +148,16 @@ export default function Agents() {
 
   async function handleSave(e) {
     e.preventDefault();
+    // Client-side validation mirrors the backend (validateAgentConfig) — no
+    // silent conversion. The backend remains authoritative.
+    const rt = form.ringTimeout;
+    if (rt !== '' && rt !== null && rt !== undefined) {
+      const n = Number(rt);
+      if (!Number.isInteger(n) || n < 1 || n > 600) {
+        setFormError('Ring Timeout must be an integer between 1 and 600 seconds, or left blank for no override.');
+        return;
+      }
+    }
     setSaving(true);
     setFormError(null);
     try {
@@ -463,7 +480,7 @@ export default function Agents() {
                 placeholder="5001"
               />
             </FormField>
-            <FormField label="Endpoint Type" hint="How FreeSWITCH dials this agent">
+            <FormField label="Endpoint Type" hint="How FreeSWITCH dials this agent (SIP extension vs gateway)">
               <select
                 value={form.agentType}
                 onChange={(e) => setForm({ ...form, agentType: e.target.value, extension: '', gateway: '', destination: '' })}
@@ -471,6 +488,16 @@ export default function Agents() {
               >
                 <option value="internal">Internal (SIP extension)</option>
                 <option value="gateway">Gateway (SIP trunk)</option>
+              </select>
+            </FormField>
+            <FormField label="FreeSWITCH Agent Type" hint="mod_callcenter agent type — separate from Endpoint Type. Callback is the standard mode.">
+              <select
+                value={form.fsAgentType}
+                onChange={(e) => setForm({ ...form, fsAgentType: e.target.value })}
+                className={inputClass}
+              >
+                <option value="callback">Callback</option>
+                <option value="uuid-standby">UUID Standby</option>
               </select>
             </FormField>
             {form.agentType === 'internal' && (
@@ -526,6 +553,16 @@ export default function Agents() {
               <input type="number" min="0" value={form.busyDelayTime}
                 onChange={(e) => setForm({ ...form, busyDelayTime: Number(e.target.value) })}
                 className={inputClass} />
+            </FormField>
+            <FormField label="No Answer Delay (sec)">
+              <input type="number" min="0" value={form.noAnswerDelayTime}
+                onChange={(e) => setForm({ ...form, noAnswerDelayTime: Number(e.target.value) })}
+                className={inputClass} />
+            </FormField>
+            <FormField label="Ring Timeout (sec)" hint="Per-agent ring time before no-answer. Leave blank for the default (no override).">
+              <input type="number" min="1" max="600" value={form.ringTimeout}
+                onChange={(e) => setForm({ ...form, ringTimeout: e.target.value === '' ? '' : Number(e.target.value) })}
+                className={inputClass} placeholder="default" />
             </FormField>
           </div>
         </form>

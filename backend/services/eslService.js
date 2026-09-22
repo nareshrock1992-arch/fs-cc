@@ -171,6 +171,47 @@ function parseFsTable(raw) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Normalize one parsed `callcenter_config agent list` row → live agent snapshot.
+//
+// LIVE runtime values ONLY (mod_callcenter's in-memory counters). These reset on
+// agent re-add / FS restart, so they MUST NOT be used as a historical reporting
+// source (historical truth = agent_history/calls/agent_sessions in PostgreSQL).
+//
+// Defensive by design: FreeSWITCH column names can vary between versions, so a
+// missing column yields null rather than throwing. Numeric columns are coerced;
+// anything non-numeric/absent → null. The raw row is preserved under `_raw` for
+// troubleshooting/version drift.
+// ─────────────────────────────────────────────────────────────────────────────
+const numOrNull = v => {
+  if (v === undefined || v === null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+const strOrNull = v => (v === undefined || v === null || v === '' ? null : String(v));
+
+export function normalizeAgentLive(row) {
+  if (!row || typeof row !== 'object') return null;
+  return {
+    name:                strOrNull(row.name),
+    fs_type:             strOrNull(row.type),                 // callback | uuid-standby (FS live)
+    contact:             strOrNull(row.contact),
+    status:              strOrNull(row.status),
+    state:               strOrNull(row.state),
+    uuid:                strOrNull(row.uuid),
+    no_answer_count:     numOrNull(row.no_answer_count),
+    calls_answered:      numOrNull(row.calls_answered),
+    talk_time:           numOrNull(row.talk_time),
+    ready_time:          numOrNull(row.ready_time),
+    external_calls_count: numOrNull(row.external_calls_count),
+    last_offered_call:   numOrNull(row.last_offered_call),
+    last_bridge_start:   numOrNull(row.last_bridge_start),
+    last_bridge_end:     numOrNull(row.last_bridge_end),
+    last_status_change:  numOrNull(row.last_status_change),
+    _raw:                row,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // mod_callcenter API helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -195,8 +236,19 @@ export const cc = {
                `tier add ${queue}/${agent}`),
   tierDel:      (queue, agent)        => eslApi(`callcenter_config tier del ${queue} ${agent}`),
   tierSetState: (queue, agent, state) => eslApi(`callcenter_config tier set state ${queue} ${agent} '${state}'`),
+  // mod_callcenter supports live tier level/position changes (native commands).
+  tierSetLevel:    (queue, agent, level) => eslApi(`callcenter_config tier set level ${queue} ${agent} ${level}`),
+  tierSetPosition: (queue, agent, pos)   => eslApi(`callcenter_config tier set position ${queue} ${agent} ${pos}`),
 
   agentList:        ()     => eslApi('callcenter_config agent list').then(parseFsTable),
+  // Live snapshot for ONE agent, normalized. LIVE runtime only — never a
+  // historical source. Returns null when the agent is absent from FS output.
+  agentLive:        (agentId) => eslApi('callcenter_config agent list')
+                                   .then(parseFsTable)
+                                   .then(rows => {
+                                     const r = rows.find(x => (x.name || '') === agentId);
+                                     return r ? normalizeAgentLive(r) : null;
+                                   }),
   queueList:        ()     => eslApi('callcenter_config queue list').then(parseFsTable),
   tierList:         ()     => eslApi('callcenter_config tier list').then(parseFsTable),
   queueListMembers: (name) => eslApi(`callcenter_config queue list members ${name}`).then(parseFsTable),
@@ -321,10 +373,11 @@ export async function pushToFreeSWITCH() {
 
   // ── Fetch all data from DB first (3 queries total, not N) ─────────────────
   const [{ rows: queues }, { rows: agents }, { rows: tiers }] = await Promise.all([
-    query(`SELECT id, name, strategy, moh_sound, max_wait_time, max_wait_time_w_no_agent
+    query(`SELECT id, name, strategy, moh_sound, max_wait_time, max_wait_time_w_no_agent,
+                  agent_no_answer_status
            FROM queues WHERE active = true ORDER BY name`),
-    query(`SELECT agent_id, contact, status, max_no_answer, wrap_up_time,
-                  reject_delay_time, busy_delay_time
+    query(`SELECT agent_id, fs_agent_type, contact, status, max_no_answer, wrap_up_time,
+                  reject_delay_time, busy_delay_time, no_answer_delay_time
            FROM agents WHERE active = true ORDER BY agent_id`),
     query(`SELECT a.agent_id, q.name AS queue_name, t.level, t.position
            FROM agent_tiers t
@@ -350,7 +403,7 @@ export async function pushToFreeSWITCH() {
       await eslApi(`callcenter_config queue set max-wait-time ${q.name} ${q.max_wait_time}`);
       if (q.max_wait_time_w_no_agent)
         await eslApi(`callcenter_config queue set max-wait-time-with-no-agent ${q.name} ${q.max_wait_time_w_no_agent}`);
-      await eslApi(`callcenter_config queue set agent-no-answer-status ${q.name} 'On Break'`);
+      await eslApi(`callcenter_config queue set agent-no-answer-status ${q.name} '${q.agent_no_answer_status || 'On Break'}'`);
     } catch (err) { console.error(`[esl] push queue ${q.name}:`, err.message); }
   }
   console.log(`[esl] ✓ pushed ${queues.length} queue(s)`);
@@ -358,13 +411,14 @@ export async function pushToFreeSWITCH() {
   // ── Push agents ───────────────────────────────────────────────────────────
   for (const a of agents) {
     try {
-      await eslApiSafe(`callcenter_config agent add ${a.agent_id} callback`, `agent add ${a.agent_id}`);
+      await eslApiSafe(`callcenter_config agent add ${a.agent_id} ${a.fs_agent_type || 'callback'}`, `agent add ${a.agent_id}`);
       await eslApi(`callcenter_config agent set contact ${a.agent_id} ${a.contact}`);
       await eslApi(`callcenter_config agent set status ${a.agent_id} '${a.status}'`);
       await eslApi(`callcenter_config agent set max_no_answer ${a.agent_id} ${a.max_no_answer}`);
       await eslApi(`callcenter_config agent set wrap_up_time ${a.agent_id} ${a.wrap_up_time}`);
       await eslApi(`callcenter_config agent set reject_delay_time ${a.agent_id} ${a.reject_delay_time}`);
       await eslApi(`callcenter_config agent set busy_delay_time ${a.agent_id} ${a.busy_delay_time}`);
+      await eslApi(`callcenter_config agent set no_answer_delay_time ${a.agent_id} ${a.no_answer_delay_time ?? 10}`);
     } catch (err) { console.error(`[esl] push agent ${a.agent_id}:`, err.message); }
   }
   console.log(`[esl] ✓ pushed ${agents.length} agent(s)`);

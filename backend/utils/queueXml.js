@@ -16,10 +16,11 @@ export async function generateCallcenterXml() {
     { rows: agents },
     { rows: tiers  },
   ] = await Promise.all([
-    query(`SELECT name, strategy, moh_sound, max_wait_time, max_wait_time_w_no_agent, max_queue_size
+    query(`SELECT name, strategy, moh_sound, max_wait_time, max_wait_time_w_no_agent, max_queue_size,
+                  agent_no_answer_status
            FROM queues WHERE active = true ORDER BY name`),
-    query(`SELECT agent_id, contact, wrap_up_time, max_no_answer,
-                  reject_delay_time, busy_delay_time
+    query(`SELECT agent_id, fs_agent_type, contact, wrap_up_time, max_no_answer,
+                  reject_delay_time, busy_delay_time, no_answer_delay_time
            FROM agents WHERE active = true ORDER BY agent_id`),
     query(`SELECT a.agent_id, q.name AS queue_name, t.level, t.position
            FROM agent_tiers t
@@ -49,16 +50,17 @@ export async function generateCallcenterXml() {
       <param name="tier-rules-apply"                  value="false"/>
       <param name="tier-rule-wait-second"             value="300"/>
       <param name="tier-rule-no-agent-no-wait"        value="true"/>
-      <param name="agent-no-answer-status"            value="On Break"/>
+      <param name="agent-no-answer-status"            value="${q.agent_no_answer_status || 'On Break'}"/>
       <param name="time-base-score"                   value="queue"/>
 ${tierLines}
     </queue>`;
   }).join('\n');
 
   const agentXml = agents.map(a =>
-    `    <agent name="${a.agent_id}" type="callback" contact="${a.contact}" status="Logged Out"` +
+    `    <agent name="${a.agent_id}" type="${a.fs_agent_type || 'callback'}" contact="${a.contact}" status="Logged Out"` +
     ` max-no-answer="${a.max_no_answer}" wrap-up-time="${a.wrap_up_time}"` +
-    ` reject-delay-time="${a.reject_delay_time}" busy-delay-time="${a.busy_delay_time}"/>`
+    ` reject-delay-time="${a.reject_delay_time}" busy-delay-time="${a.busy_delay_time}"` +
+    ` no-answer-delay-time="${a.no_answer_delay_time ?? 10}"/>`
   ).join('\n');
 
   return `<?xml version="1.0" encoding="utf-8"?>

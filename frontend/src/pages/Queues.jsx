@@ -16,7 +16,12 @@ const STRATEGIES = [
   { value: 'ring-all',                    label: 'Ring All' }
 ];
 
-const EMPTY_FORM = { name: '', displayName: '', strategy: 'longest-idle-agent', maxWaitTime: 300, maxQueueSize: 50 };
+const EMPTY_FORM = { name: '', displayName: '', strategy: 'longest-idle-agent', maxWaitTime: 300, maxQueueSize: 50, agentNoAnswerStatus: 'On Break' };
+
+// Queue auto-action after max-no-answer → mod_callcenter agent-no-answer-status.
+const NO_ANSWER_STATUSES = ['Available', 'On Break', 'Logged Out'];
+// Admin-settable mod_callcenter tier states (UNVERIFIED vs installed FS version).
+const TIER_STATES = ['Ready', 'Standby', 'No Answer'];
 
 export default function Queues() {
   const { user } = useAuth();
@@ -35,6 +40,7 @@ export default function Queues() {
 
   const [tierQueue, setTierQueue]         = useState(null);
   const [tierAgentToAdd, setTierAgentToAdd] = useState('');
+  const [tierError, setTierError]         = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -61,7 +67,8 @@ export default function Queues() {
   function openEdit(q) {
     setEditingName(q.name);
     setForm({ name: q.name, displayName: q.display_name, strategy: q.strategy,
-              maxWaitTime: q.max_wait_time, maxQueueSize: q.max_queue_size });
+              maxWaitTime: q.max_wait_time, maxQueueSize: q.max_queue_size,
+              agentNoAnswerStatus: q.agent_no_answer_status || 'On Break' });
     setFormError(null);
     setModalOpen(true);
   }
@@ -108,6 +115,24 @@ export default function Queues() {
 
   async function handleRemoveTier(agentId) {
     await QueuesApi.removeTier(tierQueue.name, agentId);
+    const refreshed = await QueuesApi.get(tierQueue.name);
+    setTierQueue(refreshed);
+    load();
+  }
+
+  // Change tier level / position / state for one agent. state is runtime-only
+  // (applied to FreeSWITCH, not persisted). Surfaces FreeSWITCH sync failures.
+  async function handleSetTier(agentId, payload) {
+    try {
+      const r = await QueuesApi.setTier(tierQueue.name, agentId, payload);
+      if (r && r.fs_synced === false) {
+        setTierError(`Saved in DB, but FreeSWITCH did not sync: ${r.fs_error || 'unknown error'}`);
+      } else {
+        setTierError(null);
+      }
+    } catch (err) {
+      setTierError(err.response?.data?.error || err.message);
+    }
     const refreshed = await QueuesApi.get(tierQueue.name);
     setTierQueue(refreshed);
     load();
@@ -231,6 +256,15 @@ export default function Queues() {
                 className={inputClass} />
             </FormField>
           </div>
+          <FormField label="Action after Max No Answer" hint="Agent status set by FreeSWITCH when they miss max-no-answer calls (queue-level, mod_callcenter agent-no-answer-status).">
+            <select value={form.agentNoAnswerStatus}
+              onChange={(e) => setForm({ ...form, agentNoAnswerStatus: e.target.value })}
+              className={inputClass}>
+              {NO_ANSWER_STATUSES.map((s) => (
+                <option key={s} value={s} className="dark:bg-panel-surface bg-white">{s}</option>
+              ))}
+            </select>
+          </FormField>
         </form>
       </Modal>}
 
@@ -243,6 +277,9 @@ export default function Queues() {
         >
           {tierQueue && (
             <div className="space-y-4">
+              {tierError && (
+                <p className="text-xs text-lamp-alert border border-lamp-alert/25 bg-lamp-alert/10 rounded-lg px-3 py-2">{tierError}</p>
+              )}
               <div className="flex gap-2">
                 <select value={tierAgentToAdd}
                   onChange={(e) => setTierAgentToAdd(e.target.value)}
@@ -270,15 +307,32 @@ export default function Queues() {
                       <StatusLamp status={a.status} showLabel={false} />
                       <div>
                         <p className="text-sm font-medium dark:text-ink text-gray-800">{a.full_name}</p>
-                        <p className="text-[11px] dark:text-ink-faint text-gray-400 font-mono">
-                          {a.agent_id} · tier {a.level}.{a.position}
-                        </p>
+                        <p className="text-[11px] dark:text-ink-faint text-gray-400 font-mono">{a.agent_id}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleRemoveTier(a.agent_id)}
-                      className="p-1 rounded-lg dark:text-ink-faint text-gray-400 hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors">
-                      <X size={14} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <label className="text-[10px] uppercase tracking-wide dark:text-ink-faint text-gray-400">Lvl</label>
+                      <input type="number" min="1" max="10" defaultValue={a.level}
+                        onBlur={(e) => { const v = Number(e.target.value); if (v !== a.level) handleSetTier(a.agent_id, { level: v }); }}
+                        className={`${inputClass} w-14 py-1`} title="Tier level (lower tried first)" />
+                      <label className="text-[10px] uppercase tracking-wide dark:text-ink-faint text-gray-400">Pos</label>
+                      <input type="number" min="1" max="100" defaultValue={a.position}
+                        onBlur={(e) => { const v = Number(e.target.value); if (v !== a.position) handleSetTier(a.agent_id, { position: v }); }}
+                        className={`${inputClass} w-14 py-1`} title="Tie-break position within a level" />
+                      <select defaultValue=""
+                        onChange={(e) => { if (e.target.value) { handleSetTier(a.agent_id, { state: e.target.value }); e.target.value = ''; } }}
+                        className={`${inputClass} w-28 py-1`} title="Set tier state (FreeSWITCH runtime)">
+                        <option value="">Set state…</option>
+                        {TIER_STATES.map((s) => (
+                          <option key={s} value={s} className="dark:bg-panel-surface bg-white">{s}</option>
+                        ))}
+                      </select>
+                      <button onClick={() => handleRemoveTier(a.agent_id)}
+                        className="p-1 rounded-lg dark:text-ink-faint text-gray-400 hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors"
+                        title="Remove from queue">
+                        <X size={14} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

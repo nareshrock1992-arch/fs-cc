@@ -14,6 +14,7 @@ router.post('/',                             requireAdmin, asyncHandler(queues.c
 router.put('/:queueName',                    requireAdmin, asyncHandler(queues.updateQueue));
 router.delete('/:queueName',                 requireAdmin, asyncHandler(queues.deleteQueue));
 router.post('/:queueName/tiers',             requireAdmin, asyncHandler(queues.addTier));
+router.put('/:queueName/tiers/:agentId',     requireAdmin, asyncHandler(queues.setTier));
 router.delete('/:queueName/tiers/:agentId',  requireAdmin, asyncHandler(queues.removeTier));
 
 export default router;
