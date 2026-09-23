@@ -81,20 +81,36 @@ async function closeSession(client, sessionId, reason) {
 
 async function openEvent(client, agentId, sessionId, status, source, breakInfo = null) {
   // ON CONFLICT handles the same dual-trigger race as openSession.
-  // idx_ase_one_open enforces at most one open event per agent;
-  // DO NOTHING lets the first writer win rather than throwing.
+  // idx_ase_one_open (partial: agent_id WHERE ended_at IS NULL) enforces at most
+  // one open event per agent.
   //
   // break_code / break_name are snapshotted here (only meaningful when
   // status === 'On Break' and the caller supplied a resolved break code).
   // The snapshot is intentionally frozen: historical rows keep the name that
   // was configured at break time, even if the code is later renamed/disabled.
+  //
+  // Race fix (break codes): the agent_self transition carries the break code,
+  // while the FreeSWITCH echo (fs_event, ~200ms later) carries none. Both open
+  // the single On Break segment; whichever INSERT commits first wins. With the
+  // old DO NOTHING, when the codeless fs_event won, the coded agent_self INSERT
+  // was silently dropped and the persisted history row kept break_code = NULL.
+  // We now DO UPDATE to *upgrade* a codeless open row with a supplied code — but
+  // only NULL → code, never code → NULL and never across statuses, so a codeless
+  // fs_event can never erase an existing snapshot and the one-open-event
+  // invariant is preserved.
   const breakCode = status === 'On Break' ? (breakInfo?.break_code ?? null) : null;
   const breakName = status === 'On Break' ? (breakInfo?.break_name ?? null) : null;
   await client.query(
     `INSERT INTO agent_state_events
        (agent_id, session_id, status, started_at, source, break_code, break_name)
      VALUES ($1, $2, $3, now(), $4, $5, $6)
-     ON CONFLICT (agent_id) WHERE ended_at IS NULL DO NOTHING`,
+     ON CONFLICT (agent_id) WHERE ended_at IS NULL
+     DO UPDATE SET
+       break_code = EXCLUDED.break_code,
+       break_name = EXCLUDED.break_name
+     WHERE agent_state_events.status      = EXCLUDED.status
+       AND agent_state_events.break_code IS NULL
+       AND EXCLUDED.break_code           IS NOT NULL`,
     [agentId, sessionId, status, source, breakCode, breakName]
   );
 }
