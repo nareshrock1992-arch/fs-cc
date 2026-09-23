@@ -203,9 +203,14 @@ export async function agentBreakHistory(req, res) {
 export async function agentCallHistory(req, res) {
   const { page, limit, offset } = parsePagination(req.query);
   const params = [req.agentId];
-  const conds  = [`c.agent_id = $1`];
+  // Base population = agent_history (one row per (call_uuid, agent_id); this is
+  // the ONLY table that records THIS agent's participation, including missed
+  // rings — calls.agent_id is set only for the answering agent). The unique
+  // (call_uuid, agent_id) constraint guarantees one row per agent per call, so
+  // no duplicates and no DISTINCT are needed. calls is LEFT JOINed for metadata.
+  const conds  = [`ah.agent_id = $1`];
 
-  conds.push(...applyDateRange(req.query, params, 'c.start_time'));
+  conds.push(...applyDateRange(req.query, params, 'COALESCE(c.start_time, ah.ring_start)'));
 
   if (req.query.direction && ['inbound', 'outbound'].includes(req.query.direction)) {
     params.push(req.query.direction);
@@ -218,24 +223,29 @@ export async function agentCallHistory(req, res) {
   if (req.query.search && String(req.query.search).trim() !== '') {
     params.push(`%${String(req.query.search).trim()}%`);
     const p = `$${params.length}`;
-    conds.push(`(c.ani ILIKE ${p} OR c.dnis ILIKE ${p} OR c.call_uuid ILIKE ${p})`);
+    conds.push(`(c.ani ILIKE ${p} OR c.dnis ILIKE ${p} OR ah.call_uuid ILIKE ${p})`);
   }
 
   const where = `WHERE ${conds.join(' AND ')}`;
-  const totalQ = await query(`SELECT COUNT(*)::INT AS total FROM calls c ${where}`, params);
+  const totalQ = await query(
+    `SELECT COUNT(*)::INT AS total
+       FROM agent_history ah
+       LEFT JOIN calls c ON c.call_uuid = ah.call_uuid
+       ${where}`,
+    params
+  );
 
   params.push(limit, offset);
   const { rows } = await query(
     `SELECT
-        c.call_uuid, c.direction, c.ani, c.dnis, c.queue_name, c.agent_id,
+        ah.call_uuid, c.direction, c.ani, c.dnis, c.queue_name, ah.agent_id,
         c.start_time, c.queue_enter_time, c.agent_answer_time, c.end_time,
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
         ah.ring_seconds, ah.talk_seconds AS agent_talk_seconds, ah.missed
-       FROM calls c
-       LEFT JOIN agent_history ah
-              ON ah.call_uuid = c.call_uuid AND ah.agent_id = c.agent_id
+       FROM agent_history ah
+       LEFT JOIN calls c ON c.call_uuid = ah.call_uuid
        ${where}
-       ORDER BY c.start_time DESC
+       ORDER BY COALESCE(c.start_time, ah.ring_start) DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
     params
   );
@@ -253,18 +263,21 @@ export async function agentCallHistoryDetail(req, res) {
   const callUuid = String(req.params.callUuid || '').trim();
   if (!callUuid) return res.status(400).json({ error: 'call id is required' });
 
+  // Ownership is validated through agent_history (agent_history.agent_id), so an
+  // agent can open a MISSED call they were rung for even though calls.agent_id
+  // points at a different (answering) agent or is NULL. calls is LEFT JOINed for
+  // metadata only.
   const { rows } = await query(
     `SELECT
-        c.call_uuid, c.direction, c.ani, c.dnis, c.vdn, c.queue_name, c.agent_id,
+        ah.call_uuid, c.direction, c.ani, c.dnis, c.vdn, c.queue_name, ah.agent_id,
         c.start_time, c.queue_enter_time, c.agent_answer_time, c.end_time,
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
         ah.ring_start, ah.ring_end, ah.ring_seconds,
         ah.talk_start, ah.talk_end, ah.talk_seconds AS agent_talk_seconds, ah.missed,
         EXTRACT(EPOCH FROM (c.end_time - c.start_time))::INT AS total_seconds
-       FROM calls c
-       LEFT JOIN agent_history ah
-              ON ah.call_uuid = c.call_uuid AND ah.agent_id = c.agent_id
-      WHERE c.call_uuid = $1 AND c.agent_id = $2`,
+       FROM agent_history ah
+       LEFT JOIN calls c ON c.call_uuid = ah.call_uuid
+      WHERE ah.call_uuid = $1 AND ah.agent_id = $2`,
     [callUuid, req.agentId]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Call not found' });

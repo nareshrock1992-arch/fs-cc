@@ -138,4 +138,32 @@ describe('history endpoints are scoped to req.agentId', () => {
     await agentCallHistory(agentReq({ query: { limit: '9999' } }), res);
     expect(res.body.limit).toBe(200);
   });
+
+  // ── Missed calls appear: base is agent_history, not calls (fix for missed
+  //    calls being invisible because calls.agent_id is answer-only) ────────────
+  it('call-history: count AND list are both based on agent_history, scoped by ah.agent_id', async () => {
+    query.mockResolvedValue({ rows: [{ total: 0 }] });
+    await agentCallHistory(agentReq({ query: {} }), makeRes());
+    const [countSql] = query.mock.calls[0];   // COUNT query
+    const [listSql]  = query.mock.calls[1];   // list query
+    for (const sql of [countSql, listSql]) {
+      expect(sql).toMatch(/FROM\s+agent_history\s+ah/);
+      expect(sql).toMatch(/LEFT JOIN calls c ON c\.call_uuid = ah\.call_uuid/);
+      expect(sql).toContain('ah.agent_id = $1');
+      expect(sql).not.toMatch(/FROM\s+calls\s+c\b/);   // calls is no longer the base
+    }
+    expect(listSql).toContain('ah.missed');            // missed status exposed
+    expect(listSql).toContain('ah.call_uuid');
+  });
+
+  it('call-history detail: ownership via agent_history (agent can open a missed call)', async () => {
+    query.mockResolvedValueOnce({ rows: [{ call_uuid: 'abc-123', missed: true }] });
+    const res = makeRes();
+    await agentCallHistoryDetail(agentReq({ params: { callUuid: 'abc-123' } }), res);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toMatch(/FROM\s+agent_history\s+ah/);
+    expect(sql).toContain('WHERE ah.call_uuid = $1 AND ah.agent_id = $2');
+    expect(params).toEqual(['abc-123', 'alice']);
+    expect(res.body.missed).toBe(true);
+  });
 });
