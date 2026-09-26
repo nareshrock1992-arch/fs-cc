@@ -17,6 +17,38 @@
   --ink:       15  23  42;        /* #0F172A */
   --ink-dim:   71  85 105;        /* #475569 */
   --ink-faint: 148 163 184;       /* #94A3B8 */
+
+  /* ── FS-CC canonical design tokens (shared with Admin) ───────────────── */
+  --primary:        37 99 235;    /* #2563EB */
+  --primary-hover:  30 79 181;    /* #1E4FB5 */
+  --success:        22 163 74;    /* #16A34A */
+  --warning:       217 119 6;     /* #D97706 */
+  --danger:        220 38 38;     /* #DC2626 */
+  --info:           37 99 235;    /* #2563EB */
+  --focus:          37 99 235;    /* #2563EB */
+
+  --bg:            248 250 255;   /* = panel-bg   */
+  --surface:       255 255 255;   /* = panel-surface */
+  --surface-2:     238 242 255;   /* = panel-raised */
+  --surface-raised:238 242 255;
+  --border:        209 217 238;   /* = panel-border */
+  --border-strong: 148 163 184;
+
+  --text-primary:   15 23 42;
+  --text-secondary: 71 85 105;
+  --text-muted:    100 116 139;
+  --text-disabled: 148 163 184;
+
+  /* Contact-center status colours (identical in both themes) */
+  --status-available:  22 163 74;
+  --status-oncall:     37 99 235;
+  --status-ringing:   217 119 6;
+  --status-onbreak:   124 58 237;
+  --status-loggedout: 100 116 139;
+  --status-waiting:   217 119 6;
+  --status-abandoned: 220 38 38;
+  --status-noanswer:  234 88 12;
+  --status-error:     220 38 38;
 }
 
 .dark {
@@ -31,6 +63,28 @@
   --ink:       232 236 246;       /* #E8ECF6 */
   --ink-dim:   139 153 184;       /* #8B99B8 */
   --ink-faint:  76  90 120;       /* #4C5A78 */
+
+  /* ── FS-CC canonical tokens — dark overrides ─────────────────────────── */
+  --primary:        37 99 235;
+  --primary-hover:  30 79 181;
+  --success:        39 201 138;   /* #27C98A */
+  --warning:       245 166 35;    /* #F5A623 */
+  --danger:        239 68 68;     /* #EF4444 */
+  --info:          96 165 250;    /* #60A5FA */
+  --focus:          37 99 235;
+
+  --bg:             6 11 23;
+  --surface:       11 18 32;
+  --surface-2:     17 27 46;
+  --surface-raised:17 27 46;
+  --border:        28 42 66;
+  --border-strong: 42 58 86;
+
+  --text-primary:  232 236 246;
+  --text-secondary:139 153 184;
+  --text-muted:     76 90 120;
+  --text-disabled:  76 90 120;
+  /* status colours inherited from :root */
 }
 
 /* ─── Base ─────────────────────────────────────────────────────────────────── */

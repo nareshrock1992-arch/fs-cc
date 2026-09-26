@@ -19,9 +19,11 @@ import { pool } from '../db/pool.js';
 //   absorbs the duplicate that arrives when both the REST handler and the
 //   FreeSWITCH ESL event fire for the same user action within ~200ms.
 //
-// All reads and writes for a single transition use ONE pool client so the
-// check-then-act sequence is serialized within Node.js's single-threaded
-// event loop. No advisory locks needed for a single-process deployment.
+// Every transition (and login reconciliation) runs inside a transaction guarded
+// by a per-agent advisory lock (pg_advisory_xact_lock), so the check-then-act
+// sequence is atomic even across concurrent requests / processes. State events
+// are session-scoped: an open event is only ever a "duplicate" within its own
+// session — a stale event from a previous login is closed, never reused.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
@@ -38,7 +40,7 @@ async function getOpenSession(client, agentId) {
 
 async function getOpenEvent(client, agentId) {
   const { rows } = await client.query(
-    `SELECT id, status, started_at, break_code FROM agent_state_events
+    `SELECT id, status, started_at, break_code, session_id FROM agent_state_events
      WHERE agent_id = $1 AND ended_at IS NULL
      LIMIT 1`,
     [agentId]
@@ -141,54 +143,87 @@ async function closeEvent(client, eventId) {
 export async function handleStatusTransition(agentId, newStatus, source, breakInfo = null) {
   const client = await pool.connect();
   try {
+    // Serialize all transitions for this agent (login/logout/status/fs_event/manual)
+    // so the read-decide-write sequence is atomic, and wrap it in a transaction.
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [agentId]);
+
     const openSession_ = await getOpenSession(client, agentId);
     const openEvent_   = await getOpenEvent(client, agentId);
 
     if (newStatus === 'Logged Out') {
-      if (!openSession_) return; // already logged out — no-op
-
-      if (openEvent_) {
-        await closeEvent(client, openEvent_.id);
-      }
-      await closeSession(client, openSession_.id, source);
+      if (openEvent_)   await closeEvent(client, openEvent_.id);
+      if (openSession_) await closeSession(client, openSession_.id, source);
+      await client.query('COMMIT');
       return;
     }
 
-    // newStatus is 'Available' or 'On Break'
+    // newStatus is 'Available' or 'On Break' — ensure a current session exists.
+    const sessionId = openSession_ ? openSession_.id : await openSession(client, agentId);
 
-    // Dedup: same status already open.
-    // Special case: an explicit NEW break code that differs from the currently
-    // open break segment closes the old segment and opens a fresh one, so each
-    // break reason is a distinct, correctly-timed history row. When no explicit
-    // break code is supplied (FS/reconciliation path), preserve the original
-    // no-op dedup so a codeless FS event never wipes an existing snapshot.
-    if (openEvent_ && openEvent_.status === newStatus) {
+    // Session-scoped dedup: a no-op ONLY when the open event belongs to the
+    // CURRENT session AND has the same status. An open event from a previous
+    // session (e.g. an unclean logout that left it open) is NEVER treated as a
+    // duplicate — it is closed and a fresh event is opened in the current
+    // session, so the live timer anchors to this session, not the old one.
+    if (openEvent_ && openEvent_.status === newStatus && openEvent_.session_id === sessionId) {
+      // Special case: an explicit NEW break code closes the old break segment and
+      // opens a fresh one so each break reason is a distinct history row.
       const switchingReason =
         newStatus === 'On Break' &&
         breakInfo?.break_code &&
         breakInfo.break_code !== openEvent_.break_code;
-      if (!switchingReason) return;
+      if (!switchingReason) { await client.query('COMMIT'); return; }
       await closeEvent(client, openEvent_.id);
-      await openEvent(client, agentId, openSession_.id, newStatus, source, breakInfo);
+      await openEvent(client, agentId, sessionId, newStatus, source, breakInfo);
+      await client.query('COMMIT');
       return;
     }
 
-    // Close the current open event (different status)
-    if (openEvent_) {
-      await closeEvent(client, openEvent_.id);
-    }
-
-    // Open or reuse session
-    let sessionId;
-    if (!openSession_) {
-      sessionId = await openSession(client, agentId);
-    } else {
-      sessionId = openSession_.id;
-    }
-
-    // Open new state event
+    // Different status, cross-session, or stale open event → close it, then open
+    // a fresh event bound to the current session.
+    if (openEvent_) await closeEvent(client, openEvent_.id);
     await openEvent(client, agentId, sessionId, newStatus, source, breakInfo);
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
 
+/**
+ * Establish a fresh session boundary at agent login. Atomically (per-agent
+ * advisory lock + transaction) closes any stale open state event and stale open
+ * session left behind by an unclean logout (browser close, crash, network
+ * loss), then opens a brand-new session. This guarantees every login starts a
+ * distinct session and the previous session's state timer can never carry over.
+ * Stale rows are properly closed (ended_at/logout_at + duration) so historical
+ * reporting stops at the abandoned session.
+ *
+ * @returns {Promise<number>} the new session id
+ */
+export async function startLoginSession(agentId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [agentId]);
+
+    const openEvent_   = await getOpenEvent(client, agentId);
+    if (openEvent_) await closeEvent(client, openEvent_.id);
+    const openSession_ = await getOpenSession(client, agentId);
+    if (openSession_) await closeSession(client, openSession_.id, 'relogin');
+
+    const { rows } = await client.query(
+      `INSERT INTO agent_sessions (agent_id, login_at) VALUES ($1, now()) RETURNING id`,
+      [agentId]
+    );
+    await client.query('COMMIT');
+    return rows[0].id;
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
   } finally {
     client.release();
   }

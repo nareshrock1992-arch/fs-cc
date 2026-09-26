@@ -67,6 +67,19 @@ describe('getLiveAgents SQL shape', () => {
     expect(Array.isArray(body.agents)).toBe(true);
   });
 
+  it('state_since is SESSION-SCOPED — clamps agent_state_log.changed_at to the current open session login_at', async () => {
+    const res = mockRes();
+    await stats.getLiveAgents({}, res);
+    const sql = captured[0].replace(/\s+/g, ' ');
+    // The state anchor subquery must require the row to be from the current
+    // open login session (>= its login_at), so a stale state-log row from a
+    // previous session can never become state_since after re-login.
+    expect(sql).toMatch(/agent_state_log[\s\S]*state = a\.state[\s\S]*changed_at >= COALESCE/i);
+    expect(sql).toMatch(/changed_at >= COALESCE\( \(SELECT login_at FROM agent_sessions WHERE agent_id = a\.agent_id AND logout_at IS NULL/i);
+    // No open session → 'infinity' → no row matches → state_since NULL → status_since fallback.
+    expect(sql).toMatch(/'infinity'::timestamptz/);
+  });
+
   it('idle_since is set only for Idle agents (state_since || status_since); null otherwise', async () => {
     MOCK_ROWS = [
       { agent_id: 'a1', operational_state: 'Idle',    state_since: 'S', status_since: 'T' },

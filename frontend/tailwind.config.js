@@ -1,47 +1,94 @@
 /** @type {import('tailwindcss').Config} */
+// FS-CC Admin/Supervisor — colours are CSS-variable backed (source of truth:
+// src/index.css :root + .dark). Opacity modifiers work via `/ <alpha-value>`.
+// Legacy families (panel/ink/brand/lamp) are kept as aliases so existing
+// markup keeps compiling; new code should prefer the semantic families.
+const v = (name) => `rgb(var(${name}) / <alpha-value>)`;
+
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        // ── Surface palette — dark values; light values defined in index.css ────
-        panel: {
-          bg:      '#060B17',   // page background
-          surface: '#0B1220',   // card / sidebar
-          raised:  '#111B2E',   // elevated panels, table headers
-          border:  '#1C2A42',   // visible but subtle borders
-          accent:  '#1E3A6E',   // blue accent / active indicator
+        // ── Semantic surfaces / borders / text (canonical) ──────────────
+        bg:      v('--bg'),
+        surface: {
+          DEFAULT: v('--surface'),
+          2:       v('--surface-2'),
+          raised:  v('--surface-raised'),
         },
+        border: {
+          DEFAULT: v('--border'),
+          strong:  v('--border-strong'),
+        },
+        // ── Brand / intent ──────────────────────────────────────────────
+        primary: {
+          DEFAULT: v('--primary'),
+          hover:   v('--primary-hover'),
+        },
+        success: v('--success'),
+        warning: v('--warning'),
+        danger:  v('--danger'),
+        info:    v('--info'),
+        focus:   v('--focus'),
+
+        // ── Contact-center status family (crisp, no glow) ────────────────
+        status: {
+          available:  v('--status-available'),
+          oncall:     v('--status-oncall'),
+          ringing:    v('--status-ringing'),
+          onbreak:    v('--status-onbreak'),
+          loggedout:  v('--status-loggedout'),
+          waiting:    v('--status-waiting'),
+          abandoned:  v('--status-abandoned'),
+          noanswer:   v('--status-noanswer'),
+          error:      v('--status-error'),
+        },
+
+        // ── Text hierarchy (kept as `ink` to avoid the text-primary clash
+        //    with the primary brand colour; shared with agent-desktop) ────
         ink: {
-          DEFAULT: '#E8ECF6',   // primary text
-          dim:     '#8B99B8',   // secondary text
-          faint:   '#4C5A78',   // placeholders, disabled
+          DEFAULT: v('--text-primary'),
+          dim:     v('--text-secondary'),
+          faint:   v('--text-muted'),
+          disabled:v('--text-disabled'),
         },
-        lamp: {
-          live:      '#F5A623',   // amber — ringing / waiting
-          available: '#27C98A',   // green — available
-          break:     '#4C8EF5',   // blue — on break
-          loggedout: '#4C5A78',   // muted — logged out
-          alert:     '#EF4444',   // red — abandoned / error
-          ok:        '#27C98A',   // alias → available (SLA OK)
-          warn:      '#F5A623',   // alias → live (SLA warn)
+
+        // ── Legacy aliases (var-backed → theme-aware) ────────────────────
+        panel: {
+          bg:      v('--panel-bg'),
+          surface: v('--panel-surface'),
+          raised:  v('--panel-raised'),
+          border:  v('--panel-border'),
+          accent:  v('--panel-accent'),
         },
         brand: {
-          DEFAULT: '#2563EB',
-          dim:     '#1E4FB5',
+          DEFAULT: v('--primary'),
+          dim:     v('--primary-hover'),
           light:   '#60A5FA',
+        },
+        lamp: {
+          live:      v('--status-ringing'),
+          available: v('--status-available'),
+          break:     v('--status-onbreak'),
+          loggedout: v('--status-loggedout'),
+          alert:     v('--status-error'),
+          ok:        v('--status-available'),
+          warn:      v('--status-ringing'),
         },
       },
       fontFamily: {
-        display: ['"IBM Plex Sans Condensed"', 'ui-sans-serif', 'sans-serif'],
+        display: ['"IBM Plex Sans Condensed"', 'Inter', 'ui-sans-serif', 'sans-serif'],
         sans:    ['Inter', 'ui-sans-serif', 'sans-serif'],
         mono:    ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
-        card:        '0 1px 4px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
+        // Subtle enterprise shadows (preferred)
+        card:        '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
         'card-dark': '0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.6)',
         'card-hover':'0 4px 16px rgba(0,0,0,0.12)',
+        // Glow "lamp" shadows — retained for now (blur/glow cleanup is Phase 2)
         lamp:        '0 0 0 3px rgba(245,166,35,0.15)',
         'lamp-green':'0 0 8px 2px rgba(39,201,138,0.45)',
         'lamp-amber':'0 0 8px 2px rgba(245,166,35,0.45)',
@@ -49,9 +96,11 @@ export default {
         'lamp-blue': '0 0 8px 2px rgba(76,142,245,0.45)',
       },
       borderRadius: {
-        sm:      '4px',
+        // Restrained enterprise scale: 6 / 8 / 12 / 16
+        sm:      '6px',
         DEFAULT: '8px',
-        lg:      '10px',
+        md:      '8px',
+        lg:      '12px',
         xl:      '12px',
         '2xl':   '16px',
       },

@@ -46,7 +46,9 @@ function buildQueryMock({
     }
     // getOpenEvent
     if (s.includes('agent_state_events') && s.includes('ended_at IS NULL')) {
-      return { rows: openEvent ? [openEvent] : [] };
+      // Default the open event to the current session so the session-scoped dedup
+      // treats it as same-session unless a fixture overrides session_id.
+      return { rows: openEvent ? [{ session_id: openSession?.id, ...openEvent }] : [] };
     }
     // openSession CTE: INSERT … ON CONFLICT … RETURNING id … UNION ALL SELECT
     // Returns the id regardless of which branch (INSERT or UNION ALL) produced it.

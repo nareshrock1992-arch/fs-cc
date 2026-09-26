@@ -23,7 +23,10 @@ function setup({ openSession = { id: 1 }, openEvent = null } = {}) {
     if (s.includes('agent_sessions') && s.includes('logout_at IS NULL') && !s.includes('INSERT INTO') && !s.includes('id, agent_id FROM'))
       return { rows: openSession ? [openSession] : [] };
     if (s.includes('agent_state_events') && s.includes('ended_at IS NULL') && s.startsWith('SELECT'))
-      return { rows: openEvent ? [openEvent] : [] };
+      // Default the open event's session_id to the open session's id so the
+      // session-scoped dedup treats it as the current session unless a test
+      // explicitly overrides session_id (cross-session case).
+      return { rows: openEvent ? [{ session_id: openSession?.id, ...openEvent }] : [] };
     if (s.includes('INSERT INTO agent_sessions') && s.includes('RETURNING id'))
       return { rows: [{ id: openSession?.id ?? 1 }] };
     return { rows: [] };

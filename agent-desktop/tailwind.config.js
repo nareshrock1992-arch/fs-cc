@@ -8,6 +8,37 @@ export default {
       // Light values live in :root, dark values in .dark — defined in index.css.
       // Opacity modifiers (bg-panel-bg/50) work because of the /alpha-value syntax.
       colors: {
+        // ── FS-CC canonical semantic families (shared with Admin) ────────
+        bg:      'rgb(var(--bg)      / <alpha-value>)',
+        surface: {
+          DEFAULT: 'rgb(var(--surface)        / <alpha-value>)',
+          2:       'rgb(var(--surface-2)      / <alpha-value>)',
+          raised:  'rgb(var(--surface-raised) / <alpha-value>)',
+        },
+        border: {
+          DEFAULT: 'rgb(var(--border)        / <alpha-value>)',
+          strong:  'rgb(var(--border-strong) / <alpha-value>)',
+        },
+        primary: {
+          DEFAULT: 'rgb(var(--primary)       / <alpha-value>)',
+          hover:   'rgb(var(--primary-hover) / <alpha-value>)',
+        },
+        success: 'rgb(var(--success) / <alpha-value>)',
+        warning: 'rgb(var(--warning) / <alpha-value>)',
+        danger:  'rgb(var(--danger)  / <alpha-value>)',
+        info:    'rgb(var(--info)    / <alpha-value>)',
+        focus:   'rgb(var(--focus)   / <alpha-value>)',
+        status: {
+          available: 'rgb(var(--status-available) / <alpha-value>)',
+          oncall:    'rgb(var(--status-oncall)    / <alpha-value>)',
+          ringing:   'rgb(var(--status-ringing)   / <alpha-value>)',
+          onbreak:   'rgb(var(--status-onbreak)   / <alpha-value>)',
+          loggedout: 'rgb(var(--status-loggedout) / <alpha-value>)',
+          waiting:   'rgb(var(--status-waiting)   / <alpha-value>)',
+          abandoned: 'rgb(var(--status-abandoned) / <alpha-value>)',
+          noanswer:  'rgb(var(--status-noanswer)  / <alpha-value>)',
+          error:     'rgb(var(--status-error)     / <alpha-value>)',
+        },
         panel: {
           bg:      'rgb(var(--panel-bg)      / <alpha-value>)',
           surface: 'rgb(var(--panel-surface) / <alpha-value>)',

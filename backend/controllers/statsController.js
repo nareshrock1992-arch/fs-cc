@@ -310,10 +310,22 @@ export async function getLiveAgents(_req, res) {
       LIMIT 1
     ) ase ON true
 
-    -- Last transition INTO the agent's CURRENT fine state (true idle/state anchor).
+    -- Last transition INTO the agent's CURRENT fine state (true idle/state anchor),
+    -- SESSION-SCOPED: only consider state-log rows from the agent's current open
+    -- login session (changed_at >= that session's login_at). agent_state_log is
+    -- append-only and not session-scoped, so without this clamp a stale row from a
+    -- previous login (e.g. Waiting 3h ago) would win when no fresh FreeSWITCH
+    -- agent-state-change fires after re-login, and the live timer would resume the
+    -- previous session's duration. With no open session (logged out) the clamp is
+    -- 'infinity' → no row matches → state_since = NULL (falls back to status_since).
     LEFT JOIN LATERAL (
       SELECT changed_at FROM agent_state_log
       WHERE agent_id = a.agent_id AND state IS NOT NULL AND state = a.state
+        AND changed_at >= COALESCE(
+          (SELECT login_at FROM agent_sessions
+             WHERE agent_id = a.agent_id AND logout_at IS NULL
+             ORDER BY login_at DESC LIMIT 1),
+          'infinity'::timestamptz)
       ORDER BY changed_at DESC
       LIMIT 1
     ) sl ON true

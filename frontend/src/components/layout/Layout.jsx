@@ -8,7 +8,7 @@ function getInitialTheme() {
     const saved = localStorage.getItem('cc-theme');
     if (saved) return saved === 'dark';
   } catch {}
-  return true; // default: dark
+  return false; // default: light (FS-CC is light-first)
 }
 
 export default function Layout() {
@@ -27,7 +27,7 @@ export default function Layout() {
   const toggleTheme = () => setIsDark((d) => !d);
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans bg-gray-50 dark:bg-panel-bg text-gray-900 dark:text-ink antialiased">
+    <div className="flex h-screen overflow-hidden font-sans bg-bg text-ink antialiased">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar isDark={isDark} toggleTheme={toggleTheme} />

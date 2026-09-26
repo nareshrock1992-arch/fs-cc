@@ -2,71 +2,158 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Light-mode surface tokens ─────────────────────────────────────────────── */
-/* Dark-mode surfaces are defined as hex strings in tailwind.config.js.        */
-/* These @layer base overrides patch the light-mode raw-Tailwind values into   */
-/* the same token names so components need only one class each.                */
+/* ═══════════════════════════════════════════════════════════════════════════
+   FS-CC DESIGN SYSTEM — semantic token foundation (Phase 1)
+   ---------------------------------------------------------------------------
+   Single source of truth for both FS-CC applications:
+     • frontend/       (Supervisor / Admin)  ← this file
+     • agent-desktop/  (Agent Desktop)       ← mirrors these tokens
+   Tokens are stored as space-separated RGB triplets so Tailwind's
+   `rgb(var(--x) / <alpha-value>)` syntax enables opacity modifiers
+   (e.g. bg-surface/50, text-ink/70).
+   LIGHT is the default (:root). DARK overrides via `.dark` on <html>.
+   Legacy names (--panel-*, --ink-*, --brand*) alias the canonical tokens so
+   existing markup (185 usages across 21 files) keeps compiling unchanged.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Brand / intent ──────────────────────────────────────────────── */
+  --primary:        37 99 235;    /* #2563EB */
+  --primary-hover:  30 79 181;    /* #1E4FB5 */
+  --success:        22 163 74;    /* #16A34A */
+  --warning:       217 119 6;     /* #D97706 */
+  --danger:        220 38 38;     /* #DC2626 */
+  --info:           37 99 235;    /* #2563EB */
+  --focus:          37 99 235;    /* #2563EB */
+
+  /* ── Surfaces ────────────────────────────────────────────────────── */
+  --bg:            240 244 248;   /* #F0F4F8  page background */
+  --surface:       255 255 255;   /* #FFFFFF  cards / sidebar   */
+  --surface-2:     241 245 249;   /* #F1F5F9  table head / hover */
+  --surface-raised:248 250 252;   /* #F8FAFC  raised panels     */
+
+  /* ── Borders ─────────────────────────────────────────────────────── */
+  --border:        226 232 240;   /* #E2E8F0 */
+  --border-strong: 203 213 225;   /* #CBD5E1 */
+
+  /* ── Text ────────────────────────────────────────────────────────── */
+  --text-primary:   15 23 42;     /* #0F172A */
+  --text-secondary: 71 85 105;    /* #475569 */
+  --text-muted:    100 116 139;   /* #64748B */
+  --text-disabled: 148 163 184;   /* #94A3B8 */
+
+  /* ── Contact-center status colours (identical in both themes) ────────
+     Crisp, no glow. Consumed by StatusBadge/StatusLamp and charts.       */
+  --status-available:  22 163 74;    /* green   */
+  --status-oncall:     37 99 235;    /* blue    */
+  --status-ringing:   217 119 6;     /* amber   */
+  --status-onbreak:   124 58 237;    /* violet  */
+  --status-loggedout: 100 116 139;   /* slate   */
+  --status-waiting:   217 119 6;     /* amber   */
+  --status-abandoned: 220 38 38;     /* red     */
+  --status-noanswer:  234 88 12;     /* orange  */
+  --status-error:     220 38 38;     /* red     */
+
+  /* ── Legacy aliases → canonical (do not add new usages of these) ───── */
+  --panel-bg:      var(--bg);
+  --panel-surface: var(--surface);
+  --panel-raised:  var(--surface-raised);
+  --panel-border:  var(--border);
+  --panel-accent:  var(--primary);
+  --ink:       var(--text-primary);
+  --ink-dim:   var(--text-secondary);
+  --ink-faint: var(--text-muted);
+}
+
+.dark {
+  /* Dark values are the EXACT pre-migration admin hex → dark mode is
+     pixel-identical to before this refactor. */
+  --primary:        37 99 235;    /* #2563EB */
+  --primary-hover:  30 79 181;    /* #1E4FB5 */
+  --success:        39 201 138;   /* #27C98A */
+  --warning:       245 166 35;    /* #F5A623 */
+  --danger:        239 68 68;     /* #EF4444 */
+  --info:          96 165 250;    /* #60A5FA */
+  --focus:          37 99 235;    /* #2563EB */
+
+  --bg:             6 11 23;      /* #060B17 */
+  --surface:       11 18 32;      /* #0B1220 */
+  --surface-2:     17 27 46;      /* #111B2E */
+  --surface-raised:17 27 46;      /* #111B2E */
+
+  --border:        28 42 66;      /* #1C2A42 */
+  --border-strong: 42 58 86;      /* #2A3A56 */
+
+  --text-primary:  232 236 246;   /* #E8ECF6 */
+  --text-secondary:139 153 184;   /* #8B99B8 */
+  --text-muted:     76 90 120;    /* #4C5A78  (known low-contrast — a11y pass) */
+  --text-disabled:  76 90 120;    /* #4C5A78 */
+
+  /* status colours unchanged in dark — inherited from :root */
+}
+
+/* ═══ Base ═══════════════════════════════════════════════════════════════ */
 @layer base {
   html {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', ui-sans-serif, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply bg-panel-bg dark:bg-panel-bg;
+    @apply bg-bg text-ink;
     min-height: 100vh;
   }
 }
 
-/* ── Global component utilities ─────────────────────────────────────────────── */
+/* ═══ Component primitives (token-driven; no dark: scatter) ═══════════════ */
 @layer components {
   /* Card — the single canonical card container */
   .card {
-    @apply bg-white dark:bg-panel-surface border border-gray-200 dark:border-panel-border
-           rounded-xl shadow-card;
+    @apply bg-surface border border-border rounded-xl shadow-card;
+  }
+  .dark .card {
+    @apply shadow-card-dark;
   }
 
-  /* Unified button primitives */
+  /* Button primitives */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand
-           hover:bg-brand-dim text-white font-semibold text-sm px-4 py-2
-           transition-colors focus:outline-none focus:ring-2 focus:ring-brand/40
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary
+           hover:bg-primary-hover text-white font-semibold text-sm px-4 py-2
+           transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40
            disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg
-           border border-gray-200 dark:border-panel-border
-           bg-gray-50 dark:bg-panel-raised
-           text-gray-600 dark:text-ink-dim hover:text-gray-900 dark:hover:text-ink
+           border border-border bg-surface-2
+           text-ink-dim hover:text-ink
            font-medium text-sm px-4 py-2 transition-colors
-           focus:outline-none focus:ring-2 focus:ring-brand/30
+           focus:outline-none focus:ring-2 focus:ring-primary/30
            disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-danger {
     @apply inline-flex items-center justify-center gap-2 rounded-lg
-           border border-lamp-alert/30 text-lamp-alert
-           hover:bg-lamp-alert/10 font-medium text-sm px-4 py-2 transition-colors
-           focus:outline-none focus:ring-2 focus:ring-lamp-alert/30
+           border border-danger/30 text-danger
+           hover:bg-danger/10 font-medium text-sm px-4 py-2 transition-colors
+           focus:outline-none focus:ring-2 focus:ring-danger/30
            disabled:opacity-60 disabled:pointer-events-none;
   }
 
-  /* Unified field input */
+  /* Field input */
   .field-input {
-    @apply w-full rounded-lg border border-gray-300 dark:border-panel-border
-           bg-gray-50 dark:bg-panel-raised
-           px-3 py-2 text-sm text-gray-900 dark:text-ink
-           placeholder:text-gray-400 dark:placeholder:text-ink-faint
-           focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand/60
+    @apply w-full rounded-lg border border-border bg-surface-2
+           px-3 py-2 text-sm text-ink
+           placeholder:text-ink-faint
+           focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60
            transition-colors;
   }
 
-  /* Unified table header cell */
+  /* Table header cell */
   .th {
     @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider
-           text-gray-400 dark:text-ink-faint bg-gray-50 dark:bg-panel-raised;
+           text-ink-faint bg-surface-2;
   }
 
   /* Status badge base */
@@ -74,35 +161,36 @@
     @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
            text-[11px] font-semibold;
   }
+
+  /* ── Typography scale (foundation — available to later phases) ─────── */
+  .text-page-title    { @apply font-sans text-[20px] font-semibold leading-tight text-ink; }
+  .text-section-title { @apply font-sans text-[15px] font-semibold leading-snug text-ink; }
+  .text-metric        { @apply font-sans text-[26px] font-semibold leading-none tabular-nums text-ink; }
+  .text-table-head    { @apply font-sans text-[12px] font-semibold text-ink-dim; }
+  .text-body          { @apply font-sans text-[14px] font-normal text-ink; }
+  .text-secondary-sm  { @apply font-sans text-[13px] text-ink-dim; }
+  .text-label         { @apply font-sans text-[12px] font-medium text-ink-dim; }
+  .text-status        { @apply font-sans text-[12px] font-semibold; }
 }
 
-/* ── Page background ─────────────────────────────────────────────────────────── */
-body {
-  background-color: #F0F4F8;
-}
-.dark body {
-  background-color: #060B17;
-}
-
-/* Make dark-mode body work via html.dark class */
+/* ═══ Page background ════════════════════════════════════════════════════ */
 html.dark body {
-  background-color: #060B17;
   background-image:
     radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.04), transparent 35%),
     radial-gradient(circle at 100% 0%, rgba(76, 142, 245, 0.04), transparent 35%);
 }
 
-/* ── Text selection ──────────────────────────────────────────────────────────── */
+/* ═══ Text selection ═════════════════════════════════════════════════════ */
 ::selection {
   background: rgba(37, 99, 235, 0.25);
 }
 
-/* ── Tabular numerals ────────────────────────────────────────────────────────── */
+/* ═══ Tabular numerals ═══════════════════════════════════════════════════ */
 .tnum {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Scrollbars ──────────────────────────────────────────────────────────────── */
+/* ═══ Scrollbars ═════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -111,20 +199,14 @@ html.dark body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #CBD5E1;
+  background: rgb(var(--border-strong));
   border-radius: 8px;
 }
-html.dark ::-webkit-scrollbar-thumb {
-  background: #1C2A42;
-}
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
-}
-html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #2A3A56;
+  background: rgb(var(--text-disabled));
 }
 
-/* ── Animations ──────────────────────────────────────────────────────────────── */
+/* ═══ Animations ═════════════════════════════════════════════════════════ */
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
@@ -150,7 +232,7 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   animation: slide-in-up 0.2s ease-out;
 }
 
-/* ── Skeleton loader ─────────────────────────────────────────────────────────── */
+/* ═══ Skeleton loader ════════════════════════════════════════════════════ */
 .skeleton {
-  @apply animate-pulse rounded-lg bg-gray-200 dark:bg-panel-raised;
+  @apply animate-pulse rounded-lg bg-surface-2;
 }

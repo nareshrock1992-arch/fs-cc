@@ -32,6 +32,17 @@ export async function agentLogin(req, res) {
   const valid = await bcrypt.compare(String(pin), agent.pin_hash);
   if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
+  // Session boundary: close any stale session/state event left by a previous
+  // unclean logout and start a fresh session, so the Live Agents timer never
+  // carries over the previous session's duration. Best-effort — a failure here
+  // must not block a valid login (the session-scoped transition logic is a
+  // safety net that will still close a cross-session event on the next status).
+  try {
+    await agentSession.startLoginSession(agent.agent_id);
+  } catch (e) {
+    console.warn(`[agentLogin] session reconcile failed for ${agent.agent_id}: ${e.message}`);
+  }
+
   const token = jwt.sign(
     { agentId: agent.agent_id, fullName: agent.full_name, role: 'agent' },
     config.jwt.secret,
