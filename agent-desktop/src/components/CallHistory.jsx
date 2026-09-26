@@ -49,8 +49,8 @@ function DetailModal({ uuid, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-label="Call details">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-xl border border-panel-border bg-panel-surface shadow-2xl">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-xl border border-panel-border bg-panel-surface shadow-card-hover">
         <div className="flex items-center justify-between px-5 py-4 border-b border-panel-border">
           <h3 className="font-semibold text-sm text-ink">Call Details</h3>
           <button onClick={onClose} aria-label="Close" className="text-ink-faint hover:text-ink"><X size={18} /></button>

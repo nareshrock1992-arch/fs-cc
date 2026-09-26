@@ -86,8 +86,8 @@
 
   --text-primary:  232 236 246;   /* #E8ECF6 */
   --text-secondary:139 153 184;   /* #8B99B8 */
-  --text-muted:     76 90 120;    /* #4C5A78  (known low-contrast — a11y pass) */
-  --text-disabled:  76 90 120;    /* #4C5A78 */
+  --text-muted:    124 137 166;   /* #7C89A6  Phase 2: raised for legibility */
+  --text-disabled: 100 112 138;   /* #64708A  dimmer than muted, still readable */
 
   /* status colours unchanged in dark — inherited from :root */
 }

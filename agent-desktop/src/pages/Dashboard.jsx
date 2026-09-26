@@ -17,8 +17,8 @@ const PERF_INTERVAL  = 30_000;
 
 function statusDotClass(status) {
   switch (status) {
-    case 'Available': return 'bg-lamp-available shadow-lamp-green';
-    case 'On Break':  return 'bg-lamp-break shadow-lamp-blue';
+    case 'Available': return 'bg-lamp-available';
+    case 'On Break':  return 'bg-lamp-break';
     default:          return 'bg-ink-faint';
   }
 }

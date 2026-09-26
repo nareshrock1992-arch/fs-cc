@@ -46,7 +46,7 @@ function AdminMenu({ user }) {
           ${open ? 'border-gray-200 dark:border-panel-border bg-gray-100 dark:bg-panel-raised' : ''}`}
       >
         <div className="h-8 w-8 rounded-full bg-brand flex items-center justify-center
-          text-white text-xs font-bold shadow-lamp-blue shrink-0">
+          text-white text-xs font-bold shrink-0">
           {initials}
         </div>
         <div className="hidden sm:block text-left leading-tight">
@@ -133,7 +133,7 @@ export default function Topbar({ isDark, toggleTheme }) {
 
   return (
     <header className="relative z-30 h-16 shrink-0 border-b dark:border-panel-border border-gray-200
-      dark:bg-panel-surface/95 bg-white/90 backdrop-blur px-6 flex items-center justify-between">
+      dark:bg-panel-surface bg-white px-6 flex items-center justify-between">
 
       <div>
         <h1 className="font-display font-bold text-lg leading-tight dark:text-ink text-gray-900">

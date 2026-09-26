@@ -84,16 +84,10 @@ export default {
         mono:    ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
-        // Subtle enterprise shadows (preferred)
+        // Subtle enterprise shadows only (Phase 2: glow "lamp" shadows removed)
         card:        '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
         'card-dark': '0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.6)',
         'card-hover':'0 4px 16px rgba(0,0,0,0.12)',
-        // Glow "lamp" shadows — retained for now (blur/glow cleanup is Phase 2)
-        lamp:        '0 0 0 3px rgba(245,166,35,0.15)',
-        'lamp-green':'0 0 8px 2px rgba(39,201,138,0.45)',
-        'lamp-amber':'0 0 8px 2px rgba(245,166,35,0.45)',
-        'lamp-red':  '0 0 8px 2px rgba(239,68,68,0.45)',
-        'lamp-blue': '0 0 8px 2px rgba(76,142,245,0.45)',
       },
       borderRadius: {
         // Restrained enterprise scale: 6 / 8 / 12 / 16

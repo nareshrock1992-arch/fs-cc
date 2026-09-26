@@ -102,7 +102,7 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
 
       {/* Panel */}
       <div className="relative z-10 w-full max-w-4xl max-h-[85vh] overflow-y-auto
-        bg-white dark:bg-panel-surface rounded-xl shadow-2xl
+        bg-white dark:bg-panel-surface rounded-xl shadow-card-hover
         border border-gray-200 dark:border-panel-border">
 
         {/* Header */}

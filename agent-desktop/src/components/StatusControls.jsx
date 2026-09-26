@@ -50,13 +50,13 @@ export default function StatusControls({ currentStatus, breakCodes, onStatusChan
           aria-pressed={available}
           className={`btn border text-sm font-semibold transition-all
             ${available
-              ? 'bg-lamp-available/20 border-lamp-available text-lamp-available shadow-lamp-green'
+              ? 'bg-lamp-available/20 border-lamp-available text-lamp-available'
               : 'bg-lamp-available/10 border-lamp-available/30 hover:bg-lamp-available/20 text-ink-dim'}
             disabled:opacity-60`}
         >
           {changing === 'Available'
             ? <Loader2 size={15} className="animate-spin" />
-            : <>{available && <span className="w-2 h-2 rounded-full shrink-0 bg-lamp-available shadow-lamp-green" />}<Check size={15} /></>}
+            : <>{available && <span className="w-2 h-2 rounded-full shrink-0 bg-lamp-available" />}<Check size={15} /></>}
           Available
         </button>
 
@@ -69,13 +69,13 @@ export default function StatusControls({ currentStatus, breakCodes, onStatusChan
             aria-expanded={menuOpen}
             className={`btn border text-sm font-semibold transition-all
               ${onBreak
-                ? 'bg-lamp-break/20 border-lamp-break text-lamp-break shadow-lamp-blue'
+                ? 'bg-lamp-break/20 border-lamp-break text-lamp-break'
                 : 'bg-lamp-break/10 border-lamp-break/30 hover:bg-lamp-break/20 text-ink-dim'}
               disabled:opacity-60`}
           >
             {changing === 'On Break'
               ? <Loader2 size={15} className="animate-spin" />
-              : <>{onBreak && <span className="w-2 h-2 rounded-full shrink-0 bg-lamp-break shadow-lamp-blue" />}<Coffee size={15} /></>}
+              : <>{onBreak && <span className="w-2 h-2 rounded-full shrink-0 bg-lamp-break" />}<Coffee size={15} /></>}
             {onBreak ? 'Change Break' : 'Take Break'}
             <ChevronDown size={14} className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -85,7 +85,7 @@ export default function StatusControls({ currentStatus, breakCodes, onStatusChan
               role="listbox"
               aria-label="Select break reason"
               className="absolute z-20 mt-1 w-56 max-h-72 overflow-y-auto rounded-lg border
-                         border-panel-border bg-panel-surface shadow-xl py-1"
+                         border-panel-border bg-panel-surface shadow-card-hover py-1"
             >
               {(!breakCodes || breakCodes.length === 0) ? (
                 <p className="px-3 py-3 text-xs text-ink-faint">

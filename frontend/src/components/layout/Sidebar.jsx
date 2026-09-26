@@ -90,7 +90,7 @@ export default function Sidebar() {
 
       {/* Brand header */}
       <div className="h-16 flex items-center gap-3 px-5 border-b border-gray-200 shrink-0">
-        <div className="h-8 w-8 rounded-xl bg-brand flex items-center justify-center shadow-lamp-blue shrink-0">
+        <div className="h-8 w-8 rounded-xl bg-brand flex items-center justify-center shrink-0">
           <Radio size={15} className="text-white" />
         </div>
         <div className="leading-tight">
