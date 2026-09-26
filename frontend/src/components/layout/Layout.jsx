@@ -39,7 +39,9 @@ export default function Layout() {
           {/* Standardized enterprise content container: wide for information
               density, centered, consistent gutters. (Phase 3A.6) */}
           <div className="mx-auto w-full max-w-[1600px] px-6 py-5">
-            <PageHeader title={meta.title} description={meta.description} />
+            {/* Title lives in the Topbar; this header carries context (description)
+                + future page actions, so the title is not repeated underneath. */}
+            <PageHeader description={meta.description} />
             <Outlet />
           </div>
         </main>
