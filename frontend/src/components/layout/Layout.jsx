@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
+import PageHeader from '../PageHeader.jsx';
+import { pageMetaFor } from '../../lib/pageMeta.js';
 
 function getInitialTheme() {
   try {
@@ -13,6 +15,8 @@ function getInitialTheme() {
 
 export default function Layout() {
   const [isDark, setIsDark] = useState(getInitialTheme);
+  const { pathname } = useLocation();
+  const meta = pageMetaFor(pathname);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -31,8 +35,13 @@ export default function Layout() {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar isDark={isDark} toggleTheme={toggleTheme} />
-        <main className="flex-1 overflow-y-auto px-6 py-6">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto">
+          {/* Standardized enterprise content container: wide for information
+              density, centered, consistent gutters. (Phase 3A.6) */}
+          <div className="mx-auto w-full max-w-[1600px] px-6 py-5">
+            <PageHeader title={meta.title} description={meta.description} />
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

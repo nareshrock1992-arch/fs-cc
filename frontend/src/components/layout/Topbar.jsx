@@ -3,16 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Sun, Moon, ChevronDown, ShieldCheck, LogOut, Wifi, WifiOff } from 'lucide-react';
 import { socket, useSocketEvent } from '../../api/socket.js';
 import { useAuth, clearToken } from '../../hooks/useAuth.js';
-
-const TITLES = {
-  '/':            ['Dashboard',       'Live system overview'],
-  '/live-calls':  ['Live Calls',      'Calls in queue and in progress'],
-  '/agents':      ['Agents',          'Roster, status and Avaya extension mapping'],
-  '/queues':      ['Queues',          'ACD queues, strategy and tiers'],
-  '/queue-stats': ['Queue Stats',     'Live per-queue statistics'],
-  '/reports':     ['Reports',         'Historical queue and agent performance'],
-  '/users':       ['User Management', 'Admin and supervisor accounts'],
-};
+import { pageMetaFor } from '../../lib/pageMeta.js';
 
 // ── Admin avatar dropdown ─────────────────────────────────────────────────────
 
@@ -107,7 +98,7 @@ function AdminMenu({ user }) {
 export default function Topbar({ isDark, toggleTheme }) {
   const { pathname }   = useLocation();
   const { user }       = useAuth();
-  const [title, subtitle] = TITLES[pathname] || ['Switchboard', ''];
+  const { title }      = pageMetaFor(pathname);
   const [eslConnected, setEslConnected] = useState(false);
   const [now, setNow]  = useState(new Date());
 
@@ -139,9 +130,6 @@ export default function Topbar({ isDark, toggleTheme }) {
         <h1 className="font-display font-bold text-lg leading-tight dark:text-ink text-gray-900">
           {title}
         </h1>
-        {subtitle && (
-          <p className="text-[11px] dark:text-ink-faint text-gray-400 tracking-wide">{subtitle}</p>
-        )}
       </div>
 
       <div className="flex items-center gap-2">

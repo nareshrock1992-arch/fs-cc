@@ -162,6 +162,22 @@
            text-[11px] font-semibold;
   }
 
+  /* ── Shared table system (Phase 3A.5) ────────────────────────────────
+     Reusable primitives so Phase 3C can migrate existing tables to one
+     consistent visual language WITHOUT a functional rewrite. `.th` above
+     remains the header-cell class; these add body cells, rows and density. */
+  .data-table        { @apply w-full text-sm; }
+  .td                { @apply px-4 py-2.5 align-middle text-ink; }
+  .td-secondary      { @apply px-4 py-2.5 align-middle text-ink-dim; }
+  .td-num            { @apply px-4 py-2.5 align-middle text-right font-mono tabular-nums text-ink; }
+  .tr-row            { @apply border-b border-border/60 last:border-0
+                              hover:bg-surface-2/70 transition-colors; }
+  /* Compact density modifier — apply on the <table> to tighten row height. */
+  .data-table.is-compact .td,
+  .data-table.is-compact .td-secondary,
+  .data-table.is-compact .td-num,
+  .data-table.is-compact .th { @apply py-1.5; }
+
   /* ── Typography scale (foundation — available to later phases) ─────── */
   .text-page-title    { @apply font-sans text-[20px] font-semibold leading-tight text-ink; }
   .text-section-title { @apply font-sans text-[15px] font-semibold leading-snug text-ink; }

@@ -22,19 +22,17 @@ const CALL_HISTORY_ITEM  = { to: '/reports/call-history',   label: 'Call History
 const BREAK_CODES_ITEM   = { to: '/break-codes',            label: 'Break Codes',     icon: Coffee };
 const USERS_ITEM         = { to: '/users',                  label: 'User Management', icon: ShieldCheck };
 
-// ── Light-mode enterprise navigation tab styling ──────────────────────────────
-// Colours are hard-coded standard-Tailwind values (gray-200 #E5E7EB, slate-700
-// #334155, slate-500 #64748B, slate-400 #94A3B8, slate-50 #F8FAFC, blue-50
-// #EFF6FF, blue-600 #2563EB) so the sidebar renders as a white enterprise panel
-// WITHOUT touching the shared panel-*/ink-* tokens used by the dashboard.
+// ── Enterprise navigation tab styling (Phase 3A: semantic tokens, theme-aware) ─
+// Uses the Phase 1 semantic tokens so the sidebar follows light AND dark mode:
+//   light → white surface / slate ink;  dark → panel surface / light ink.
 const NAV_BASE =
   'group relative flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-sm ' +
   'transition-colors focus-visible:outline-none focus-visible:ring-2 ' +
-  'focus-visible:ring-blue-500/40 focus-visible:ring-offset-0';
+  'focus-visible:ring-primary/40 focus-visible:ring-offset-0';
 const NAV_INACTIVE =
-  'font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900';
+  'font-medium text-ink-dim hover:bg-surface-2 hover:text-ink';
 const NAV_ACTIVE =
-  'font-semibold text-blue-600 bg-blue-50';
+  'font-semibold text-primary bg-primary/10';
 
 function NavItem({ to, label, icon: Icon, end }) {
   return (
@@ -52,13 +50,13 @@ function NavItem({ to, label, icon: Icon, end }) {
           {isActive && (
             <span
               aria-hidden="true"
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-blue-600"
+              className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-primary"
             />
           )}
           <Icon
             size={19}
             strokeWidth={isActive ? 2.1 : 1.75}
-            className={isActive ? 'text-blue-600 shrink-0' : 'text-slate-500 group-hover:text-slate-700 shrink-0'}
+            className={isActive ? 'text-primary shrink-0' : 'text-ink-faint group-hover:text-ink-dim shrink-0'}
           />
           <span>{label}</span>
         </>
@@ -86,18 +84,18 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex md:flex-col w-60 shrink-0
-      bg-white border-r border-gray-200">
+      bg-surface border-r border-border">
 
       {/* Brand header */}
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-gray-200 shrink-0">
+      <div className="h-16 flex items-center gap-3 px-5 border-b border-border shrink-0">
         <div className="h-8 w-8 rounded-xl bg-brand flex items-center justify-center shrink-0">
           <Radio size={15} className="text-white" />
         </div>
         <div className="leading-tight">
-          <p className="font-display font-bold text-[15px] tracking-wide text-slate-800">
+          <p className="font-display font-bold text-[15px] tracking-wide text-ink">
             Switchboard
           </p>
-          <p className="text-[9px] text-blue-600 uppercase tracking-[0.15em] font-bold">
+          <p className="text-[9px] text-primary uppercase tracking-[0.15em] font-bold">
             CC Admin
           </p>
         </div>
@@ -105,7 +103,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        <p className="px-3 pb-2 text-[11px] uppercase tracking-[0.14em] font-semibold text-slate-400">
+        <p className="px-3 pb-2 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
           Operations
         </p>
         <div className="space-y-1">
@@ -116,7 +114,7 @@ export default function Sidebar() {
 
         {(canViewReports || canManageBreaks || isAdmin) && (
           <>
-            <p className="px-3 pt-6 pb-2 text-[11px] uppercase tracking-[0.14em] font-semibold text-slate-400">
+            <p className="px-3 pt-6 pb-2 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
               Management
             </p>
             <div className="space-y-1">
@@ -129,11 +127,11 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-gray-200 shrink-0">
-        <p className="text-[11px] font-semibold text-slate-500 tracking-wide">
+      <div className="px-5 py-4 border-t border-border shrink-0">
+        <p className="text-[11px] font-semibold text-ink-dim tracking-wide">
           CC Version 1.0.0
         </p>
-        <p className="text-[10px] text-slate-400 mt-0.5">
+        <p className="text-[10px] text-ink-faint mt-0.5">
           © Naresh — All Rights Reserved
         </p>
       </div>
