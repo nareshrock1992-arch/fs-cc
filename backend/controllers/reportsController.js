@@ -67,7 +67,13 @@ export async function queuePerformance(req, res) {
      ORDER BY offered DESC`,
     [from, to]
   );
-  res.json(rows);
+  // Phase 3B-A additive: canonical avg-talk field in seconds. Equals the existing
+  // (misleadingly named) aht_seconds EXACTLY — aht_seconds is retained and NOT
+  // redefined as true AHT.
+  res.json(rows.map(r => ({
+    ...r,
+    avg_talk_seconds: r.aht_seconds == null ? null : Number(r.aht_seconds),
+  })));
 }
 
 export async function agentPerformance(req, res) {
@@ -108,7 +114,13 @@ export async function agentPerformance(req, res) {
      ORDER BY calls_answered DESC, calls_offered DESC`,
     [from, to]
   );
-  res.json(rows);
+  // Phase 3B-A additive: seconds equivalents of the existing minute fields.
+  // avg_talk_min / total_talk_min are retained unchanged (same meaning/population).
+  res.json(rows.map(r => ({
+    ...r,
+    avg_talk_seconds:   r.avg_talk_min   == null ? null : Number(r.avg_talk_min)   * 60,
+    total_talk_seconds: r.total_talk_min == null ? null : Number(r.total_talk_min) * 60,
+  })));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -447,6 +459,18 @@ export async function getCDRReport(req, res) {
            THEN ah_miss.ring_seconds
          ELSE NULL
        END AS ring_seconds,
+
+       -- ── Queue wait seconds (Phase 3B-A additive) ─────────────────────────
+       -- Canonical answered-call queue wait (queue entry to agent answer). NULL
+       -- when not applicable. The legacy ring_seconds column above (mixed
+       -- semantics: wait for answered, agent ring for missed) is unchanged.
+       CASE
+         WHEN ch.disposition = 'answered'
+              AND ch.agent_answer_time IS NOT NULL
+              AND ch.queue_enter_time  IS NOT NULL
+           THEN EXTRACT(EPOCH FROM (ch.agent_answer_time - ch.queue_enter_time))::INT
+         ELSE NULL
+       END AS queue_wait_seconds,
 
        -- ── Talk seconds ─────────────────────────────────────────────────────
        ch.talk_seconds,

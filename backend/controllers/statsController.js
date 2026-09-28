@@ -96,6 +96,9 @@ export async function getDashboardStats(req, res) {
     callsToday:       callsToday.rows[0],
     queueSnapshot:    queueSnapshot.rows,
     slaPct:           sla.rows[0]?.sla_pct ?? 0,
+    // Phase 3B-A additive: snake_case name alias of slaPct — identical value,
+    // no SLA formula/threshold/join/cast change.
+    sla_pct:          sla.rows[0]?.sla_pct ?? 0,
     queueDistribution: queueDist.rows,
   });
 }
