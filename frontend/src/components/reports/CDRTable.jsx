@@ -67,7 +67,7 @@ function AgentCell({ agent, missedBy, disposition }) {
 async function downloadCSV(from, to) {
   const cols = [
     'call_uuid', 'ani', 'dnis', 'queue_name', 'agent',
-    'ring_seconds', 'talk_seconds', 'abandoned_seconds',
+    'queue_wait_seconds', 'ring_seconds', 'talk_seconds', 'abandoned_seconds',
     'disposition', 'start_time', 'end_time'
   ];
   const rows = await ReportsApi.cdr({ from, to, limit: 5000, offset: 0 });
@@ -214,7 +214,7 @@ export default function CDRTable({ from, to }) {
               <TH>DNIS</TH>
               <TH>Queue</TH>
               <TH>Agent</TH>
-              <TH>Ring</TH>
+              <TH>Wait / Ring</TH>
               <TH>Talk</TH>
               <TH>Abandoned</TH>
               <TH>Disposition</TH>
@@ -265,7 +265,8 @@ export default function CDRTable({ from, to }) {
                   />
                 </td>
                 <td className="px-4 py-3 font-mono text-gray-600 dark:text-ink-dim tnum">
-                  {fmtSec(r.ring_seconds)}
+                  {/* Answered → canonical queue_wait_seconds (queue wait); missed → ring_seconds (agent ring). */}
+                  {fmtSec(r.queue_wait_seconds ?? r.ring_seconds)}
                 </td>
                 <td className="px-4 py-3 font-mono text-gray-600 dark:text-ink-dim tnum">
                   {fmtSec(r.talk_seconds)}

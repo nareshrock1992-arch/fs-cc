@@ -261,7 +261,7 @@ export default function Reports() {
                     {[
                       'Queue', 'Offered', 'Answered',
                       'Abandoned Queue', 'Missed by Agent',
-                      'ASA', 'AHT', 'Abandon %', 'SLA %'
+                      'ASA', 'Avg Talk', 'Abandon %', 'SLA %'
                     ].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider
                         text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap">
@@ -280,7 +280,7 @@ export default function Reports() {
                       <td className="px-4 py-3 font-mono tnum text-red-500 dark:text-red-400">{q.abandoned_queue ?? q.abandoned}</td>
                       <td className="px-4 py-3 font-mono tnum text-orange-500 dark:text-orange-400">{q.abandoned_agent ?? 0}</td>
                       <td className="px-4 py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.asa_seconds}s</td>
-                      <td className="px-4 py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.aht_seconds}s</td>
+                      <td className="px-4 py-3 font-mono tnum dark:text-ink-dim text-gray-500">{(q.avg_talk_seconds ?? q.aht_seconds)}s</td>
                       <td className="px-4 py-3 font-mono tnum text-lamp-alert">{q.abandon_rate_pct}%</td>
                       <td className="px-4 py-3 font-mono tnum text-emerald-600 dark:text-emerald-400">
                         {q.sla_pct != null ? `${q.sla_pct}%` : '—'}

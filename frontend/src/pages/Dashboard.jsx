@@ -340,7 +340,7 @@ function RealTimeOverview({ stats }) {
   const abnd     = stats.callsToday?.abandoned || 0;
   const ansRate  = total > 0 ? Math.round(answered / total * 100) : 0;
   const abnRate  = total > 0 ? Math.round(abnd / total * 100) : 0;
-  const slaPct   = Number(stats.slaPct) || 0;
+  const slaPct   = Number(stats.sla_pct ?? stats.slaPct) || 0;
 
   return (
     <Panel eyebrow="Live" title="Real-Time Overview">
