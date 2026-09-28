@@ -1,6 +1,7 @@
 import { query } from '../db/pool.js';
 import { config } from '../config/index.js';
 import { businessToday, businessDayRange, shiftDate, toBusinessDateStr } from '../utils/timezone.js';
+import { answered, abandoned, agentMissedExists } from '../services/metricsSql.js';
 
 // Half-open UTC range for a report request. `from`/`to` are business CALENDAR
 // dates (YYYY-MM-DD) interpreted in BUSINESS_TIMEZONE, not UTC and not the
@@ -22,47 +23,41 @@ export async function queuePerformance(req, res) {
     `SELECT
        c.queue_name,
        COUNT(*)::INT                                                              AS offered,
-       COUNT(*) FILTER (WHERE c.disposition = 'answered')::INT                   AS answered,
+       COUNT(*) FILTER (WHERE ${answered('c')})::INT                   AS answered,
        -- abandoned_queue: abandoned AND NOT agent-missed (complement of
        -- abandoned_agent over abandoned, so queue+agent === direct abandoned).
        -- Keyed on missed=true (NOT bare EXISTS agent_history) so a stale
        -- offering row (missed=false) is counted here, never dropped from both.
        COUNT(*) FILTER (
-         WHERE c.abandoned = true
-           AND NOT EXISTS (
-             SELECT 1 FROM agent_history ah
-             WHERE ah.call_uuid = c.call_uuid AND ah.missed = true
-           )
+         WHERE ${abandoned('c')}
+           AND NOT ${agentMissedExists('c', 'ah')}
        )::INT                                                                     AS abandoned_queue,
        -- abandoned_agent: at least one agent was offered but did not answer
        COUNT(*) FILTER (
-         WHERE c.abandoned = true
-           AND EXISTS (
-             SELECT 1 FROM agent_history ah
-             WHERE ah.call_uuid = c.call_uuid AND ah.missed = true
-           )
+         WHERE ${abandoned('c')}
+           AND ${agentMissedExists('c', 'ah')}
        )::INT                                                                     AS abandoned_agent,
        -- total abandoned (for abandon_rate_pct)
-       COUNT(*) FILTER (WHERE c.abandoned = true)::INT                           AS abandoned,
-       COALESCE(AVG(c.wait_seconds) FILTER (WHERE c.disposition = 'answered'), 0)::INT
+       COUNT(*) FILTER (WHERE ${abandoned('c')})::INT                           AS abandoned,
+       COALESCE(AVG(c.wait_seconds) FILTER (WHERE ${answered('c')}), 0)::INT
                                                                                   AS asa_seconds,
-       COALESCE(AVG(c.talk_seconds) FILTER (WHERE c.disposition = 'answered'), 0)::INT
+       COALESCE(AVG(c.talk_seconds) FILTER (WHERE ${answered('c')}), 0)::INT
                                                                                   AS aht_seconds,
        COALESCE(
-         100.0 * COUNT(*) FILTER (WHERE c.abandoned = true) / NULLIF(COUNT(*), 0),
+         100.0 * COUNT(*) FILTER (WHERE ${abandoned('c')}) / NULLIF(COUNT(*), 0),
          0
        )::NUMERIC(5,1)                                                            AS abandon_rate_pct,
        -- SLA: answered-within-threshold / (answered + abandoned)
        COALESCE(
          100.0
          * COUNT(*) FILTER (
-             WHERE c.disposition = 'answered'
+             WHERE ${answered('c')}
                AND c.wait_seconds <= COALESCE(
                  (SELECT max_wait_time FROM queues WHERE name = c.queue_name LIMIT 1), 300)
            )
          / NULLIF(
-             COUNT(*) FILTER (WHERE c.disposition = 'answered') +
-             COUNT(*) FILTER (WHERE c.abandoned = true),
+             COUNT(*) FILTER (WHERE ${answered('c')}) +
+             COUNT(*) FILTER (WHERE ${abandoned('c')}),
              0),
          0
        )::NUMERIC(5,1)                                                            AS sla_pct

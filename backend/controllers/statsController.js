@@ -2,6 +2,7 @@ import { query } from '../db/pool.js';
 import { config } from '../config/index.js';
 import { isConnected } from '../services/eslService.js';
 import { businessTodayRange, businessToday } from '../utils/timezone.js';
+import { answered, abandoned, agentMissedExists } from '../services/metricsSql.js';
 
 // GET /api/stats/business-date — the server-authoritative business calendar date
 // and configured business timezone, so the frontend seeds date pickers from the
@@ -43,10 +44,10 @@ export async function getDashboardStats(req, res) {
     query(
       `SELECT COALESCE(
          100.0
-         * COUNT(*) FILTER (WHERE c.wait_seconds <= q.max_wait_time AND c.disposition = 'answered')
+         * COUNT(*) FILTER (WHERE c.wait_seconds <= q.max_wait_time AND ${answered('c')})
          / NULLIF(
-             COUNT(*) FILTER (WHERE c.disposition = 'answered') +
-             COUNT(*) FILTER (WHERE c.abandoned = true),
+             COUNT(*) FILTER (WHERE ${answered('c')}) +
+             COUNT(*) FILTER (WHERE ${abandoned('c')}),
              0),
          0
        )::INT AS sla_pct
@@ -64,18 +65,18 @@ export async function getDashboardStats(req, res) {
          q.name         AS queue_name,
          q.display_name,
          COUNT(*) FILTER (WHERE c.start_time >= $1 AND c.start_time < $2)::INT                           AS offered_today,
-         COUNT(*) FILTER (WHERE c.start_time >= $1 AND c.start_time < $2 AND c.disposition = 'answered')::INT AS answered_today,
+         COUNT(*) FILTER (WHERE c.start_time >= $1 AND c.start_time < $2 AND ${answered('c')})::INT AS answered_today,
          -- abandoned_queue = abandoned AND NOT agent-missed. Complement of
          -- abandoned_agent over abandoned, so queue+agent === direct abandoned.
          -- Keyed on missed=true (NOT bare EXISTS agent_history) so a stale
          -- offering row (missed=false) never makes the call vanish from both.
          COUNT(*) FILTER (
-           WHERE c.start_time >= $1 AND c.start_time < $2 AND c.abandoned = true
-             AND NOT EXISTS (SELECT 1 FROM agent_history ah WHERE ah.call_uuid = c.call_uuid AND ah.missed = true)
+           WHERE c.start_time >= $1 AND c.start_time < $2 AND ${abandoned('c')}
+             AND NOT ${agentMissedExists('c', 'ah')}
          )::INT AS abandoned_queue_today,
          COUNT(*) FILTER (
-           WHERE c.start_time >= $1 AND c.start_time < $2 AND c.abandoned = true
-             AND EXISTS (SELECT 1 FROM agent_history ah WHERE ah.call_uuid = c.call_uuid AND ah.missed = true)
+           WHERE c.start_time >= $1 AND c.start_time < $2 AND ${abandoned('c')}
+             AND ${agentMissedExists('c', 'ah')}
          )::INT AS abandoned_agent_today
        FROM queues q
        LEFT JOIN calls c ON c.queue_name = q.name
@@ -150,7 +151,7 @@ export async function getQueueStats(req, res) {
         COUNT(*) FILTER (
           WHERE c.end_time IS NULL
             AND c.agent_id IS NOT NULL
-            AND c.disposition = 'answered'
+            AND ${answered('c')}
             AND c.start_time > now() - interval '6 hours'
         )::INT AS active,
 
@@ -159,11 +160,11 @@ export async function getQueueStats(req, res) {
           AS offered_today,
 
         COUNT(*) FILTER (
-          WHERE (c.start_time >= $1 AND c.start_time < $2) AND c.disposition = 'answered'
+          WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${answered('c')}
         )::INT AS answered_today,
 
         COUNT(*) FILTER (
-          WHERE (c.start_time >= $1 AND c.start_time < $2) AND c.abandoned = true
+          WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${abandoned('c')}
         )::INT AS abandoned_today,
 
         -- abandoned in queue = abandoned AND NOT agent-missed (complement of
@@ -172,24 +173,19 @@ export async function getQueueStats(req, res) {
         -- counted here rather than disappearing from both buckets.
         COUNT(*) FILTER (
           WHERE (c.start_time >= $1 AND c.start_time < $2)
-            AND c.abandoned = true
-            AND NOT EXISTS (
-              SELECT 1 FROM agent_history ah WHERE ah.call_uuid = c.call_uuid AND ah.missed = true
-            )
+            AND ${abandoned('c')}
+            AND NOT ${agentMissedExists('c', 'ah')}
         )::INT AS abandoned_queue_today,
 
         -- abandoned after agent was offered but didn't answer
         COUNT(*) FILTER (
           WHERE (c.start_time >= $1 AND c.start_time < $2)
-            AND c.abandoned = true
-            AND EXISTS (
-              SELECT 1 FROM agent_history ah
-              WHERE ah.call_uuid = c.call_uuid AND ah.missed = true
-            )
+            AND ${abandoned('c')}
+            AND ${agentMissedExists('c', 'ah')}
         )::INT AS abandoned_agent_today,
 
         COALESCE(AVG(c.wait_seconds) FILTER (
-          WHERE (c.start_time >= $1 AND c.start_time < $2) AND c.disposition = 'answered'
+          WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${answered('c')}
             AND c.wait_seconds >= 0
         ), 0)::INT AS avg_wait_today,
 
@@ -198,12 +194,12 @@ export async function getQueueStats(req, res) {
           100.0
           * COUNT(*) FILTER (
               WHERE (c.start_time >= $1 AND c.start_time < $2)
-                AND c.disposition = 'answered'
+                AND ${answered('c')}
                 AND c.wait_seconds <= q.max_wait_time
             )
           / NULLIF(
-              COUNT(*) FILTER (WHERE (c.start_time >= $1 AND c.start_time < $2) AND c.disposition = 'answered') +
-              COUNT(*) FILTER (WHERE (c.start_time >= $1 AND c.start_time < $2) AND c.abandoned = true),
+              COUNT(*) FILTER (WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${answered('c')}) +
+              COUNT(*) FILTER (WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${abandoned('c')}),
               0),
           0
         )::NUMERIC(5,1) AS sla_pct_today,
