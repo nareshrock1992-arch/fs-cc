@@ -14,6 +14,7 @@ router.use(requirePermission('view_reports'));
 // ── Existing reports (DO NOT MODIFY) ────────────────────────────────────────
 router.get('/queue-performance', asyncHandler(reports.queuePerformance));
 router.get('/agent-performance', asyncHandler(reports.agentPerformance));
+router.get('/agent-daily',       asyncHandler(reports.agentPerformanceDaily));
 router.get('/ivr-paths',         asyncHandler(reports.ivrPathDistribution));
 router.get('/call-volume',       asyncHandler(reports.callVolumeByDay));
 router.get('/export',            asyncHandler(reports.exportReport));

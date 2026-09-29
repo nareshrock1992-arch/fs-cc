@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, PhoneCall, Users, Layers,
-  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones,
+  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones, Gauge,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
@@ -14,9 +14,10 @@ const BASE_NAV = [
   { to: '/queues',      label: 'Queues',      icon: Layers },
 ];
 
-const MANAGEMENT_PATHS = ['/reports', '/reports/break-history', '/reports/call-history', '/break-codes', '/users'];
+const MANAGEMENT_PATHS = ['/reports', '/agent-performance', '/reports/break-history', '/reports/call-history', '/break-codes', '/users'];
 
 const REPORTS_ITEM       = { to: '/reports',                label: 'Reports',         icon: BarChart3 };
+const AGENT_PERF_ITEM    = { to: '/agent-performance',      label: 'Agent Performance', icon: Gauge };
 const BREAK_HISTORY_ITEM = { to: '/reports/break-history',  label: 'Break History',   icon: History };
 const CALL_HISTORY_ITEM  = { to: '/reports/call-history',   label: 'Call History',    icon: PhoneCall };
 const BREAK_CODES_ITEM   = { to: '/break-codes',            label: 'Break Codes',     icon: Coffee };
@@ -74,7 +75,7 @@ export default function Sidebar() {
 
   const navItems = [
     ...BASE_NAV,
-    ...(canViewReports  ? [REPORTS_ITEM, BREAK_HISTORY_ITEM, CALL_HISTORY_ITEM] : []),
+    ...(canViewReports  ? [REPORTS_ITEM, AGENT_PERF_ITEM, BREAK_HISTORY_ITEM, CALL_HISTORY_ITEM] : []),
     ...(canManageBreaks ? [BREAK_CODES_ITEM] : []),
     ...(isAdmin         ? [USERS_ITEM] : []),
   ];

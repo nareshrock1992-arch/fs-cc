@@ -10,6 +10,7 @@ import LiveCalls from './pages/LiveCalls.jsx';
 import QueueStats from './pages/QueueStats.jsx';
 import LiveAgents from './pages/LiveAgents.jsx';
 import Reports from './pages/Reports.jsx';
+import AgentPerformanceDashboard from './pages/AgentPerformanceDashboard.jsx';
 import UserManagement from './pages/UserManagement.jsx';
 import BreakCodes from './pages/BreakCodes.jsx';
 import BreakHistoryReport from './pages/reports/BreakHistoryReport.jsx';
@@ -70,6 +71,14 @@ export default function App() {
           element={
             <ReportsRoute>
               <Reports />
+            </ReportsRoute>
+          }
+        />
+        <Route
+          path="agent-performance"
+          element={
+            <ReportsRoute>
+              <AgentPerformanceDashboard />
             </ReportsRoute>
           }
         />

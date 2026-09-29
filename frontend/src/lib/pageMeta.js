@@ -19,6 +19,7 @@ export const PAGE_META = {
   '/queues':                 { title: 'Queues',          description: 'ACD queues, strategy and tiers' },
   '/queue-stats':            { title: 'Queue Stats',     description: 'Live per-queue statistics' },
   '/reports':                { title: 'Reports',         description: 'Historical queue and agent performance' },
+  '/agent-performance':      { title: 'Agent Performance', description: 'Individual agent performance for a selected period' },
   '/reports/break-history':  { title: 'Break History',   description: 'Agent break sessions and durations' },
   '/reports/call-history':   { title: 'Call History',    description: 'Detailed call detail records (CDR)' },
   '/break-codes':            { title: 'Break Codes',     description: 'Configurable agent break reasons' },

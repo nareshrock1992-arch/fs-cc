@@ -106,7 +106,18 @@ export async function agentPerformance(req, res) {
        ROUND(
          COALESCE(SUM(ah.talk_seconds) FILTER (WHERE ah.missed = false)::NUMERIC / 60.0, 0),
          2
-       )                                                                     AS total_talk_min
+       )                                                                     AS total_talk_min,
+       -- ── AGENT-PERF-1 additive per-agent metrics (same population/date basis) ──
+       -- answer_rate = canonical calls_answered / calls_offered * 100 (offered legs).
+       COALESCE(
+         100.0 * COUNT(*) FILTER (WHERE ah.missed = false AND ah.talk_start IS NOT NULL)
+         / NULLIF(COUNT(*), 0),
+         0
+       )::NUMERIC(5,1)                                                        AS answer_rate,
+       -- Avg Ring = AVG(ring_seconds) across ALL offered legs; NULL ring excluded by AVG.
+       COALESCE(ROUND(AVG(ah.ring_seconds)), 0)::INT                          AS avg_ring_seconds,
+       -- Total Ring = SUM(ring_seconds) over the same population (NULLs ignored by SUM).
+       COALESCE(SUM(ah.ring_seconds), 0)::INT                                 AS total_ring_seconds
      FROM agent_history ah
      LEFT JOIN agents a ON a.agent_id = ah.agent_id
      WHERE ah.ring_start >= $1 AND ah.ring_start < $2
@@ -121,6 +132,60 @@ export async function agentPerformance(req, res) {
     avg_talk_seconds:   r.avg_talk_min   == null ? null : Number(r.avg_talk_min)   * 60,
     total_talk_seconds: r.total_talk_min == null ? null : Number(r.total_talk_min) * 60,
   })));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGENT-PERF-2 — per-agent DAILY aggregation for the Individual Agent Performance
+// Dashboard. Uses the EXACT canonical predicates + date basis as agentPerformance
+// (ring_start; business-tz half-open [from,to)), so daily COUNTS reconcile with the
+// range-level /reports/agent-performance totals:
+//   SUM(daily calls_offered/answered/missed) === range calls_offered/answered/missed.
+// Averages (answer_rate, avg_talk_seconds, avg_ring_seconds) are PER-DAY and must
+// NOT be summed across days — recompute them from the daily totals when aggregating.
+// Business-day buckets use the same `date_trunc('day', <ts> AT TIME ZONE tz)` pattern
+// as callVolumeByDay. Unresolved offerings (missed=false AND talk_start NULL) are
+// preserved exactly (they count in calls_offered, not in answered/missed).
+//   query: from, to (business dates); agent (optional agent_id filter)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function agentPerformanceDaily(req, res) {
+  const { from, to } = dateRange(req);
+  const params = [from, to, config.businessTimezone];
+  let agentFilter = '';
+  if (req.query.agent) {
+    params.push(String(req.query.agent).trim());
+    agentFilter = `AND ah.agent_id = $${params.length}`;
+  }
+
+  const { rows } = await query(
+    `SELECT
+       date_trunc('day', ah.ring_start AT TIME ZONE $3)::date            AS day,
+       ah.agent_id,
+       a.full_name,
+       COUNT(*)::INT                                                     AS calls_offered,
+       COUNT(*) FILTER (WHERE ah.missed = false AND ah.talk_start IS NOT NULL)::INT
+                                                                         AS calls_answered,
+       COUNT(*) FILTER (WHERE ah.missed = true)::INT                     AS calls_missed,
+       COALESCE(
+         100.0 * COUNT(*) FILTER (WHERE ah.missed = false AND ah.talk_start IS NOT NULL)
+         / NULLIF(COUNT(*), 0), 0
+       )::NUMERIC(5,1)                                                    AS answer_rate,
+       -- Avg Talk = AVG(talk) over answered legs (seconds); Total Talk = SUM over non-missed.
+       COALESCE(ROUND(AVG(ah.talk_seconds) FILTER (WHERE ah.missed = false AND ah.talk_start IS NOT NULL)), 0)::INT
+                                                                         AS avg_talk_seconds,
+       COALESCE(SUM(ah.talk_seconds) FILTER (WHERE ah.missed = false), 0)::INT
+                                                                         AS total_talk_seconds,
+       -- Avg Ring = AVG(ring_seconds) over ALL offered legs (NULL excluded by AVG); Total Ring = SUM.
+       COALESCE(ROUND(AVG(ah.ring_seconds)), 0)::INT                     AS avg_ring_seconds,
+       COALESCE(SUM(ah.ring_seconds), 0)::INT                            AS total_ring_seconds
+     FROM agent_history ah
+     LEFT JOIN agents a ON a.agent_id = ah.agent_id
+     WHERE ah.ring_start >= $1 AND ah.ring_start < $2
+       ${agentFilter}
+     GROUP BY day, ah.agent_id, a.full_name
+     ORDER BY day ASC, ah.agent_id ASC`,
+    params
+  );
+  res.json(rows);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

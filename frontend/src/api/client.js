@@ -89,6 +89,7 @@ export const Stats = {
 export const Reports = {
   queuePerformance: (params) => api.get('/reports/queue-performance', { params }).then(r => r.data),
   agentPerformance: (params) => api.get('/reports/agent-performance', { params }).then(r => r.data),
+  agentDaily:       (params) => api.get('/reports/agent-daily',        { params }).then(r => r.data),
   ivrPaths:         (params) => api.get('/reports/ivr-paths',         { params }).then(r => r.data),
   callVolume:       (params) => api.get('/reports/call-volume',        { params }).then(r => r.data),
   cdr:              (params) => api.get('/reports/cdr',                { params }).then(r => r.data),
