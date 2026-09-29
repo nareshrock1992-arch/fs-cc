@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Users, PhoneIncoming, PhoneMissed, CheckCircle2, Timer, Phone, Radio, Trophy,
+  Users, PhoneIncoming, PhoneMissed, CheckCircle2, Timer, Phone, Radio, Trophy, Award, Zap,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
@@ -142,21 +142,47 @@ export default function AgentPerformanceDashboard() {
     });
   }, [rows, agent, sortKey, sortDir]);
 
-  // Transparent, metric-specific highlights (NO composite score).
-  const highlights = useMemo(() => {
-    if (rows.length === 0) return [];
-    const name = r => r.full_name || r.agent_id;
-    const maxBy = (k) => rows.reduce((m, r) => (num(r[k]) > num(m[k]) ? r : m), rows[0]);
-    const minBy = (k) => rows.reduce((m, r) => (num(r[k]) < num(m[k]) ? r : m), rows[0]);
-    const mostAnswered = maxBy('calls_answered');
-    const bestRate = rows.reduce((m, r) => (Number(r.answer_rate) > Number(m.answer_rate) ? r : m), rows[0]);
-    const lowestRing = minBy('avg_ring_seconds');
-    return [
-      { label: 'Most Answered',       metric: `${num(mostAnswered.calls_answered)} calls`, who: name(mostAnswered) },
-      { label: 'Highest Answer Rate', metric: fmtPct(bestRate.answer_rate),                who: name(bestRate) },
-      { label: 'Lowest Avg Ring',     metric: fmtSec(lowestRing.avg_ring_seconds),          who: name(lowestRing) },
-    ];
-  }, [rows]);
+  // Recognition selection — transparent, metric-specific, NO composite score.
+  // Deterministic ties (primary metric → supporting volume → agent_id asc).
+  //   All agents  → 3 team award winners.
+  //   One agent   → that agent's own summary on the same 3 metrics (never
+  //                 "top performer against themselves").
+  const recognition = useMemo(() => {
+    if (rows.length === 0) return null;
+    const nm = r => r.full_name || r.agent_id;
+
+    if (agent) {
+      const r = singleAgentRow || rows.find(x => x.agent_id === agent);
+      if (!r) return null;
+      return {
+        mode: 'single',
+        title: `Agent Performance — ${nm(r)}`,
+        cards: [
+          { label: 'Calls Answered',              who: nm(r), value: `${num(r.calls_answered)} calls`, sub: `of ${num(r.calls_offered)} offered` },
+          { label: 'Answer Rate',                 who: nm(r), value: fmtPct(r.answer_rate),            sub: `${num(r.calls_answered)}/${num(r.calls_offered)} answered/offered` },
+          { label: 'Fastest Response (Avg Ring)', who: nm(r), value: fmtSec(r.avg_ring_seconds),        sub: `${num(r.calls_answered)} answered` },
+        ],
+      };
+    }
+
+    const idAsc = (a, b) => String(a.agent_id).localeCompare(String(b.agent_id));
+    const mostAnswered = [...rows].sort((a, b) =>
+      num(b.calls_answered) - num(a.calls_answered) || Number(b.answer_rate) - Number(a.answer_rate) || idAsc(a, b))[0];
+    const bestRate = [...rows].sort((a, b) =>
+      Number(b.answer_rate) - Number(a.answer_rate) || num(b.calls_answered) - num(a.calls_answered) || idAsc(a, b))[0];
+    const fastest = [...rows].sort((a, b) =>
+      num(a.avg_ring_seconds) - num(b.avg_ring_seconds) || num(b.calls_answered) - num(a.calls_answered) || idAsc(a, b))[0];
+
+    return {
+      mode: 'team',
+      title: 'Recognition',
+      cards: [
+        { icon: 'trophy', label: 'Most Calls Answered', who: nm(mostAnswered), value: `${num(mostAnswered.calls_answered)} calls`,       sub: `${fmtPct(mostAnswered.answer_rate)} answer rate` },
+        { icon: 'award',  label: 'Highest Answer Rate', who: nm(bestRate),     value: fmtPct(bestRate.answer_rate),                     sub: `${num(bestRate.calls_answered)}/${num(bestRate.calls_offered)} answered/offered` },
+        { icon: 'zap',    label: 'Fastest Response',    who: nm(fastest),      value: `${fmtSec(fastest.avg_ring_seconds)} avg ring`,    sub: `${num(fastest.calls_answered)} answered` },
+      ],
+    };
+  }, [rows, agent, singleAgentRow]);
 
   function toggleSort(key) {
     if (key === sortKey) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -198,7 +224,10 @@ export default function AgentPerformanceDashboard() {
 
       {!loading && !error && (
         <>
-          {/* ── KPI row ─────────────────────────────────────────────────────── */}
+          {/* ① Recognition — the primary focus (transparent, metric-specific) */}
+          {rows.length > 0 && <RecognitionHero recognition={recognition} />}
+
+          {/* ② Team KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
             <KpiCard label="Calls Offered"  value={kpi.offered}  tone="blue"   icon={Phone} />
             <KpiCard label="Calls Answered" value={kpi.answered} tone="green"  icon={CheckCircle2} />
@@ -213,22 +242,6 @@ export default function AgentPerformanceDashboard() {
             <Panel><EmptyState icon={Users} title="No agent activity" body="No agent legs were recorded for the selected period." /></Panel>
           ) : (
             <>
-              {/* ── Highlights (transparent, metric-specific — no composite) ─── */}
-              <Panel eyebrow="Highlights" title="Top Performer (by metric)">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {highlights.map(h => (
-                    <div key={h.label} className="flex items-center gap-3 rounded-lg border border-border bg-surface-2 px-3 py-2.5">
-                      <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><Trophy size={16} /></span>
-                      <div className="min-w-0">
-                        <p className="text-[11px] uppercase tracking-wider font-semibold text-ink-faint">{h.label}</p>
-                        <p className="text-sm font-semibold text-ink truncate">{h.who}</p>
-                        <p className="text-xs font-mono text-ink-dim">{h.metric}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
-
               {/* ── Comparison table ──────────────────────────────────────────── */}
               <Panel eyebrow="Historical" title="Agent Comparison" noPad>
                 <div className="overflow-x-auto">
@@ -286,6 +299,42 @@ export default function AgentPerformanceDashboard() {
         </>
       )}
     </div>
+  );
+}
+
+// ── Recognition hero — the primary, professional recognition band ────────────
+// Team mode: 3 metric-specific award cards. Single-agent mode: that agent's own
+// summary on the same 3 metrics. Every card states the metric + value + context.
+function RecognitionHero({ recognition }) {
+  if (!recognition) return null;
+  const ICON = { trophy: Trophy, award: Award, zap: Zap };
+  const isTeam = recognition.mode === 'team';
+  return (
+    <Panel eyebrow={isTeam ? 'This period' : 'Selected agent'} title={recognition.title}>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {recognition.cards.map((c, i) => {
+          const Ico = isTeam ? (ICON[c.icon] || Trophy) : Award;
+          return (
+            <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-surface-2 px-4 py-4 shadow-card">
+              <span className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Ico size={22} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider font-semibold text-ink-faint">{c.label}</p>
+                <p className="text-lg font-semibold text-ink truncate leading-tight">{c.who}</p>
+                <p className="text-base font-mono font-semibold text-primary tabular-nums mt-0.5">{c.value}</p>
+                {c.sub && <p className="text-[11px] text-ink-dim mt-0.5">{c.sub}</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {isTeam && (
+        <p className="text-[11px] text-ink-faint mt-3">
+          Metric-specific recognition — no composite score. Ties broken by supporting volume, then agent&nbsp;ID.
+        </p>
+      )}
+    </Panel>
   );
 }
 
