@@ -107,9 +107,18 @@ function CallsTable({ rows, allEmpty }) {
   return (
     <Panel eyebrow="Live" title="Calls Requiring Attention" noPad>
       {rows.length === 0 ? (
-        <EmptyState icon={PhoneIncoming}
-          title={allEmpty ? 'No active calls' : 'No calls match the current filters'}
-          body={allEmpty ? 'Waiting, ringing and connected calls will appear here in real time.' : 'Adjust the filters or search to see calls.'} />
+        /* Compact, content-driven empty state — collapses the Calls section to
+           ~one row so Agent Floor Status rises immediately when the floor is
+           quiet (no large blank panel). */
+        <div className="flex items-center gap-2.5 px-4 py-3 text-gray-400 dark:text-ink-faint">
+          <span className={`h-2 w-2 rounded-full shrink-0 ${allEmpty ? 'bg-emerald-400/70' : 'bg-gray-300 dark:bg-ink-faint/40'}`} />
+          <span className="text-xs font-semibold text-gray-500 dark:text-ink-dim">
+            {allEmpty ? 'No active calls' : 'No calls match the current filters'}
+          </span>
+          <span className="text-[11px] hidden sm:inline">
+            {allEmpty ? '— waiting, ringing and connected calls appear here in real time' : '— adjust the filters or search'}
+          </span>
+        </div>
       ) : (
         <div className="overflow-x-auto overflow-y-auto max-h-[46vh]">
           <table className="w-full text-sm" style={{ minWidth: 720 }}>
