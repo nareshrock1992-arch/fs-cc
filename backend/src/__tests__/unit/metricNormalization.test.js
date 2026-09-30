@@ -45,24 +45,36 @@ describe('queue-performance — avg_talk_seconds additive alias', () => {
   });
 });
 
-describe('agent-performance — talk-time seconds additive fields', () => {
-  it('avg_talk_seconds = avg_talk_min*60 and total_talk_seconds = total_talk_min*60; minute fields retained', async () => {
-    MOCK = () => ({ rows: [{ agent_id: 'a1', avg_talk_min: 2.5, total_talk_min: 10, calls_answered: 3 }] });
+describe('agent-performance — talk-time seconds are integer, straight from the query', () => {
+  // Duration-bug fix: seconds are no longer reconstructed as avg_talk_min*60
+  // (which produced fractional floats like 14.4). They come from the SQL as
+  // ROUND(AVG(talk_seconds))::INT / SUM(talk_seconds)::INT and pass through as-is.
+  it('passes integer avg_talk_seconds/total_talk_seconds through; minute fields retained', async () => {
+    MOCK = () => ({ rows: [{
+      agent_id: 'a1', avg_talk_min: 2.5, total_talk_min: 10, calls_answered: 3,
+      avg_talk_seconds: 150, total_talk_seconds: 600,
+    }] });
     const res = mockRes();
     await reports.agentPerformance(mockReq(), res);
     const row = res.json.mock.calls[0][0][0];
-    expect(row.avg_talk_min).toBe(2.5);           // unchanged
-    expect(row.total_talk_min).toBe(10);          // unchanged
-    expect(row.avg_talk_seconds).toBe(2.5 * 60);   // 150
-    expect(row.total_talk_seconds).toBe(10 * 60);  // 600
+    expect(row.avg_talk_min).toBe(2.5);            // unchanged
+    expect(row.total_talk_min).toBe(10);           // unchanged
+    expect(row.avg_talk_seconds).toBe(150);
+    expect(row.total_talk_seconds).toBe(600);
+    expect(Number.isInteger(row.avg_talk_seconds)).toBe(true);
+    expect(Number.isInteger(row.total_talk_seconds)).toBe(true);
   });
-  it('null minute values map to null seconds (no invented values)', async () => {
-    MOCK = () => ({ rows: [{ agent_id: 'a2', avg_talk_min: null, total_talk_min: null }] });
+  it('no float reconstruction: a 0.24-min row would have shown 14.4 under the old path', async () => {
+    MOCK = () => ({ rows: [{
+      agent_id: 'a2', avg_talk_min: 0.24, total_talk_min: 0.95,
+      avg_talk_seconds: 14, total_talk_seconds: 57,
+    }] });
     const res = mockRes();
     await reports.agentPerformance(mockReq(), res);
     const row = res.json.mock.calls[0][0][0];
-    expect(row.avg_talk_seconds).toBe(null);
-    expect(row.total_talk_seconds).toBe(null);
+    expect(row.avg_talk_seconds).toBe(14);
+    expect(row.total_talk_seconds).toBe(57);
+    expect(String(row.avg_talk_seconds)).not.toMatch(/\./);
   });
 });
 

@@ -40,13 +40,24 @@ describe('agentPerformance — SQL shape (approved AGENT-PERF-1 formulas)', () =
     expect(sql).toMatch(/AS avg_talk_min/);
     expect(sql).toMatch(/AS total_talk_min/);
   });
+
+  // Duration-bug fix: avg_talk_seconds/total_talk_seconds now come from the query
+  // as INTEGER seconds (ROUND(AVG(...))::INT / SUM(...)::INT), aligned with the
+  // daily endpoint — NOT reconstructed in JS from avg_talk_min * 60.
+  it('emits avg_talk_seconds/total_talk_seconds as integer seconds in SQL', async () => {
+    await reports.agentPerformance(mockReq(), mockRes());
+    const sql = captured.join('\n');
+    expect(sql).toMatch(/ROUND\(AVG\(ah\.talk_seconds\) FILTER \(WHERE ah\.missed = false AND ah\.talk_start IS NOT NULL\)\)[\s\S]*::INT[\s\S]*AS avg_talk_seconds/);
+    expect(sql).toMatch(/SUM\(ah\.talk_seconds\) FILTER \(WHERE ah\.missed = false\)[\s\S]*::INT[\s\S]*AS total_talk_seconds/);
+  });
 });
 
 describe('agentPerformance — response passthrough + talk preservation', () => {
-  it('surfaces the new fields and keeps avg/total talk seconds derivation', async () => {
+  it('passes integer talk seconds straight through from the query (no min*60 rebuild)', async () => {
     MOCK = () => ({ rows: [{
       agent_id: 'a1', calls_offered: 10, calls_answered: 8, calls_missed: 2,
       avg_talk_min: 2.5, total_talk_min: 10,
+      avg_talk_seconds: 150, total_talk_seconds: 600,
       answer_rate: 80.0, avg_ring_seconds: 21, total_ring_seconds: 420,
     }] });
     const res = mockRes();
@@ -55,9 +66,27 @@ describe('agentPerformance — response passthrough + talk preservation', () => 
     expect(row.answer_rate).toBe(80.0);
     expect(row.avg_ring_seconds).toBe(21);
     expect(row.total_ring_seconds).toBe(420);
-    expect(row.avg_talk_min).toBe(2.5);           // unchanged
-    expect(row.avg_talk_seconds).toBe(150);        // 3B-A derivation intact
+    expect(row.avg_talk_min).toBe(2.5);            // unchanged
+    // seconds are whatever the query returned (integer), not avg_talk_min * 60
+    expect(row.avg_talk_seconds).toBe(150);
     expect(row.total_talk_seconds).toBe(600);
+    expect(Number.isInteger(row.avg_talk_seconds)).toBe(true);
+    expect(Number.isInteger(row.total_talk_seconds)).toBe(true);
+  });
+
+  it('does not reconstruct fractional seconds from a 2-decimal avg_talk_min', async () => {
+    // 0.24 min * 60 = 14.399999999999999 under the OLD JS derivation.
+    // With the fix, the response carries whatever integer seconds the SQL emitted.
+    MOCK = () => ({ rows: [{
+      agent_id: 'a1', avg_talk_min: 0.24, total_talk_min: 0.95,
+      avg_talk_seconds: 14, total_talk_seconds: 57,
+    }] });
+    const res = mockRes();
+    await reports.agentPerformance(mockReq(), res);
+    const row = res.json.mock.calls[0][0][0];
+    expect(row.avg_talk_seconds).toBe(14);
+    expect(row.total_talk_seconds).toBe(57);
+    expect(String(row.avg_talk_seconds)).not.toMatch(/\./); // no float artifact
   });
 });
 

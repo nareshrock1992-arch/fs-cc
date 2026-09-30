@@ -16,8 +16,11 @@ import AgentSessionsTab from '../components/reports/AgentSessionsTab.jsx';
 // ── Formatters (seconds → m:ss / h:mm:ss; percentages) ────────────────────────
 function fmtSec(s) {
   if (s == null || s === '') return '—';
-  const n = Number(s);
-  if (Number.isNaN(n) || n < 0) return '—';
+  const raw = Number(s);
+  if (Number.isNaN(raw) || raw < 0) return '—';
+  // Normalize to whole seconds so fractional/float inputs (e.g. 14.4 or
+  // 14.999999999999) can never leak decimals into the rendered value.
+  const n = Math.round(raw);
   const h = Math.floor(n / 3600), m = Math.floor((n % 3600) / 60), r = String(n % 60).padStart(2, '0');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
 }

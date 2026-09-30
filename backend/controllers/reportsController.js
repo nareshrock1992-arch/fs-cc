@@ -107,6 +107,15 @@ export async function agentPerformance(req, res) {
          COALESCE(SUM(ah.talk_seconds) FILTER (WHERE ah.missed = false)::NUMERIC / 60.0, 0),
          2
        )                                                                     AS total_talk_min,
+       -- Duration-bug fix: emit integer SECONDS directly from talk_seconds,
+       -- aligned with agentPerformanceDaily below. Previously avg_talk_seconds/
+       -- total_talk_seconds were reconstructed in JS as (avg_talk_min * 60),
+       -- which produced fractional/float values (e.g. 0.24 min * 60 = 14.4).
+       -- Same population/filters/date basis as avg_talk_min/total_talk_min.
+       COALESCE(ROUND(AVG(ah.talk_seconds) FILTER (WHERE ah.missed = false AND ah.talk_start IS NOT NULL)), 0)::INT
+                                                                             AS avg_talk_seconds,
+       COALESCE(SUM(ah.talk_seconds) FILTER (WHERE ah.missed = false), 0)::INT
+                                                                             AS total_talk_seconds,
        -- ── AGENT-PERF-1 additive per-agent metrics (same population/date basis) ──
        -- answer_rate = canonical calls_answered / calls_offered * 100 (offered legs).
        COALESCE(
@@ -125,13 +134,9 @@ export async function agentPerformance(req, res) {
      ORDER BY calls_answered DESC, calls_offered DESC`,
     [from, to]
   );
-  // Phase 3B-A additive: seconds equivalents of the existing minute fields.
-  // avg_talk_min / total_talk_min are retained unchanged (same meaning/population).
-  res.json(rows.map(r => ({
-    ...r,
-    avg_talk_seconds:   r.avg_talk_min   == null ? null : Number(r.avg_talk_min)   * 60,
-    total_talk_seconds: r.total_talk_min == null ? null : Number(r.total_talk_min) * 60,
-  })));
+  // avg_talk_seconds / total_talk_seconds now come from the query as integer
+  // seconds (see SQL above); avg_talk_min / total_talk_min are retained unchanged.
+  res.json(rows);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
