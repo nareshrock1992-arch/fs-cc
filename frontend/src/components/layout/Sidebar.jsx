@@ -5,13 +5,15 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
+// Live Calls / Live Agents are consolidated into the primary "Live Operations"
+// workspace. Their routes remain active (deep links preserved) but are no longer
+// in the primary sidebar.
 const BASE_NAV = [
-  { to: '/',            label: 'Dashboard',   icon: LayoutDashboard, end: true },
-  { to: '/live-calls',  label: 'Live Calls',  icon: PhoneCall },
-  { to: '/live-agents', label: 'Live Agents', icon: Headphones },
-  { to: '/queue-stats', label: 'Queue Stats', icon: Activity },
-  { to: '/agents',      label: 'Agents',      icon: Users },
-  { to: '/queues',      label: 'Queues',      icon: Layers },
+  { to: '/',               label: 'Dashboard',       icon: LayoutDashboard, end: true },
+  { to: '/live-operations',label: 'Live Operations', icon: Radio },
+  { to: '/queue-stats',    label: 'Queue Stats',     icon: Activity },
+  { to: '/agents',         label: 'Agents',          icon: Users },
+  { to: '/queues',         label: 'Queues',          icon: Layers },
 ];
 
 const MANAGEMENT_PATHS = ['/reports', '/agent-performance', '/reports/break-history', '/reports/call-history', '/break-codes', '/users'];

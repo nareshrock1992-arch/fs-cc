@@ -9,6 +9,7 @@ import Queues from './pages/Queues.jsx';
 import LiveCalls from './pages/LiveCalls.jsx';
 import QueueStats from './pages/QueueStats.jsx';
 import LiveAgents from './pages/LiveAgents.jsx';
+import LiveOperations from './pages/LiveOperations.jsx';
 import Reports from './pages/Reports.jsx';
 import AgentPerformanceDashboard from './pages/AgentPerformanceDashboard.jsx';
 import UserManagement from './pages/UserManagement.jsx';
@@ -61,6 +62,9 @@ export default function App() {
         }
       >
         <Route index element={<Dashboard />} />
+        {/* Primary supervisor real-time workspace. /live-calls and /live-agents
+            are retained below as secondary detail views (deep links preserved). */}
+        <Route path="live-operations" element={<LiveOperations />} />
         <Route path="live-calls" element={<LiveCalls />} />
         <Route path="live-agents" element={<LiveAgents />} />
         <Route path="agents" element={<Agents />} />
