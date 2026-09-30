@@ -1,19 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Users, PhoneIncoming, Timer, PhoneMissed, Gauge,
-  LayoutDashboard, RefreshCw, Phone, PhoneOff, PhoneCall,
+  LayoutDashboard, RefreshCw, PhoneOff, PhoneCall,
   Activity, CheckCircle2, UserCheck, UserX, Coffee,
-  Radio, Bell,
+  Radio, ArrowRight,
 } from 'lucide-react';
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
-import { Stats, Agents as AgentsApi } from '../api/client.js';
+import { Stats } from '../api/client.js';
 import { useSocketEvent } from '../api/socket.js';
 import KpiCard from '../components/KpiCard.jsx';
 import Panel from '../components/Panel.jsx';
-import StatusLamp from '../components/StatusLamp.jsx';
 import { KpiSkeleton } from '../components/LoadingState.jsx';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -30,16 +30,6 @@ function fmtSeconds(s) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return m > 0 ? `${m}m ${r}s` : `${r}s`;
-}
-
-function fmtIdle(fromIso, nowMs) {
-  if (!fromIso) return '--';
-  const s = Math.max(0, Math.floor((nowMs - new Date(fromIso).getTime()) / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const r = s % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
-  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
 }
 
 function queueColor(name, distribution) {
@@ -99,61 +89,6 @@ function ServiceLevelGauge({ pct }) {
   );
 }
 
-// ─── Agent Distribution Donut ─────────────────────────────────────────────────
-
-function AgentStatusDonut({ agents }) {
-  const rows = [
-    { name: 'Available',  count: agents?.Available      || 0, color: '#27C98A' },
-    { name: 'On Break',   count: agents?.['On Break']   || 0, color: '#4C8EF5' },
-    { name: 'Logged Out', count: agents?.['Logged Out'] || 0, color: '#4C5A78' },
-  ];
-  const total = rows.reduce((s, d) => s + d.count, 0);
-  const data  = rows.filter(d => d.count > 0);
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="relative w-14 h-14 shrink-0">
-        {total > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={data} cx="50%" cy="50%"
-                innerRadius={18} outerRadius={26}
-                dataKey="count" paddingAngle={2}
-                startAngle={90} endAngle={-270}>
-                {data.map((d, i) => (
-                  <Cell key={i} fill={d.color} stroke="transparent" />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="w-full h-full rounded-full border-4 border-gray-100 dark:border-panel-border
-            flex items-center justify-center">
-            <span className="text-[10px] font-mono text-gray-400 dark:text-ink-faint">0</span>
-          </div>
-        )}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-xs font-bold font-mono dark:text-ink text-gray-900">{total}</span>
-        </div>
-      </div>
-
-      <div className="flex-1 space-y-1.5 min-w-0">
-        {rows.map(({ name, count, color }) => {
-          const pct = total > 0 ? Math.round(count / total * 100) : 0;
-          return (
-            <div key={name} className="flex items-center gap-1.5 text-[11px]">
-              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-              <span className="flex-1 text-gray-500 dark:text-ink-dim truncate">{name}</span>
-              <span className="font-mono tnum font-semibold text-gray-700 dark:text-ink w-3 text-right">{count}</span>
-              <span className="font-mono tnum text-gray-400 dark:text-ink-faint w-7 text-right">{pct}%</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ─── Bar Chart Tooltip ────────────────────────────────────────────────────────
 
 function BarTooltip({ active, payload, label }) {
@@ -173,11 +108,16 @@ function BarTooltip({ active, payload, label }) {
   );
 }
 
-// ─── Queue Performance Section ────────────────────────────────────────────────
-// Side-by-side: bar chart (left) + table (right)
-// When no calls, chart shows ghost axes; table shows zeros — no dead empty state.
+// ─── Queue Health Section (Phase 2 consolidation) ─────────────────────────────
+// Single section replacing the former separate "Queue Performance" (today totals)
+// and "Live Queue Snapshot" (live pressure) panels. NO metric definition is
+// changed: today columns come from /stats/dashboard queueDistribution exactly as
+// before; live columns (Waiting, Longest wait, Avail, per-queue SLA) come from
+// /stats/queues exactly as before. The two are merged by queue_name for display
+// only. Time basis is labelled explicitly (LIVE vs TODAY) so the differing SLA
+// semantics between endpoints are not silently conflated.
 
-function QueuePerformanceSection({ distribution }) {
+function QueueHealthSection({ distribution, liveByName }) {
   const totalOffered = distribution.reduce((s, q) => s + (q.offered_today || 0), 0);
 
   const chartData = distribution.map(q => ({
@@ -201,22 +141,18 @@ function QueuePerformanceSection({ distribution }) {
   );
 
   return (
-    <Panel eyebrow="Today" title="Queue Performance" action={legend}>
+    <Panel eyebrow="Live + Today" title="Queue Health" action={legend}>
       {distribution.length === 0 ? (
-        /* No queues configured at all — truly compact */
         <div className="flex items-center gap-3 py-3 text-gray-400 dark:text-ink-faint">
           <Activity size={16} strokeWidth={1.5} className="shrink-0" />
           <p className="text-xs">No queues configured yet.</p>
         </div>
       ) : (
-        /* Side-by-side: chart left, table right */
         <div className="flex gap-4">
-          {/* Chart — horizontally scrolls internally once queue count would
-              otherwise compress bars/labels into unreadable slivers; never
-              causes the page itself to overflow. */}
-          <div className="relative overflow-x-auto" style={{ flex: '0 0 42%', minWidth: 0 }}>
-            <div style={{ minWidth: Math.max(100, chartData.length * 11) + '%', height: 130 }}>
-              <ResponsiveContainer width="100%" height={130}>
+          {/* Chart — today offered/answered/abandoned */}
+          <div className="relative overflow-x-auto" style={{ flex: '0 0 38%', minWidth: 0 }}>
+            <div style={{ minWidth: Math.max(100, chartData.length * 11) + '%', height: 150 }}>
+              <ResponsiveContainer width="100%" height={150}>
                 <BarChart data={chartData}
                   margin={{ top: 2, right: 2, left: -28, bottom: 0 }}
                   barCategoryGap="30%">
@@ -245,59 +181,105 @@ function QueuePerformanceSection({ distribution }) {
             )}
           </div>
 
-          {/* Table — vertical scroll caps the panel height once the queue
-              list grows (10+ queues) instead of stretching the whole page;
-              header stays pinned so columns remain readable while scrolling. */}
-          <div className="flex-1 min-w-0 overflow-x-auto overflow-y-auto max-h-64">
-            <table className="w-full text-xs" style={{ minWidth: 240 }}>
+          {/* Merged table — LIVE (waiting/longest) + TODAY (offered/ans/abnd/ans%/SLA) */}
+          <div className="flex-1 min-w-0 overflow-x-auto overflow-y-auto max-h-72">
+            <table className="w-full text-xs" style={{ minWidth: 360 }}>
               <thead className="sticky top-0 bg-white dark:bg-panel-surface z-10">
                 <tr className="border-b border-gray-100 dark:border-panel-border">
                   {[
-                    ['Queue',    'text-left',  ''],
-                    ['Off',      'text-right', 'w-7'],
-                    ['Ans',      'text-right', 'w-7'],
-                    ['Ab',       'text-right', 'w-7'],
-                    ['Ans%',     'text-right', 'w-9'],
-                  ].map(([h, align, w]) => (
+                    ['Queue',   'text-left',  '',    ''],
+                    ['Waiting', 'text-right', 'w-12','live'],
+                    ['Longest', 'text-right', 'w-14','live'],
+                    ['Off',     'text-right', 'w-8', 'today'],
+                    ['Ans',     'text-right', 'w-8', 'today'],
+                    ['Ab',      'text-right', 'w-8', 'today'],
+                    ['Ans%',    'text-right', 'w-10','today'],
+                    ['SLA',     'text-right', 'w-10','today'],
+                  ].map(([h, align, w, basis]) => (
                     <th key={h} className={`pb-2 text-[9px] font-semibold uppercase
                       tracking-wider text-gray-400 dark:text-ink-faint ${align} ${w}`}>
                       {h}
+                      {basis && (
+                        <span className={`block text-[7px] font-medium tracking-normal normal-case ${
+                          basis === 'live'
+                            ? 'text-amber-500 dark:text-amber-400'
+                            : 'text-gray-300 dark:text-ink-faint/60'
+                        }`}>
+                          {basis}
+                        </span>
+                      )}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-panel-border/20">
                 {distribution.map((q) => {
-                  const offered   = q.offered_today         || 0;
-                  const answered  = q.answered_today        || 0;
+                  const live      = liveByName[q.queue_name] || {};
+                  const offered   = q.offered_today  || 0;
+                  const answered  = q.answered_today || 0;
                   const abandoned = (q.abandoned_queue_today || 0) + (q.abandoned_agent_today || 0);
                   const ansRate   = offered > 0 ? Math.round(answered / offered * 100) : null;
+                  const waiting   = live.waiting || 0;
+                  const longest   = fmtSeconds(live.longest_wait_seconds);
+                  const avail     = live.available_agents ?? null;
+                  const sla       = live.sla_pct_today == null ? null : Number(live.sla_pct_today);
                   const color     = queueColor(q.queue_name, distribution);
                   const ansColor  = ansRate === null
                     ? 'text-gray-300 dark:text-ink-faint/40'
                     : ansRate >= 80 ? 'text-emerald-600 dark:text-lamp-ok'
                     : ansRate >= 60 ? 'text-amber-500 dark:text-lamp-warn'
                     : 'text-red-500 dark:text-lamp-alert';
+                  const slaColor  = sla === null
+                    ? 'text-gray-300 dark:text-ink-faint/40'
+                    : sla >= 80 ? 'text-emerald-600 dark:text-lamp-ok'
+                    : sla >= 60 ? 'text-amber-500 dark:text-lamp-warn'
+                    : 'text-red-500 dark:text-lamp-alert';
 
                   return (
                     <tr key={q.queue_name}
-                      className="hover:bg-gray-50/60 dark:hover:bg-panel-raised/20 transition-colors">
+                      className={`transition-colors ${
+                        waiting > 0
+                          ? 'bg-amber-50/50 dark:bg-amber-500/5'
+                          : 'hover:bg-gray-50/60 dark:hover:bg-panel-raised/20'
+                      }`}>
                       <td className="py-2">
                         <div className="flex items-center gap-1.5">
                           <span className="h-1.5 w-1.5 rounded-full shrink-0"
                             style={{ background: color }} />
                           <span className="font-medium text-gray-700 dark:text-ink truncate"
                             title={q.display_name || q.queue_name}
-                            style={{ maxWidth: 100 }}>
+                            style={{ maxWidth: 110 }}>
                             {q.display_name || q.queue_name}
                           </span>
                         </div>
+                        {avail !== null && (
+                          <span className="ml-3 text-[9px] font-mono text-gray-400 dark:text-ink-faint">
+                            {avail} avail
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right">
+                        {waiting > 0 ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full
+                            bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400
+                            text-[9px] font-bold animate-pulse-soft">
+                            {waiting}
+                          </span>
+                        ) : (
+                          <span className="font-mono tnum text-gray-300 dark:text-ink-faint/50">0</span>
+                        )}
+                      </td>
+                      <td className="py-2 font-mono tnum text-right text-gray-500 dark:text-ink-dim">
+                        {waiting > 0 ? longest : '—'}
                       </td>
                       <td className="py-2 font-mono tnum text-gray-600 dark:text-ink text-right">{offered}</td>
                       <td className="py-2 font-mono tnum text-emerald-600 dark:text-lamp-ok text-right font-semibold">{answered}</td>
                       <td className="py-2 font-mono tnum text-red-400 dark:text-lamp-alert text-right">{abandoned}</td>
                       <td className={`py-2 font-mono tnum text-right font-semibold ${ansColor}`}>
                         {ansRate !== null ? `${ansRate}%` : '—'}
+                      </td>
+                      <td className={`py-2 font-mono tnum text-right font-semibold ${slaColor}`}>
+                        {sla !== null ? `${Math.round(sla)}%` : '—'}
                       </td>
                     </tr>
                   );
@@ -332,9 +314,13 @@ function MetricRow({ icon: Icon, label, value, valueClass, iconClass }) {
   );
 }
 
-// ─── Real-Time Overview Panel ─────────────────────────────────────────────────
+// ─── Service Health Panel ─────────────────────────────────────────────────────
+// Phase 1: no longer repeats Calls Today / Avg Wait (those live once in the KPI
+// row) and no longer repeats the agent-status split (that lives once in the
+// "Agents Available" KPI card). Shows only the global service-health signals:
+// SLA gauge + Answer Rate + Abandon Rate.
 
-function RealTimeOverview({ stats }) {
+function ServiceHealth({ stats }) {
   const total    = stats.callsToday?.total    || 0;
   const answered = stats.callsToday?.answered || 0;
   const abnd     = stats.callsToday?.abandoned || 0;
@@ -343,14 +329,12 @@ function RealTimeOverview({ stats }) {
   const slaPct   = Number(stats.sla_pct ?? stats.slaPct) || 0;
 
   return (
-    <Panel eyebrow="Live" title="Real-Time Overview">
+    <Panel eyebrow="Live" title="Service Health">
       <div className="space-y-4">
-        {/* Gauge — horizontal layout to use width, not height */}
         <div className="pt-0.5">
           <ServiceLevelGauge pct={slaPct} />
         </div>
 
-        {/* Metrics */}
         <div>
           <MetricRow
             icon={CheckCircle2} label="Answer Rate"
@@ -374,150 +358,8 @@ function RealTimeOverview({ stats }) {
             }
             iconClass="bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400"
           />
-          <MetricRow
-            icon={Timer} label="Avg Wait"
-            value={fmtSeconds(stats.callsToday?.avg_wait_seconds)}
-            iconClass="bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400"
-          />
-          <MetricRow
-            icon={Phone} label="Calls Today"
-            value={total}
-            iconClass="bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
-          />
-        </div>
-
-        {/* Agent distribution */}
-        <div>
-          <p className="text-[9px] uppercase tracking-widest font-semibold
-            text-gray-400 dark:text-ink-faint mb-2.5">
-            Agent Distribution
-          </p>
-          <AgentStatusDonut agents={stats.agents} />
         </div>
       </div>
-    </Panel>
-  );
-}
-
-// ─── Live Queue Snapshot ──────────────────────────────────────────────────────
-
-function LiveQueueSnapshot({ queueStats }) {
-  return (
-    <Panel eyebrow="Live" title="Queue Snapshot">
-      {(!queueStats || queueStats.length === 0) ? (
-        <div className="flex items-center gap-3 py-3 text-gray-400 dark:text-ink-faint">
-          <PhoneIncoming size={15} strokeWidth={1.5} className="shrink-0" />
-          <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-ink-dim">All queues clear</p>
-            <p className="text-[10px] mt-0.5">No callers waiting</p>
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-1.5 max-h-80 overflow-y-auto pr-0.5">
-          {queueStats.map((q, i) => {
-            const waiting = q.waiting || 0;
-            const avail   = q.available_agents || 0;
-            const longest = fmtSeconds(q.longest_wait_seconds);
-            const sla     = Number(q.sla_pct_today) || 0;
-            const color   = QUEUE_COLORS[i % QUEUE_COLORS.length];
-            const slaColor = sla >= 80 ? 'text-emerald-600 dark:text-lamp-ok'
-              : sla >= 60 ? 'text-amber-500 dark:text-lamp-warn'
-              : 'text-red-500 dark:text-lamp-alert';
-
-            return (
-              <div key={q.queue_name}
-                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg border transition-all ${
-                  waiting > 0
-                    ? 'border-amber-200 dark:border-amber-500/20 bg-amber-50/60 dark:bg-amber-500/5'
-                    : 'border-gray-100 dark:border-panel-border bg-gray-50/40 dark:bg-panel-raised/20'
-                }`}>
-                <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-gray-800 dark:text-ink truncate">
-                    {q.display_name || q.queue_name}
-                  </p>
-                  <p className="text-[10px] text-gray-400 dark:text-ink-faint font-mono mt-0.5">
-                    {avail} avail · {longest}
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  {waiting > 0 ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full
-                      bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400
-                      text-[9px] font-bold animate-pulse-soft">
-                      {waiting} waiting
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full
-                      bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400
-                      text-[9px] font-semibold">
-                      Clear
-                    </span>
-                  )}
-                  <p className={`text-[9px] font-mono tnum mt-0.5 ${slaColor}`}>SLA {sla}%</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-// ─── Agent Roster ─────────────────────────────────────────────────────────────
-
-function AgentRoster({ agents, tick }) {
-  const sorted = useMemo(() => {
-    const order = { Available: 0, 'On Break': 1, 'Logged Out': 2 };
-    return [...(agents || [])].sort((a, b) =>
-      (order[a.status] ?? 9) - (order[b.status] ?? 9));
-  }, [agents]);
-
-  return (
-    <Panel eyebrow="Roster" title="Agent Status">
-      {sorted.length === 0 ? (
-        <div className="flex items-center gap-3 py-3 text-gray-400 dark:text-ink-faint">
-          <Users size={15} strokeWidth={1.5} className="shrink-0" />
-          <p className="text-xs text-gray-500 dark:text-ink-dim">No agents configured</p>
-        </div>
-      ) : (
-        <div className="space-y-0.5 max-h-80 overflow-y-auto pr-0.5">
-          {sorted.map((a) => {
-            const initials = (a.full_name || '??')
-              .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-            const dotColor =
-              a.status === 'Available' ? '#27C98A' :
-              a.status === 'On Break'  ? '#4C8EF5' : '#4C5A78';
-
-            return (
-              <div key={a.agent_id}
-                className="flex items-center gap-2 py-1.5 px-2 rounded-lg
-                  hover:bg-gray-50 dark:hover:bg-panel-raised/50 transition-colors">
-                <div className="h-7 w-7 rounded-full flex items-center justify-center
-                  shrink-0 text-[10px] font-bold text-white"
-                  style={{ background: dotColor + 'CC' }}>
-                  {initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-gray-800 dark:text-ink truncate">
-                    {a.full_name}
-                  </p>
-                  <p className="text-[10px] font-mono tnum text-gray-400 dark:text-ink-faint leading-none mt-0.5">
-                    ext {a.avaya_extension}
-                    {a.status === 'Available' && a.status_since && (
-                      <span className="text-emerald-500 dark:text-lamp-available ml-1">
-                        · {fmtIdle(a.status_since, tick)}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <StatusLamp status={a.status} showLabel={false} size="sm" />
-              </div>
-            );
-          })}
-        </div>
-      )}
     </Panel>
   );
 }
@@ -535,8 +377,15 @@ const ACTIVITY_CFG = {
 };
 
 function ActivityFeed({ activities }) {
+  const viewAgents = (
+    <Link to="/live-agents"
+      className="inline-flex items-center gap-1 text-[11px] font-semibold
+        text-primary hover:underline">
+      View Live Agents <ArrowRight size={12} />
+    </Link>
+  );
   return (
-    <Panel eyebrow="Live" title="Activity Feed">
+    <Panel eyebrow="Live" title="Activity Feed" action={viewAgents}>
       {activities.length === 0 ? (
         <div className="flex items-center gap-3 py-3 text-gray-400 dark:text-ink-faint">
           <Radio size={15} strokeWidth={1.5} className="shrink-0" />
@@ -579,33 +428,15 @@ function ActivityFeed({ activities }) {
   );
 }
 
-// ─── Recent Alerts (compact) ──────────────────────────────────────────────────
-
-function RecentAlerts() {
-  return (
-    <Panel eyebrow="System" title="Recent Alerts">
-      <div className="flex items-center gap-3 py-3 text-gray-400 dark:text-ink-faint">
-        <Bell size={15} strokeWidth={1.5} className="shrink-0" />
-        <div>
-          <p className="text-xs font-semibold text-gray-500 dark:text-ink-dim">No active alerts</p>
-          <p className="text-[10px] mt-0.5">All systems operating normally</p>
-        </div>
-      </div>
-    </Panel>
-  );
-}
-
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 const MAX_ACTIVITIES = 14;
 
 export default function Dashboard() {
   const [stats,      setStats]      = useState(null);
-  const [agents,     setAgents]     = useState([]);
   const [queueStats, setQueueStats] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
-  const [tick,       setTick]       = useState(Date.now());
   const [activities, setActivities] = useState([]);
   const actId = useRef(0);
 
@@ -618,13 +449,11 @@ export default function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [s, a, qs] = await Promise.all([
+      const [s, qs] = await Promise.all([
         Stats.dashboard(),
-        AgentsApi.list(),
         Stats.queues(),
       ]);
       setStats(s);
-      setAgents(a);
       setQueueStats(qs);
       setError(null);
     } catch (err) {
@@ -639,11 +468,6 @@ export default function Dashboard() {
     const poll = setInterval(load, 10_000);
     return () => clearInterval(poll);
   }, [load]);
-
-  useEffect(() => {
-    const t = setInterval(() => setTick(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   // ── Data refresh events (existing behavior preserved) ──────────────────────
   const onRefresh = useCallback(() => load(), [load]);
@@ -690,14 +514,10 @@ export default function Dashboard() {
       <div className="space-y-4">
         <KpiSkeleton count={5} />
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
-          <div className="skeleton h-44 rounded-xl xl:col-span-2" />
-          <div className="skeleton h-52 rounded-xl" />
+          <div className="skeleton h-56 rounded-xl xl:col-span-2" />
+          <div className="skeleton h-56 rounded-xl" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          <div className="skeleton h-32 rounded-xl" />
-          <div className="skeleton h-36 rounded-xl" />
-          <div className="skeleton h-28 rounded-xl" />
-        </div>
+        <div className="skeleton h-40 rounded-xl" />
       </div>
     );
   }
@@ -728,11 +548,12 @@ export default function Dashboard() {
   const totalWaiting = (stats.queueSnapshot || []).reduce((s, q) => s + q.waiting, 0);
   const abandoned    = stats.callsToday?.abandoned ?? 0;
   const queueDist    = stats.queueDistribution || [];
+  const liveByName   = Object.fromEntries((queueStats || []).map(q => [q.queue_name, q]));
 
   return (
     <div className="space-y-4">
 
-      {/* ── KPI Row ──────────────────────────────────────────────────────── */}
+      {/* ── KPI Row — the single authoritative home for global scalars ─────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         <KpiCard
           label="Agents Available"
@@ -768,43 +589,16 @@ export default function Dashboard() {
         />
       </div>
 
-      {/*
-        ── Unified 3-column grid ─────────────────────────────────────────────
-        Real-Time Overview spans BOTH inner rows (xl:row-span-2).
-        This means Queue Snapshot starts immediately below Queue Performance
-        with no gap — there is no separate grid container between them.
-
-        Layout at xl+:
-          col 1-2 row 1 │ col 3 row 1-2
-          Queue Perf     │ Real-Time Overview (spans both rows)
-          col 1-2 row 2  │
-          Snap + Roster  │
-      */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Queue Performance: col 1-2, row 1 */}
-        <div className="xl:col-span-2">
-          <QueuePerformanceSection distribution={queueDist} />
-        </div>
-
-        {/* Real-Time Overview: col 3, spans rows 1 AND 2 — fills right column */}
-        <div className="xl:row-span-2 xl:row-start-1 xl:col-start-3">
-          <RealTimeOverview stats={stats} />
-        </div>
-
-        {/* Bottom-left: col 1-2, row 2 — starts directly below Queue Perf */}
-        <div className="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-          <LiveQueueSnapshot queueStats={queueStats} />
-          <AgentRoster agents={agents} tick={tick} />
-        </div>
-      </div>
-
-      {/* ── Activity Feed + Alerts ────────────────────────────────────────── */}
+      {/* ── Queue Health (Live + Today) + Service Health ─────────────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <div className="xl:col-span-2">
-          <ActivityFeed activities={activities} />
+          <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
         </div>
-        <RecentAlerts />
+        <ServiceHealth stats={stats} />
       </div>
+
+      {/* ── Activity Feed ─────────────────────────────────────────────────── */}
+      <ActivityFeed activities={activities} />
 
     </div>
   );
