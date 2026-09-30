@@ -38,7 +38,10 @@ export default function Layout() {
         <main className="flex-1 overflow-y-auto">
           {/* Standardized enterprise content container: wide for information
               density, centered, consistent gutters. (Phase 3A.6) */}
-          <div className="mx-auto w-full max-w-[1600px] px-6 py-5">
+          {/* Adaptive content width: 1600px on standard desktops (1366–2559 →
+              unchanged), widening to 2240px only on ≥2560px monitors so QHD/4K
+              use the extra space while keeping bounded, readable line lengths. */}
+          <div className="mx-auto w-full max-w-[1600px] 3xl:max-w-[2240px] px-6 3xl:px-8 py-5">
             {/* Title lives in the Topbar; this header carries context (description)
                 + future page actions, so the title is not repeated underneath. */}
             <PageHeader description={meta.description} />

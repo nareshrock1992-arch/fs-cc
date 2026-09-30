@@ -61,14 +61,9 @@ export default function KpiCard({ label, value, suffix, tone = 'default', icon: 
                       break-words">
           {label}
         </p>
-        {/* Value adapts to available card width rather than being clipped:
-            fluid size via clamp() (scales down as the viewport/card narrows and
-            at higher browser zoom), min-w-0 so it can shrink inside the flex
-            column, and overflow-wrap:anywhere as a last-resort so an extreme
-            value wraps instead of being silently cut by the card's overflow. */}
-        <p className={`font-mono tnum font-bold leading-tight min-w-0
-                       text-[clamp(1.05rem,0.85rem+0.75vw,1.5rem)]
-                       [overflow-wrap:anywhere] ${t.value}`}>
+        {/* Canonical KPI value treatment — fluid, bounded and non-clipping.
+            See `.text-metric` in index.css. Colour comes from the tone. */}
+        <p className={`text-metric ${t.value}`}>
           {value}
           {suffix && <span className="text-sm ml-1 font-normal opacity-60">{suffix}</span>}
         </p>

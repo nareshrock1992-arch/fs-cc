@@ -183,7 +183,7 @@ export default function Reports() {
   const thClass = 'pb-2 font-display font-medium dark:text-ink-faint text-gray-400 text-[11px] uppercase tracking-widest';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
       {/* Date range + Apply + CSV exports */}
       <div className="flex flex-wrap items-end gap-3">

@@ -175,7 +175,7 @@ export default function LiveCalls() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <KpiSkeleton count={3} />
         <div className="skeleton h-48 rounded-xl" />
       </div>
@@ -193,7 +193,7 @@ export default function LiveCalls() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
 
       {/* KPI strip — reflows to fewer columns when space is insufficient. */}
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">

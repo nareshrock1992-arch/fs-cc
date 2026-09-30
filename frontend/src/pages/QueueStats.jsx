@@ -99,7 +99,7 @@ function QueueCard({ q }) {
                 <p className="text-[10px] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
                   {label}
                 </p>
-                <p className={`text-xl font-semibold font-mono tnum min-w-0 [overflow-wrap:anywhere] ${color}`}>{value}</p>
+                <p className={`text-metric ${color}`}>{value}</p>
               </div>
             );
           })}

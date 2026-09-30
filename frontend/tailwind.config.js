@@ -10,6 +10,13 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      // Large-monitor tier (QHD/4K). One documented breakpoint — used only to
+      // widen the content container so supervisor monitors ≥2560px use the extra
+      // horizontal space, without introducing per-page breakpoint hacks. Default
+      // Tailwind breakpoints (sm…2xl) are preserved via `extend`.
+      screens: {
+        '3xl': '2560px',
+      },
       colors: {
         // ── Semantic surfaces / borders / text (canonical) ──────────────
         bg:      v('--bg'),

@@ -181,7 +181,18 @@
   /* ── Typography scale (foundation — available to later phases) ─────── */
   .text-page-title    { @apply font-sans text-[20px] font-semibold leading-tight text-ink; }
   .text-section-title { @apply font-sans text-[15px] font-semibold leading-snug text-ink; }
-  .text-metric        { @apply font-sans text-[26px] font-semibold leading-none tabular-nums text-ink; }
+  /* Canonical KPI / metric value treatment (single source of truth for KPI
+     numbers across KpiCard, QueueStats, etc.). Monospace tabular figures for
+     column-aligned digits; fluid size that scales with the viewport but is
+     BOUNDED (≤26px) so it never becomes oversized on 2560/4K; min-width:0 +
+     overflow-wrap so long durations/large numbers wrap instead of being
+     clipped. Colour is applied by the caller (tone utilities override text-ink). */
+  .text-metric        {
+    @apply font-mono font-semibold leading-tight tabular-nums text-ink;
+    font-size: clamp(1.05rem, 0.85rem + 0.75vw, 1.625rem);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
   .text-table-head    { @apply font-sans text-[12px] font-semibold text-ink-dim; }
   .text-body          { @apply font-sans text-[14px] font-normal text-ink; }
   .text-secondary-sm  { @apply font-sans text-[13px] text-ink-dim; }

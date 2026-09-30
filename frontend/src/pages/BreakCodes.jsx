@@ -118,7 +118,7 @@ export default function BreakCodesPage() {
   const fmtMin = (s) => (s == null ? '—' : `${Math.round(s / 60)} min`);
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <div>
           <h1 className="font-display font-bold text-lg text-gray-900 dark:text-ink flex items-center gap-2">

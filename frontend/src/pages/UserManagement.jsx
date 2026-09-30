@@ -209,7 +209,7 @@ export default function UserManagement() {
   const thClass = 'th whitespace-nowrap';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
       {/* Header KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
