@@ -451,7 +451,7 @@ export default function Agents() {
               <p className="text-sm text-lamp-alert">{formError}</p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-x-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <FormField label="Agent ID" hint="FreeSWITCH agent name, e.g. Agent_1001@default">
               <input
                 required

@@ -22,7 +22,7 @@ export default function LoadingState({ rows = 3, cols = 4, label = 'Loading…' 
 
 export function KpiSkeleton({ count = 5 }) {
   return (
-    <div className={`grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-${count}`}>
+    <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="rounded-xl border border-gray-200 dark:border-panel-border
                                 bg-white dark:bg-panel-surface p-5 flex items-center gap-4">

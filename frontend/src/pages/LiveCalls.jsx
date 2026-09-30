@@ -195,8 +195,8 @@ export default function LiveCalls() {
   return (
     <div className="space-y-6">
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* KPI strip — reflows to fewer columns when space is insufficient. */}
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))]">
         <KpiCard
           label="Waiting"
           value={waiting.length}

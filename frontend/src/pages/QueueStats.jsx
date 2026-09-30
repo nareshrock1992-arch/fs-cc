@@ -24,11 +24,11 @@ function SlaBar({ pct }) {
 // Stat cell used in both Live and Today grids
 function Stat({ label, value, colorClass, title }) {
   return (
-    <div title={title}>
+    <div title={title} className="min-w-0">
       <p className="text-[10px] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
         {label}
       </p>
-      <p className={`text-sm font-semibold font-mono tnum ${colorClass ?? 'dark:text-ink text-gray-800'}`}>
+      <p className={`text-sm font-semibold font-mono tnum min-w-0 [overflow-wrap:anywhere] ${colorClass ?? 'dark:text-ink text-gray-800'}`}>
         {value}
       </p>
     </div>
@@ -83,7 +83,7 @@ function QueueCard({ q }) {
       <div className="p-4">
 
         {/* ── LIVE — 4 KPI tiles ──────────────────────────────────────── */}
-        <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           {[
             { label: 'Waiting',          value: q.waiting,          tone: q.waiting > 0 ? 'amber' : null },
             { label: 'In Call',           value: q.active,           tone: q.active  > 0 ? 'green' : null },
@@ -95,11 +95,11 @@ function QueueCard({ q }) {
               : tone === 'red'   ? 'text-lamp-alert'
               : 'dark:text-ink text-gray-900';
             return (
-              <div key={label}>
+              <div key={label} className="min-w-0">
                 <p className="text-[10px] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
                   {label}
                 </p>
-                <p className={`text-xl font-semibold font-mono tnum ${color}`}>{value}</p>
+                <p className={`text-xl font-semibold font-mono tnum min-w-0 [overflow-wrap:anywhere] ${color}`}>{value}</p>
               </div>
             );
           })}
@@ -110,7 +110,7 @@ function QueueCard({ q }) {
           <p className="text-[10px] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 mb-2">
             Today
           </p>
-          <div className="grid grid-cols-4 gap-x-3 gap-y-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2.5">
 
             {/* Row 1: volume + efficiency */}
             <Stat label="Offered"     value={q.offered_today}  />

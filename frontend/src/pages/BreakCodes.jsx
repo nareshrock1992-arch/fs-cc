@@ -233,7 +233,7 @@ export default function BreakCodesPage() {
               {formErr}
             </div>
           )}
-          <div className="grid grid-cols-2 gap-x-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <FormField label="Code" required>
               <input className={inputClass} value={form.code} disabled={!!editing}
                 onChange={e => setForm(f => ({ ...f, code: e.target.value }))}
@@ -250,7 +250,7 @@ export default function BreakCodesPage() {
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               placeholder="Agent working outside the office" />
           </FormField>
-          <div className="grid grid-cols-3 gap-x-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4">
             <FormField label="Display order">
               <input type="number" min="0" className={inputClass} value={form.display_order}
                 onChange={e => setForm(f => ({ ...f, display_order: e.target.value }))} />
@@ -264,7 +264,7 @@ export default function BreakCodesPage() {
                 onChange={e => setForm(f => ({ ...f, max_duration_seconds: e.target.value }))} />
             </FormField>
           </div>
-          <div className="grid grid-cols-2 gap-x-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <FormField label="Color" hint="Hex, e.g. #3B82F6">
               <input className={inputClass} value={form.color}
                 onChange={e => setForm(f => ({ ...f, color: e.target.value }))} placeholder="#3B82F6" />

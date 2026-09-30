@@ -230,8 +230,11 @@ export default function AgentPerformanceDashboard() {
           {/* ① Recognition — the primary focus (transparent, metric-specific) */}
           {rows.length > 0 && <RecognitionHero recognition={recognition} />}
 
-          {/* ② Team KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+          {/* ② Team KPIs — width-driven reflow: columns are derived from the
+              available space (min usable card ≈ 150px) rather than a fixed
+              count, so the seven cards spread across one row on wide screens and
+              gracefully wrap to multiple rows when narrower or zoomed in. */}
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
             <KpiCard label="Calls Offered"  value={kpi.offered}  tone="blue"   icon={Phone} />
             <KpiCard label="Calls Answered" value={kpi.answered} tone="green"  icon={CheckCircle2} />
             <KpiCard label="Calls Missed"   value={kpi.missed}   tone={kpi.missed > 0 ? 'red' : 'default'} icon={PhoneMissed} />

@@ -244,7 +244,7 @@ export default function Queues() {
               ))}
             </select>
           </FormField>
-          <div className="grid grid-cols-2 gap-x-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <FormField label="Max Wait Time (sec)">
               <input type="number" min="0" value={form.maxWaitTime}
                 onChange={(e) => setForm({ ...form, maxWaitTime: Number(e.target.value) })}
