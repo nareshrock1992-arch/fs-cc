@@ -17,11 +17,23 @@ export async function agentLogin(req, res) {
     return res.status(400).json({ error: 'agent_id and pin are required' });
   }
 
+  // Case-INSENSITIVE login lookup (trimmed): an agent may type their email-style
+  // ID in any casing. The stored agent_id is the canonical FreeSWITCH mod_callcenter
+  // agent name and is used verbatim for every downstream operation (JWT, session,
+  // ESL, reports) — only the *lookup* is normalized here, never the stored value.
+  // A UNIQUE INDEX ON LOWER(agent_id) (migration 009) prevents case-only duplicates;
+  // as defence-in-depth we still reject an ambiguous (>1 row) match rather than
+  // silently authenticating an arbitrary account.
   const { rows } = await query(
     `SELECT id, agent_id, full_name, avaya_extension, contact, status, state, pin_hash
-     FROM agents WHERE agent_id = $1 AND active = true`,
+     FROM agents WHERE LOWER(agent_id) = LOWER($1) AND active = true`,
     [String(agent_id).trim()]
   );
+
+  if (rows.length > 1) {
+    console.warn(`[agentLogin] ambiguous case-insensitive match for submitted id (${rows.length} rows) — rejecting`);
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
 
   const agent = rows[0];
   if (!agent) return res.status(401).json({ error: 'Invalid credentials' });
