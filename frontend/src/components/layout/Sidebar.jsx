@@ -29,7 +29,7 @@ const USERS_ITEM         = { to: '/users',                  label: 'User Managem
 // Uses the Phase 1 semantic tokens so the sidebar follows light AND dark mode:
 //   light → white surface / slate ink;  dark → panel surface / light ink.
 const NAV_BASE =
-  'group relative flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-sm ' +
+  'group relative flex items-center gap-3 px-3 py-2 rounded-[8px] text-sm ' +
   'transition-colors focus-visible:outline-none focus-visible:ring-2 ' +
   'focus-visible:ring-primary/40 focus-visible:ring-offset-0';
 const NAV_INACTIVE =
@@ -104,9 +104,11 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        <p className="px-3 pb-2 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
+      {/* Nav — compact enough to fit without an internal scrollbar at normal
+          heights; overflow-y-auto only engages (with the thin, arrow-less
+          scrollbar from index.css) on very short viewports. */}
+      <nav className="flex-1 px-3 py-3 overflow-y-auto">
+        <p className="px-3 pb-1.5 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
           Operations
         </p>
         <div className="space-y-1">
@@ -117,7 +119,7 @@ export default function Sidebar() {
 
         {(canViewReports || canManageBreaks || isAdmin) && (
           <>
-            <p className="px-3 pt-6 pb-2 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
+            <p className="px-3 pt-4 pb-1.5 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
               Management
             </p>
             <div className="space-y-1">
