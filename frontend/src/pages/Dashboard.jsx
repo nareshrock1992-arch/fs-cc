@@ -333,7 +333,7 @@ function ServiceHealth({ stats }) {
   const slaPct   = Number(stats.sla_pct ?? stats.slaPct) || 0;
 
   return (
-    <Panel eyebrow="Live" title="Service Health">
+    <Panel eyebrow="Live" title="Service Health" className="h-full">
       <div className="space-y-4">
         <div className="pt-0.5">
           <ServiceLevelGauge pct={slaPct} />
@@ -572,7 +572,7 @@ function UtilizationCard({ util, agents }) {
   const tone = pct == null ? '#8B99B8' : pct >= 85 ? '#EF4444' : pct >= 70 ? '#F5A623' : '#27C98A';
 
   return (
-    <Panel eyebrow="Today" title="Agent Utilization">
+    <Panel eyebrow="Today" title="Agent Utilization" className="h-full">
       <div className="space-y-3">
         <div>
           <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
@@ -774,14 +774,21 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Row 2: Operational health — Queue Health (2) · Service Health (1) ·
-            Agent Utilization (1), a 2:1:1 grid aligned at the top. ───────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-        <div className="xl:col-span-2">
+      {/* ── Row 2: Operational health — Queue Health (2/3) beside a stacked
+            Service Health + Agent Utilization column (1/3). Stacking the two
+            smaller cards fills the vertical space next to the taller Queue Health
+            table instead of leaving dead whitespace beside short cards, while
+            keeping the left-to-right order Queue → Service → Utilization. ─────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:items-stretch">
+        <div className="xl:col-span-2 min-w-0">
           <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
         </div>
-        <ServiceHealth stats={stats} />
-        <UtilizationCard util={util} agents={liveAgents} />
+        {/* Right column stretches to the Queue Health height; the two cards split
+            it (xl:flex-1) so there is no empty gap beneath them. */}
+        <div className="flex flex-col gap-4 min-w-0">
+          <div className="xl:flex-1 min-h-0"><ServiceHealth stats={stats} /></div>
+          <div className="xl:flex-1 min-h-0"><UtilizationCard util={util} agents={liveAgents} /></div>
+        </div>
       </div>
 
       {/* ── Row 3: Calls — Today trend (2/3) + Agent Status (1/3) ─────────────── */}
