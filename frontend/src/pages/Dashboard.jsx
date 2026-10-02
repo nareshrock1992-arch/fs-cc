@@ -148,14 +148,16 @@ function QueueHealthSection({ distribution, liveByName }) {
           <p className="text-xs">No queues configured yet.</p>
         </div>
       ) : (
-        <div className="flex gap-4">
-          {/* Chart — today offered/answered/abandoned */}
-          <div className="relative overflow-x-auto" style={{ flex: '0 0 38%', minWidth: 0 }}>
-            <div style={{ minWidth: Math.max(100, chartData.length * 11) + '%', height: 150 }}>
-              <ResponsiveContainer width="100%" height={150}>
+        /* Stacked: compact chart on top, aligned scrollable table below — keeps
+           numeric columns aligned regardless of queue-name length or row count. */
+        <div className="space-y-3">
+          {/* Chart — today offered/answered/abandoned (horizontal scroll if many) */}
+          <div className="relative w-full overflow-x-auto">
+            <div style={{ minWidth: Math.max(100, chartData.length * 9) + '%' }}>
+              <ResponsiveContainer width="100%" height={140}>
                 <BarChart data={chartData}
-                  margin={{ top: 2, right: 2, left: -28, bottom: 0 }}
-                  barCategoryGap="30%">
+                  margin={{ top: 2, right: 2, left: -26, bottom: 0 }}
+                  barCategoryGap="28%">
                   <CartesianGrid strokeDasharray="3 3"
                     stroke="rgba(139,153,184,0.10)" vertical={false} />
                   <XAxis dataKey="name"
@@ -163,7 +165,7 @@ function QueueHealthSection({ distribution, liveByName }) {
                     axisLine={false} tickLine={false} interval={0} />
                   <YAxis
                     tick={{ fontSize: 9, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
-                    axisLine={false} tickLine={false} allowDecimals={false} />
+                    axisLine={false} tickLine={false} allowDecimals={false} width={28} />
                   <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(139,153,184,0.06)' }} />
                   <Bar dataKey="Offered"   name="Offered"   fill="#3B82F6" radius={[2,2,0,0]} />
                   <Bar dataKey="Answered"  name="Answered"  fill="#27C98A" radius={[2,2,0,0]} />
@@ -181,22 +183,25 @@ function QueueHealthSection({ distribution, liveByName }) {
             )}
           </div>
 
-          {/* Merged table — LIVE (waiting/longest) + TODAY (offered/ans/abnd/ans%/SLA) */}
-          <div className="flex-1 min-w-0 overflow-x-auto overflow-y-auto max-h-72">
-            <table className="w-full text-xs" style={{ minWidth: 360 }}>
+          {/* Merged table — LIVE (waiting/longest) + TODAY (offered/ans/abnd/ans%/SLA).
+              Real <table> with fixed-width right-aligned numeric columns; the name
+              column truncates (min-w-0) so long names never push metrics out of
+              alignment. Internal vertical scroll caps height for many queues. */}
+          <div className="w-full min-w-0 overflow-x-auto overflow-y-auto max-h-64">
+            <table className="w-full text-xs" style={{ minWidth: 380 }}>
               <thead className="sticky top-0 bg-white dark:bg-panel-surface z-10">
                 <tr className="border-b border-gray-100 dark:border-panel-border">
                   {[
                     ['Queue',   'text-left',  '',    ''],
-                    ['Waiting', 'text-right', 'w-12','live'],
-                    ['Longest', 'text-right', 'w-14','live'],
-                    ['Off',     'text-right', 'w-8', 'today'],
-                    ['Ans',     'text-right', 'w-8', 'today'],
-                    ['Ab',      'text-right', 'w-8', 'today'],
-                    ['Ans%',    'text-right', 'w-10','today'],
-                    ['SLA',     'text-right', 'w-10','today'],
+                    ['Waiting', 'text-right', 'w-14','live'],
+                    ['Longest', 'text-right', 'w-16','live'],
+                    ['Off',     'text-right', 'w-10','today'],
+                    ['Ans',     'text-right', 'w-10','today'],
+                    ['Ab',      'text-right', 'w-10','today'],
+                    ['Ans%',    'text-right', 'w-12','today'],
+                    ['SLA',     'text-right', 'w-12','today'],
                   ].map(([h, align, w, basis]) => (
-                    <th key={h} className={`pb-2 text-[9px] font-semibold uppercase
+                    <th key={h} className={`pb-2 px-1.5 text-[9px] font-semibold uppercase
                       tracking-wider text-gray-400 dark:text-ink-faint ${align} ${w}`}>
                       {h}
                       {basis && (
@@ -242,23 +247,22 @@ function QueueHealthSection({ distribution, liveByName }) {
                           ? 'bg-amber-50/50 dark:bg-amber-500/5'
                           : 'hover:bg-gray-50/60 dark:hover:bg-panel-raised/20'
                       }`}>
-                      <td className="py-2">
-                        <div className="flex items-center gap-1.5">
+                      <td className="py-2 px-1.5 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           <span className="h-1.5 w-1.5 rounded-full shrink-0"
                             style={{ background: color }} />
-                          <span className="font-medium text-gray-700 dark:text-ink truncate"
-                            title={q.display_name || q.queue_name}
-                            style={{ maxWidth: 110 }}>
+                          <span className="font-medium text-gray-700 dark:text-ink truncate min-w-0"
+                            title={q.display_name || q.queue_name}>
                             {q.display_name || q.queue_name}
                           </span>
+                          {avail !== null && (
+                            <span className="shrink-0 text-[9px] font-mono text-gray-400 dark:text-ink-faint">
+                              · {avail} avail
+                            </span>
+                          )}
                         </div>
-                        {avail !== null && (
-                          <span className="ml-3 text-[9px] font-mono text-gray-400 dark:text-ink-faint">
-                            {avail} avail
-                          </span>
-                        )}
                       </td>
-                      <td className="py-2 text-right">
+                      <td className="py-2 px-1.5 text-right">
                         {waiting > 0 ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full
                             bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400
@@ -269,16 +273,16 @@ function QueueHealthSection({ distribution, liveByName }) {
                           <span className="font-mono tnum text-gray-300 dark:text-ink-faint/50">0</span>
                         )}
                       </td>
-                      <td className="py-2 font-mono tnum text-right text-gray-500 dark:text-ink-dim">
+                      <td className="py-2 px-1.5 font-mono tnum text-right text-gray-500 dark:text-ink-dim">
                         {waiting > 0 ? longest : '—'}
                       </td>
-                      <td className="py-2 font-mono tnum text-gray-600 dark:text-ink text-right">{offered}</td>
-                      <td className="py-2 font-mono tnum text-emerald-600 dark:text-lamp-ok text-right font-semibold">{answered}</td>
-                      <td className="py-2 font-mono tnum text-red-400 dark:text-lamp-alert text-right">{abandoned}</td>
-                      <td className={`py-2 font-mono tnum text-right font-semibold ${ansColor}`}>
+                      <td className="py-2 px-1.5 font-mono tnum text-gray-600 dark:text-ink text-right">{offered}</td>
+                      <td className="py-2 px-1.5 font-mono tnum text-emerald-600 dark:text-lamp-ok text-right font-semibold">{answered}</td>
+                      <td className="py-2 px-1.5 font-mono tnum text-red-400 dark:text-lamp-alert text-right">{abandoned}</td>
+                      <td className={`py-2 px-1.5 font-mono tnum text-right font-semibold ${ansColor}`}>
                         {ansRate !== null ? `${ansRate}%` : '—'}
                       </td>
-                      <td className={`py-2 font-mono tnum text-right font-semibold ${slaColor}`}>
+                      <td className={`py-2 px-1.5 font-mono tnum text-right font-semibold ${slaColor}`}>
                         {sla !== null ? `${Math.round(sla)}%` : '—'}
                       </td>
                     </tr>
@@ -770,7 +774,17 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Row A: Calls — Today trend + Agent Status / Capacity ─────────────── */}
+      {/* ── Row 2: Operational health — Queue Health (2) · Service Health (1) ·
+            Agent Utilization (1), a 2:1:1 grid aligned at the top. ───────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+        <div className="xl:col-span-2">
+          <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
+        </div>
+        <ServiceHealth stats={stats} />
+        <UtilizationCard util={util} agents={liveAgents} />
+      </div>
+
+      {/* ── Row 3: Calls — Today trend (2/3) + Agent Status (1/3) ─────────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <div className="xl:col-span-2">
           <CallsTrendCard data={trend} ready={auxReady} />
@@ -778,21 +792,8 @@ export default function Dashboard() {
         <AgentStatusCard agents={liveAgents} />
       </div>
 
-      {/* ── Row B: Queue Health (Live + Today) + Agent Utilization ───────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
-        <div className="xl:col-span-2">
-          <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
-        </div>
-        <UtilizationCard util={util} agents={liveAgents} />
-      </div>
-
-      {/* ── Row C: Service Health + Activity Feed ────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
-        <ServiceHealth stats={stats} />
-        <div className="xl:col-span-2">
-          <ActivityFeed activities={activities} />
-        </div>
-      </div>
+      {/* ── Row 4: Live activity — full content width ─────────────────────────── */}
+      <ActivityFeed activities={activities} />
 
     </div>
   );
