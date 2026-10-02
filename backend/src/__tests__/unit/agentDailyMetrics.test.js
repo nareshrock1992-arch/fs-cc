@@ -28,7 +28,9 @@ describe('agentPerformanceDaily — SQL shape (canonical predicates + daily buck
     await reports.agentPerformanceDaily(mockReq(), mockRes());
     const sql = captured.join('\n');
     // business-day bucket on ring_start (same pattern as callVolumeByDay)
-    expect(sql).toMatch(/date_trunc\('day', ah\.ring_start AT TIME ZONE \$3\)::date\s+AS day/);
+    // day is a clean 'YYYY-MM-DD' STRING via to_char (not ::date, which node-pg
+    // would turn into a JS Date → ISO timestamp → broken chart x-axis labels).
+    expect(sql).toMatch(/to_char\(date_trunc\('day', ah\.ring_start AT TIME ZONE \$3\), 'YYYY-MM-DD'\)\s+AS day/);
     // canonical offered/answered/missed
     expect(sql).toMatch(/COUNT\(\*\)::INT\s+AS calls_offered/);
     expect(sql).toMatch(/COUNT\(\*\) FILTER \(WHERE ah\.missed = false AND ah\.talk_start IS NOT NULL\)::INT\s+AS calls_answered/);

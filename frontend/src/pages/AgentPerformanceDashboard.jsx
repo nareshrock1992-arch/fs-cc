@@ -86,7 +86,22 @@ function buildDaily(dailyRows, singleAgent) {
   }));
 }
 
-function dayLabel(d) { const [, m, day] = String(d).split('-'); return `${day}/${m}`; }
+// Supervisor-friendly date label. Accepts a clean 'YYYY-MM-DD' (the API now
+// returns this) and is defensive against a stray ISO timestamp — it reads only
+// the date portion as a STRING, so there is no timezone conversion / day shift.
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function dayLabel(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d));
+  if (!m) return String(d);
+  return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1] || m[2]}`; // e.g. "27 Sep"
+}
+
+// Readable duration for talk/ring axes & tooltips: "45s" or "2:05".
+function fmtDurSecs(s) {
+  const n = Math.round(Number(s) || 0);
+  if (n < 60) return `${n}s`;
+  return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+}
 
 // ── Sortable comparison table ─────────────────────────────────────────────────
 const COLS = [
@@ -280,16 +295,16 @@ export default function AgentPerformanceDashboard() {
 
               {/* ── Daily trends ──────────────────────────────────────────────── */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <Panel eyebrow="Trend" title="Offered · Answered · Missed">
+                <Panel eyebrow="Trend" title="Calls: Offered · Answered · Missed">
                   <TrendChart data={series} kind="bars" />
                 </Panel>
                 <Panel eyebrow="Trend" title="Answer Rate">
                   <TrendChart data={series} kind="rate" />
                 </Panel>
-                <Panel eyebrow="Trend" title="Avg Talk (seconds)">
+                <Panel eyebrow="Trend" title="Average Talk Time">
                   <TrendChart data={series} kind="talk" />
                 </Panel>
-                <Panel eyebrow="Trend" title="Avg Ring (seconds)">
+                <Panel eyebrow="Trend" title="Average Ring Time">
                   <TrendChart data={series} kind="ring" />
                 </Panel>
               </div>
@@ -350,12 +365,22 @@ function TrendChart({ data, kind }) {
     return <p className="text-xs text-ink-faint py-8 text-center">No daily data for the selected period.</p>;
   }
   const axisTick = { fontSize: 10, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' };
+  // Per-metric Y-axis unit formatter + tooltip value formatter, so every chart
+  // shows correct units (calls / % / duration) rather than bare numbers.
+  const isDuration = kind === 'talk' || kind === 'ring';
+  const yFmt = kind === 'rate' ? (v => `${v}%`) : isDuration ? fmtDurSecs : (v => `${v}`);
+  const tipFmt = kind === 'rate'
+    ? (v => [`${v}%`, 'Answer Rate'])
+    : isDuration
+      ? (v => [fmtDurSecs(v), kind === 'talk' ? 'Avg Talk' : 'Avg Ring'])
+      : (v, n) => [`${v} calls`, n];
   const common = (
     <>
       <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,153,184,0.12)" vertical={false} />
-      <XAxis dataKey="day" tickFormatter={dayLabel} tick={axisTick} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-      <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} />
-      <Tooltip contentStyle={{ fontSize: 12 }} labelFormatter={dayLabel} />
+      <XAxis dataKey="day" tickFormatter={dayLabel} tick={axisTick} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={24} />
+      <YAxis tick={axisTick} axisLine={false} tickLine={false} allowDecimals={false} width={40}
+        tickFormatter={yFmt} domain={kind === 'rate' ? [0, 100] : undefined} />
+      <Tooltip contentStyle={{ fontSize: 12 }} labelFormatter={dayLabel} formatter={tipFmt} />
     </>
   );
   return (
@@ -363,16 +388,16 @@ function TrendChart({ data, kind }) {
       {kind === 'bars' ? (
         <BarChart data={data} margin={{ top: 4, right: 6, left: -20, bottom: 0 }} barCategoryGap="25%">
           {common}
-          <Bar dataKey="offered"  name="Offered"  fill="#3B82F6" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="answered" name="Answered" fill="#27C98A" radius={[2, 2, 0, 0]} />
-          <Bar dataKey="missed"   name="Missed"   fill="#EF4444" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="offered"  name="Calls Offered"  fill="#3B82F6" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="answered" name="Calls Answered" fill="#27C98A" radius={[2, 2, 0, 0]} />
+          <Bar dataKey="missed"   name="Calls Missed"   fill="#EF4444" radius={[2, 2, 0, 0]} />
         </BarChart>
       ) : (
         <LineChart data={data} margin={{ top: 4, right: 6, left: -20, bottom: 0 }}>
           {common}
           <Line type="monotone"
             dataKey={kind === 'rate' ? 'answer_rate' : kind === 'talk' ? 'avg_talk' : 'avg_ring'}
-            name={kind === 'rate' ? 'Answer Rate %' : kind === 'talk' ? 'Avg Talk (s)' : 'Avg Ring (s)'}
+            name={kind === 'rate' ? 'Answer Rate' : kind === 'talk' ? 'Avg Talk' : 'Avg Ring'}
             stroke={kind === 'rate' ? '#27C98A' : kind === 'talk' ? '#2563EB' : '#F5A623'}
             strokeWidth={2} dot={false} />
         </LineChart>

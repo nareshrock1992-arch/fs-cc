@@ -163,7 +163,11 @@ export async function agentPerformanceDaily(req, res) {
 
   const { rows } = await query(
     `SELECT
-       date_trunc('day', ah.ring_start AT TIME ZONE $3)::date            AS day,
+       -- Business-local day as a plain 'YYYY-MM-DD' STRING. Previously this was
+       -- ::date, which node-pg parses to a JS Date and Express serializes to a
+       -- full ISO timestamp (e.g. 2026-09-27T21:00:00.000Z), producing broken
+       -- chart x-axis labels. to_char keeps it a clean, tz-stable date string.
+       to_char(date_trunc('day', ah.ring_start AT TIME ZONE $3), 'YYYY-MM-DD') AS day,
        ah.agent_id,
        a.full_name,
        COUNT(*)::INT                                                     AS calls_offered,
