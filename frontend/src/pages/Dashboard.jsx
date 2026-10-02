@@ -801,6 +801,10 @@ export default function Dashboard() {
         <div className="xl:col-span-2 min-w-0 space-y-4">
           <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
           <CallsTrendCard data={trend} ready={auxReady} />
+          {/* Activity Feed lives at the bottom of the wide left column so it sits
+              directly under Calls Today — no large gap, and it balances the taller
+              right rail instead of forcing a separate full-width row. */}
+          <ActivityFeed activities={activities} />
         </div>
         <div className="min-w-0 space-y-4">
           <ServiceHealth stats={stats} />
@@ -808,9 +812,6 @@ export default function Dashboard() {
           <AgentStatusCard agents={liveAgents} />
         </div>
       </div>
-
-      {/* Live activity — full content width */}
-      <ActivityFeed activities={activities} />
 
     </div>
   );
