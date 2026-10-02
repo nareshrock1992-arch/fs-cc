@@ -7,8 +7,8 @@ import {
   Radio, ArrowRight,
 } from 'lucide-react';
 import {
-  Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import { Stats } from '../api/client.js';
 import { useSocketEvent } from '../api/socket.js';
@@ -428,16 +428,187 @@ function ActivityFeed({ activities }) {
   );
 }
 
+// ─── Agent Status / Capacity (canonical: /stats/live-agents) ──────────────────
+// Counts the authoritative operational_state from the live-agents feed. NO ACW —
+// wrap-up is not observable in FS-CC, so it is deliberately not shown.
+
+const AGENT_STATUS = [
+  { key: 'Idle',     label: 'Available', color: '#27C98A' },
+  { key: 'On Call',  label: 'On Call',   color: '#2563EB' },
+  { key: 'Ringing',  label: 'Ringing',   color: '#F5A623' },
+  { key: 'On Break', label: 'Break',     color: '#A78BFA' },
+  { key: 'Offline',  label: 'Offline',   color: '#4C5A78' },
+];
+
+function countAgentStates(agents) {
+  const c = { Idle: 0, 'On Call': 0, Ringing: 0, 'On Break': 0, Offline: 0 };
+  for (const a of (agents || [])) if (c[a.operational_state] !== undefined) c[a.operational_state]++;
+  return c;
+}
+
+function AgentStatusCard({ agents }) {
+  const counts = countAgentStates(agents);
+  const total  = (agents || []).length;
+  const available = counts.Idle;
+
+  return (
+    <Panel eyebrow="Live" title="Agent Status">
+      {total === 0 ? (
+        <div className="flex items-center gap-2.5 py-3 text-gray-400 dark:text-ink-faint">
+          <Users size={15} strokeWidth={1.5} className="shrink-0" />
+          <span className="text-xs">No agents online</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Compact distribution bar */}
+          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-panel-raised">
+            {AGENT_STATUS.map(s => counts[s.key] > 0 && (
+              <div key={s.key} style={{ width: `${(counts[s.key] / total) * 100}%`, background: s.color }}
+                title={`${s.label}: ${counts[s.key]}`} />
+            ))}
+          </div>
+          {/* Counts */}
+          <div className="space-y-1">
+            {AGENT_STATUS.map(s => (
+              <div key={s.key} className="flex items-center gap-2 text-[11px]">
+                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: s.color }} />
+                <span className="flex-1 text-gray-500 dark:text-ink-dim truncate">{s.label}</span>
+                <span className="font-mono tnum font-semibold text-gray-700 dark:text-ink">{counts[s.key]}</span>
+              </div>
+            ))}
+          </div>
+          {/* Available capacity */}
+          <div className="pt-2 border-t border-gray-100 dark:border-panel-border/40">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
+              Available Capacity
+            </p>
+            <p className="text-metric text-emerald-600 dark:text-emerald-400 mt-0.5">
+              {available}<span className="text-gray-400 dark:text-ink-faint"> / {total}</span>
+            </p>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+// ─── Calls — Today trend (canonical: queue_stats_hourly via /stats/calls-trend) ─
+
+function TrendTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-white dark:bg-panel-raised dark:border-panel-border
+                    border-gray-200 px-3 py-2 text-xs shadow-card-hover">
+      <p className="font-semibold text-gray-800 dark:text-ink mb-1.5">{label}</p>
+      {payload.map(p => (
+        <div key={p.dataKey} className="flex items-center gap-2 mb-1 last:mb-0">
+          <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.color }} />
+          <span className="text-gray-500 dark:text-ink-dim w-16">{p.name}:</span>
+          <span className="font-mono font-semibold" style={{ color: p.color }}>{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CallsTrendCard({ data, ready }) {
+  const hasData = Array.isArray(data) && data.length > 0;
+  const anyVolume = hasData && data.some(d => (d.offered || d.answered || d.abandoned));
+
+  return (
+    <Panel eyebrow="Today" title="Calls — Today">
+      {/* Clamped responsive height — never a fixed magic px that breaks wallboards. */}
+      <div className="relative w-full" style={{ height: 'clamp(200px, 26vh, 340px)' }}>
+        {!ready ? (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 dark:text-ink-faint">
+            Loading…
+          </div>
+        ) : !hasData ? (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 dark:text-ink-faint">
+            No call data for today yet
+          </div>
+        ) : (
+          <>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,153,184,0.10)" vertical={false} />
+                <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
+                  axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} />
+                <YAxis tick={{ fontSize: 10, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
+                  axisLine={false} tickLine={false} allowDecimals={false} width={32} />
+                <Tooltip content={<TrendTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="plainline" />
+                <Line type="monotone" dataKey="offered"   name="Offered"   stroke="#3B82F6" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="answered"  name="Answered"  stroke="#27C98A" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="abandoned" name="Abandoned" stroke="#EF4444" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+            {!anyVolume && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <span className="text-[10px] text-gray-400 dark:text-ink-faint bg-white/80 dark:bg-panel-surface/80 px-2 py-1 rounded">
+                  No calls today
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+// ─── Agent Utilization — Today (canonical period occupancy) ───────────────────
+// Reuses the backend's (ring+talk)/available formula aggregated across agents for
+// the business day. PERIOD metric (labelled "Today"), NOT instantaneous. The live
+// state counts below are contextual only — NOT components of the occupancy formula.
+
+function UtilizationCard({ util, agents }) {
+  const pct = util?.pct;
+  const counts = countAgentStates(agents);
+  const tone = pct == null ? '#8B99B8' : pct >= 85 ? '#EF4444' : pct >= 70 ? '#F5A623' : '#27C98A';
+
+  return (
+    <Panel eyebrow="Today" title="Agent Utilization">
+      <div className="space-y-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
+            Today
+          </p>
+          <p className="text-metric mt-0.5" style={{ color: tone }}>
+            {pct == null ? '—' : `${pct}%`}
+          </p>
+          <p className="text-[10px] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
+            (Ring + Talk) ÷ Available time · excludes ACW/hold
+          </p>
+        </div>
+        <div className="pt-2 border-t border-gray-100 dark:border-panel-border/40 grid grid-cols-2 gap-x-3 gap-y-1">
+          {AGENT_STATUS.filter(s => s.key !== 'Offline').map(s => (
+            <div key={s.key} className="flex items-center gap-2 text-[11px]">
+              <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: s.color }} />
+              <span className="flex-1 text-gray-500 dark:text-ink-dim truncate">{s.label}</span>
+              <span className="font-mono tnum font-semibold text-gray-700 dark:text-ink">{counts[s.key]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 const MAX_ACTIVITIES = 14;
 
 export default function Dashboard() {
-  const [stats,      setStats]      = useState(null);
-  const [queueStats, setQueueStats] = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState(null);
-  const [activities, setActivities] = useState([]);
+  const [stats,       setStats]       = useState(null);
+  const [queueStats,  setQueueStats]  = useState([]);
+  const [liveAgents,  setLiveAgents]  = useState([]);
+  const [trend,       setTrend]       = useState(null);
+  const [util,        setUtil]        = useState(null);
+  const [auxReady,    setAuxReady]    = useState(false);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState(null);
+  const [activities,  setActivities]  = useState([]);
   const actId = useRef(0);
 
   const addActivity = useCallback((type, text, detail) => {
@@ -448,19 +619,29 @@ export default function Dashboard() {
   }, []);
 
   const load = useCallback(async () => {
-    try {
-      const [s, qs] = await Promise.all([
-        Stats.dashboard(),
-        Stats.queues(),
-      ]);
-      setStats(s);
-      setQueueStats(qs);
+    // Core dashboard (dashboard + queues) drives the loading/error state. The
+    // three new operational sources are fetched resiliently (allSettled) so a
+    // failure in one never blanks the whole dashboard.
+    const [s, qs, la, tr, ut] = await Promise.allSettled([
+      Stats.dashboard(),
+      Stats.queues(),
+      Stats.liveAgents(),
+      Stats.callsTrend(),
+      Stats.utilization(),
+    ]);
+
+    if (s.status === 'fulfilled' && qs.status === 'fulfilled') {
+      setStats(s.value);
+      setQueueStats(qs.value);
       setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    } else {
+      setError((s.reason || qs.reason)?.message || 'Failed to load dashboard');
     }
+    if (la.status === 'fulfilled') setLiveAgents(Array.isArray(la.value?.agents) ? la.value.agents : []);
+    if (tr.status === 'fulfilled') setTrend(Array.isArray(tr.value) ? tr.value : []);
+    if (ut.status === 'fulfilled') setUtil(ut.value);
+    setAuxReady(true);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -589,16 +770,29 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ── Queue Health (Live + Today) + Service Health ─────────────────────── */}
+      {/* ── Row A: Calls — Today trend + Agent Status / Capacity ─────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
+        <div className="xl:col-span-2">
+          <CallsTrendCard data={trend} ready={auxReady} />
+        </div>
+        <AgentStatusCard agents={liveAgents} />
+      </div>
+
+      {/* ── Row B: Queue Health (Live + Today) + Agent Utilization ───────────── */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <div className="xl:col-span-2">
           <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
         </div>
-        <ServiceHealth stats={stats} />
+        <UtilizationCard util={util} agents={liveAgents} />
       </div>
 
-      {/* ── Activity Feed ─────────────────────────────────────────────────── */}
-      <ActivityFeed activities={activities} />
+      {/* ── Row C: Service Health + Activity Feed ────────────────────────────── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
+        <ServiceHealth stats={stats} />
+        <div className="xl:col-span-2">
+          <ActivityFeed activities={activities} />
+        </div>
+      </div>
 
     </div>
   );

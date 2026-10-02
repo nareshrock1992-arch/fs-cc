@@ -3,6 +3,7 @@ import { config } from '../config/index.js';
 import { isConnected } from '../services/eslService.js';
 import { businessTodayRange, businessToday } from '../utils/timezone.js';
 import { answered, abandoned, agentMissedExists } from '../services/metricsSql.js';
+import { getStateDurations, getCallMetrics } from '../services/agentReportService.js';
 
 // GET /api/stats/business-date — the server-authoritative business calendar date
 // and configured business timezone, so the frontend seeds date pickers from the
@@ -370,4 +371,79 @@ export async function getLiveAgents(_req, res) {
 
   // server_time lets the client align its local tick to the server clock (UTC).
   res.json({ eslConnected: isConnected(), server_time: new Date().toISOString(), agents });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/stats/calls-trend — today's hourly call volume for the dashboard
+// "Calls — Today" chart. Reads the EXISTING, live-maintained queue_stats_hourly
+// rollup (eslService upserts it as calls complete) and aggregates ACROSS queues.
+//
+// Business-timezone correctness: hour_bucket is a TIMESTAMPTZ truncated to the
+// UTC hour at insert time. We scope to the current BUSINESS day via the half-open
+// UTC range [fromUTC,toUTC) from businessTodayRange(), then project each bucket to
+// the business-local wall-clock hour for the label — never the raw server/UTC date.
+// Returns [] for a day with no calls (frontend renders a zero/empty state).
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getCallsTrend(_req, res) {
+  const { fromUTC, toUTC } = businessTodayRange();
+  const { rows } = await query(
+    `SELECT
+       to_char(date_trunc('hour', hour_bucket AT TIME ZONE $3), 'HH24:00') AS hour,
+       date_trunc('hour', hour_bucket AT TIME ZONE $3)                     AS local_hour,
+       SUM(offered)::INT   AS offered,
+       SUM(answered)::INT  AS answered,
+       SUM(abandoned)::INT AS abandoned
+     FROM queue_stats_hourly
+     WHERE hour_bucket >= $1 AND hour_bucket < $2
+     GROUP BY 1, 2
+     ORDER BY 2 ASC`,
+    [fromUTC.toISOString(), toUTC.toISOString(), config.businessTimezone]
+  );
+  res.json(rows.map(r => ({
+    hour:      r.hour,
+    offered:   r.offered,
+    answered:  r.answered,
+    abandoned: r.abandoned,
+  })));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/stats/utilization-today — floor-level agent utilization for the
+// business day. REUSES the canonical occupancy semantics from agentReportService
+// (getStateDurations → Available seconds; getCallMetrics → ring + talk seconds),
+// aggregated across all agents:
+//
+//   utilization_pct = SUM(ring_seconds + talk_seconds) / SUM(available_seconds) × 100
+//
+// This is the SAME non-overlapping formula used per-agent in agentReportService
+// (engaged ⊂ available). ACW and hold are NOT observable in FS-CC and are NOT
+// included — this is talk+ring engagement over Available time, a PERIOD (today)
+// metric, not an instantaneous reading. NULL pct when no Available time exists.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getUtilizationToday(_req, res) {
+  const { fromUTC, toUTC } = businessTodayRange();
+  const [stateDur, callMet] = await Promise.all([
+    getStateDurations(fromUTC, toUTC),   // all agents (agentId = null)
+    getCallMetrics(fromUTC, toUTC),      // all agents (agentId = null)
+  ]);
+
+  const availableSeconds = stateDur
+    .filter(r => r.status === 'Available')
+    .reduce((s, r) => s + (r.total_seconds || 0), 0);
+  const engagedSeconds = callMet
+    .reduce((s, r) => s + (r.total_ring_seconds || 0) + (r.total_talk_seconds || 0), 0);
+
+  const pct = availableSeconds > 0
+    ? Math.round((engagedSeconds / availableSeconds) * 1000) / 10
+    : null;
+
+  res.json({
+    pct,
+    engaged_seconds:   engagedSeconds,
+    available_seconds: availableSeconds,
+    window:            'today',
+    timezone:          config.businessTimezone,
+    formula:           '(ring_seconds + talk_seconds) / available_seconds × 100',
+    note:              'Period (today) metric. ACW and hold are not observable in FS-CC and are excluded.',
+  });
 }
