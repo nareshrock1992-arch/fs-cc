@@ -221,9 +221,14 @@ html.dark body {
 }
 
 /* ═══ Scrollbars ═════════════════════════════════════════════════════════ */
+/* Thin, arrow-less, unobtrusive scrollbars everywhere (enterprise look). */
+html {
+  scrollbar-width: thin;                                    /* Firefox */
+  scrollbar-color: rgb(var(--border-strong)) transparent;   /* Firefox: thumb / track */
+}
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -234,6 +239,16 @@ html.dark body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--text-disabled));
+}
+/* Remove the up/down stepper arrow buttons (Chromium shows them by default on
+   some platforms), which read as a dated classic scrollbar in the sidebar. */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* ═══ Animations ═════════════════════════════════════════════════════════ */
