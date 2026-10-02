@@ -188,24 +188,37 @@ function QueueHealthSection({ distribution, liveByName }) {
               column truncates (min-w-0) so long names never push metrics out of
               alignment. Internal vertical scroll caps height for many queues. */}
           <div className="w-full min-w-0 overflow-x-auto overflow-y-auto max-h-64">
-            <table className="w-full text-xs" style={{ minWidth: 380 }}>
+            <table className="w-full table-fixed text-xs" style={{ minWidth: 440 }}>
+              {/* Explicit column distribution: queue-name ~32%, the seven metric
+                  columns share the remaining width evenly so numbers spread
+                  across the table instead of crowding the right edge. */}
+              <colgroup>
+                <col style={{ width: '32%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '8.5%' }} />
+                <col style={{ width: '8.5%' }} />
+                <col style={{ width: '8.5%' }} />
+                <col style={{ width: '10.5%' }} />
+                <col style={{ width: '10.5%' }} />
+              </colgroup>
               <thead className="sticky top-0 bg-white dark:bg-panel-surface z-10">
                 <tr className="border-b border-gray-100 dark:border-panel-border">
                   {[
-                    ['Queue',   'text-left',  '',    ''],
-                    ['Waiting', 'text-right', 'w-14','live'],
-                    ['Longest', 'text-right', 'w-16','live'],
-                    ['Off',     'text-right', 'w-10','today'],
-                    ['Ans',     'text-right', 'w-10','today'],
-                    ['Ab',      'text-right', 'w-10','today'],
-                    ['Ans%',    'text-right', 'w-12','today'],
-                    ['SLA',     'text-right', 'w-12','today'],
-                  ].map(([h, align, w, basis]) => (
+                    ['Queue',   'text-left',  ''],
+                    ['Waiting', 'text-right', 'live'],
+                    ['Longest', 'text-right', 'live'],
+                    ['Off',     'text-right', 'today'],
+                    ['Ans',     'text-right', 'today'],
+                    ['Ab',      'text-right', 'today'],
+                    ['Ans%',    'text-right', 'today'],
+                    ['SLA',     'text-right', 'today'],
+                  ].map(([h, align, basis]) => (
                     <th key={h} className={`pb-2 px-1.5 text-[9px] font-semibold uppercase
-                      tracking-wider text-gray-400 dark:text-ink-faint ${align} ${w}`}>
+                      tracking-wider text-gray-400 dark:text-ink-faint ${align}`}>
                       {h}
                       {basis && (
-                        <span className={`block text-[7px] font-medium tracking-normal normal-case ${
+                        <span className={`block text-[8px] font-medium tracking-normal normal-case ${
                           basis === 'live'
                             ? 'text-amber-500 dark:text-amber-400'
                             : 'text-gray-300 dark:text-ink-faint/60'
@@ -333,7 +346,7 @@ function ServiceHealth({ stats }) {
   const slaPct   = Number(stats.sla_pct ?? stats.slaPct) || 0;
 
   return (
-    <Panel eyebrow="Live" title="Service Health" className="h-full">
+    <Panel eyebrow="Live" title="Service Health">
       <div className="space-y-4">
         <div className="pt-0.5">
           <ServiceLevelGauge pct={slaPct} />
@@ -572,7 +585,7 @@ function UtilizationCard({ util, agents }) {
   const tone = pct == null ? '#8B99B8' : pct >= 85 ? '#EF4444' : pct >= 70 ? '#F5A623' : '#27C98A';
 
   return (
-    <Panel eyebrow="Today" title="Agent Utilization" className="h-full">
+    <Panel eyebrow="Today" title="Agent Utilization">
       <div className="space-y-3">
         <div>
           <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
@@ -779,27 +792,24 @@ export default function Dashboard() {
             smaller cards fills the vertical space next to the taller Queue Health
             table instead of leaving dead whitespace beside short cards, while
             keeping the left-to-right order Queue → Service → Utilization. ─────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 xl:items-stretch">
-        <div className="xl:col-span-2 min-w-0">
-          <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
-        </div>
-        {/* Right column stretches to the Queue Health height; the two cards split
-            it (xl:flex-1) so there is no empty gap beneath them. */}
-        <div className="flex flex-col gap-4 min-w-0">
-          <div className="xl:flex-1 min-h-0"><ServiceHealth stats={stats} /></div>
-          <div className="xl:flex-1 min-h-0"><UtilizationCard util={util} agents={liveAgents} /></div>
-        </div>
-      </div>
-
-      {/* ── Row 3: Calls — Today trend (2/3) + Agent Status (1/3) ─────────────── */}
+      {/* Primary widgets stacked in a wide left column (2/3); the three compact
+          operational cards form a right rail (1/3). Each column flows
+          independently (items-start), so the tall Queue Health / Calls Today
+          stack never leaves a gap beside the shorter rail, and no card is
+          stretched to fill empty space. */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
-        <div className="xl:col-span-2">
+        <div className="xl:col-span-2 min-w-0 space-y-4">
+          <QueueHealthSection distribution={queueDist} liveByName={liveByName} />
           <CallsTrendCard data={trend} ready={auxReady} />
         </div>
-        <AgentStatusCard agents={liveAgents} />
+        <div className="min-w-0 space-y-4">
+          <ServiceHealth stats={stats} />
+          <UtilizationCard util={util} agents={liveAgents} />
+          <AgentStatusCard agents={liveAgents} />
+        </div>
       </div>
 
-      {/* ── Row 4: Live activity — full content width ─────────────────────────── */}
+      {/* Live activity — full content width */}
       <ActivityFeed activities={activities} />
 
     </div>

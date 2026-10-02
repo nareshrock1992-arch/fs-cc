@@ -190,6 +190,9 @@
   .text-metric        {
     @apply font-mono font-semibold leading-tight tabular-nums text-ink;
     font-size: clamp(1.05rem, 0.85rem + 0.75vw, 1.625rem);
+    /* Slight negative tracking so decimals/percentages (e.g. "5.5%") read as a
+       single number rather than widely-spaced monospace glyphs. */
+    letter-spacing: -0.02em;
     min-width: 0;
     overflow-wrap: anywhere;
   }
