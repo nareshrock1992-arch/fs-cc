@@ -56,14 +56,14 @@ export default function KpiCard({ label, value, suffix, tone = 'default', icon: 
       )}
 
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] uppercase tracking-widest font-semibold
-                      text-gray-400 dark:text-ink-faint mb-0.5 leading-snug
-                      break-words">
+        <p className="text-[11px] uppercase tracking-widest font-semibold
+                      text-ink-dim mb-0.5 leading-snug break-words">
           {label}
         </p>
-        {/* Canonical KPI value treatment — fluid, bounded and non-clipping.
-            See `.text-metric` in index.css. Colour comes from the tone. */}
-        <p className={`text-metric ${t.value}`}>
+        {/* Canonical KPI value — strong, high-contrast primary ink (not tinted),
+            so the number has visual authority. Semantic colour is carried by the
+            icon chip + accent stripe, not the figure itself. See `.text-metric`. */}
+        <p className="text-metric">
           {value}
           {suffix && <span className="text-sm ml-1 font-normal opacity-60">{suffix}</span>}
         </p>

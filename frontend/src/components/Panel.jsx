@@ -17,7 +17,7 @@ export default function Panel({ title, eyebrow, action, children, className = ''
               </p>
             )}
             {title && (
-              <h2 className="font-display font-semibold text-sm tracking-wide
+              <h2 className="font-display font-bold text-[15px] tracking-wide
                 text-gray-900 dark:text-ink">
                 {title}
               </h2>

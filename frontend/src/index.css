@@ -27,14 +27,17 @@
   --focus:          37 99 235;    /* #2563EB */
 
   /* ── Surfaces ────────────────────────────────────────────────────── */
-  --bg:            240 244 248;   /* #F0F4F8  page background */
+  /* Page bg deepened a step so white cards/panels separate crisply
+     (clarity pass). surface stays pure white. */
+  --bg:            232 238 245;   /* #E8EEF5  page background (was #F0F4F8) */
   --surface:       255 255 255;   /* #FFFFFF  cards / sidebar   */
   --surface-2:     241 245 249;   /* #F1F5F9  table head / hover */
   --surface-raised:248 250 252;   /* #F8FAFC  raised panels     */
 
   /* ── Borders ─────────────────────────────────────────────────────── */
-  --border:        226 232 240;   /* #E2E8F0 */
-  --border-strong: 203 213 225;   /* #CBD5E1 */
+  /* Default border darkened slightly for visible-but-light card edges. */
+  --border:        212 220 231;   /* #D4DCE7 (was #E2E8F0) */
+  --border-strong: 196 206 220;   /* #C4CEDC (was #CBD5E1) */
 
   /* ── Text ────────────────────────────────────────────────────────── */
   --text-primary:   15 23 42;     /* #0F172A */
@@ -153,7 +156,7 @@
   /* Table header cell */
   .th {
     @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider
-           text-ink-faint bg-surface-2;
+           text-ink-dim bg-surface-2;
   }
 
   /* Status badge base */
@@ -188,7 +191,7 @@
      overflow-wrap so long durations/large numbers wrap instead of being
      clipped. Colour is applied by the caller (tone utilities override text-ink). */
   .text-metric        {
-    @apply font-mono font-semibold leading-tight tabular-nums text-ink;
+    @apply font-mono font-bold leading-tight tabular-nums text-ink;
     font-size: clamp(1.05rem, 0.85rem + 0.75vw, 1.625rem);
     /* Slight negative tracking so decimals/percentages (e.g. "5.5%") read as a
        single number rather than widely-spaced monospace glyphs. */
