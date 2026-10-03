@@ -89,7 +89,7 @@ function KpiBar({ k }) {
   // SLA Breached stays alert-conditional (red only when there IS a breach).
   const tiles = [
     { label: 'Waiting',      value: k.waiting,    tone: 'amber',  icon: PhoneIncoming },
-    { label: 'Ringing',      value: k.ringing,    tone: 'amber',  icon: Radio },
+    { label: 'Ringing',      value: k.ringing,    tone: 'orange', icon: Radio },
     { label: 'On Call',      value: k.onCall,     tone: 'blue',   icon: PhoneCall },
     { label: 'Available',    value: k.available,  tone: 'green',  icon: UserCheck },
     { label: 'On Break',     value: k.onBreak,    tone: 'purple', icon: Coffee },

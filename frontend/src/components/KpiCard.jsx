@@ -31,6 +31,11 @@ const TONE = {
     value:  'text-violet-700 dark:text-violet-400',
     card:   '',
   },
+  orange: {
+    circle: 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300',
+    value:  'text-orange-700 dark:text-orange-400',
+    card:   '',
+  },
 };
 
 const ACCENT = {
@@ -40,6 +45,7 @@ const ACCENT = {
   red:     'bg-red-500/60',
   blue:    'bg-blue-500/60',
   purple:  'bg-violet-500/60',
+  orange:  'bg-orange-500/60',
 };
 
 export default function KpiCard({ label, value, suffix, tone = 'default', icon: Icon, sub, trend }) {
