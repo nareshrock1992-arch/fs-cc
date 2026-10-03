@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   Tooltip, ResponsiveContainer, Legend,
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import { Stats } from '../api/client.js';
 import { useSocketEvent } from '../api/socket.js';
@@ -547,7 +547,17 @@ function CallsTrendCard({ data, ready }) {
         ) : (
           <>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+              <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gOffered" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.18} />
+                    <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gAnswered" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#27C98A" stopOpacity={0.16} />
+                    <stop offset="100%" stopColor="#27C98A" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,153,184,0.10)" vertical={false} />
                 <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
                   axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} />
@@ -555,10 +565,12 @@ function CallsTrendCard({ data, ready }) {
                   axisLine={false} tickLine={false} allowDecimals={false} width={32} />
                 <Tooltip content={<TrendTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11 }} iconType="plainline" />
-                <Line type="monotone" dataKey="offered"   name="Offered"   stroke="#3B82F6" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="answered"  name="Answered"  stroke="#27C98A" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="abandoned" name="Abandoned" stroke="#EF4444" strokeWidth={2} dot={false} />
-              </LineChart>
+                {/* Offered + Answered get a restrained area fill; Abandoned stays a
+                    thin line so it reads as an exception, not a volume band. */}
+                <Area type="monotone" dataKey="offered"   name="Offered"   stroke="#3B82F6" strokeWidth={2} fill="url(#gOffered)" />
+                <Area type="monotone" dataKey="answered"  name="Answered"  stroke="#27C98A" strokeWidth={2} fill="url(#gAnswered)" />
+                <Area type="monotone" dataKey="abandoned" name="Abandoned" stroke="#EF4444" strokeWidth={2} fill="none" />
+              </AreaChart>
             </ResponsiveContainer>
             {!anyVolume && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

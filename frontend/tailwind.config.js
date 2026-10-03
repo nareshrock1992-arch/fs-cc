@@ -92,9 +92,11 @@ export default {
       },
       boxShadow: {
         // Subtle enterprise shadows only (Phase 2: glow "lamp" shadows removed)
-        card:        '0 1px 2px rgba(15,23,42,0.06), 0 2px 6px rgba(15,23,42,0.08)',
-        'card-dark': '0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.6)',
-        'card-hover':'0 4px 16px rgba(0,0,0,0.12)',
+        // Restrained enterprise elevation: cards are near-flat and rely on a
+        // crisp hairline border; real elevation is reserved for overlays.
+        card:        '0 1px 1px rgba(15,23,42,0.04)',
+        'card-dark': '0 1px 2px rgba(0,0,0,0.45)',
+        'card-hover':'0 8px 24px rgba(15,23,42,0.12)',
       },
       borderRadius: {
         // Restrained enterprise scale: 6 / 8 / 12 / 16

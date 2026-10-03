@@ -45,13 +45,13 @@ export default function KpiCard({ label, value, suffix, tone = 'default', icon: 
   const accent = ACCENT[tone] ?? '';
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-gray-200 dark:border-panel-border
-                    bg-white dark:bg-panel-surface shadow-card p-5 flex items-center gap-4">
+    <div className="relative overflow-hidden rounded-[10px] border border-gray-200 dark:border-panel-border
+                    bg-white dark:bg-panel-surface shadow-card p-4 flex items-center gap-3">
 
-      {/* Icon circle */}
+      {/* Icon chip */}
       {Icon && (
-        <div className={`shrink-0 h-11 w-11 rounded-xl flex items-center justify-center ${t.circle}`}>
-          <Icon size={20} strokeWidth={1.75} />
+        <div className={`shrink-0 h-10 w-10 rounded-lg flex items-center justify-center ${t.circle}`}>
+          <Icon size={19} strokeWidth={1.9} />
         </div>
       )}
 

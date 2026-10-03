@@ -113,7 +113,7 @@
 @layer components {
   /* Card — the single canonical card container */
   .card {
-    @apply bg-surface border border-border rounded-xl shadow-card;
+    @apply bg-surface border border-border rounded-[10px] shadow-card;
   }
   .dark .card {
     @apply shadow-card-dark;

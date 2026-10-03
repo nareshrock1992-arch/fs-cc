@@ -127,7 +127,7 @@ export default function Topbar({ isDark, toggleTheme }) {
       dark:bg-panel-surface bg-white px-6 flex items-center justify-between">
 
       <div>
-        <h1 className="font-display font-bold text-lg leading-tight dark:text-ink text-gray-900">
+        <h1 className="font-display font-bold text-xl tracking-tight leading-tight dark:text-ink text-gray-900">
           {title}
         </h1>
       </div>
