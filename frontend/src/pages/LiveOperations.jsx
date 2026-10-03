@@ -84,16 +84,19 @@ function HealthPill({ health }) {
 
 // ── KPI command bar (reuses shared KpiCard + auto-fit reflow) ────────────────
 function KpiBar({ k }) {
+  // Fixed category tones so each tile keeps its colour identity (like the
+  // Dashboard KPIs) instead of all collapsing to grey when the floor is quiet.
+  // SLA Breached stays alert-conditional (red only when there IS a breach).
   const tiles = [
-    { label: 'Waiting',      value: k.waiting,    tone: k.waiting > 0 ? 'amber' : 'default',  icon: PhoneIncoming },
-    { label: 'Ringing',      value: k.ringing,    tone: k.ringing > 0 ? 'amber' : 'default',  icon: Radio },
-    { label: 'On Call',      value: k.onCall,     tone: k.onCall > 0 ? 'blue' : 'default',    icon: PhoneCall },
-    { label: 'Available',    value: k.available,  tone: k.available > 0 ? 'green' : 'default',icon: UserCheck },
-    { label: 'On Break',     value: k.onBreak,    tone: 'purple',                             icon: Coffee },
-    { label: 'Offline',      value: k.offline,    tone: 'default',                            icon: PowerOff },
-    { label: 'SLA Breached', value: k.slaBreached,tone: k.slaBreached > 0 ? 'red' : 'default',icon: AlertTriangle,
+    { label: 'Waiting',      value: k.waiting,    tone: 'amber',  icon: PhoneIncoming },
+    { label: 'Ringing',      value: k.ringing,    tone: 'amber',  icon: Radio },
+    { label: 'On Call',      value: k.onCall,     tone: 'blue',   icon: PhoneCall },
+    { label: 'Available',    value: k.available,  tone: 'green',  icon: UserCheck },
+    { label: 'On Break',     value: k.onBreak,    tone: 'purple', icon: Coffee },
+    { label: 'Offline',      value: k.offline,    tone: 'default',icon: PowerOff },
+    { label: 'SLA Breached', value: k.slaBreached,tone: k.slaBreached > 0 ? 'red' : 'default', icon: AlertTriangle,
       sub: k.slaBreached > 0 ? 'Wait ≥ queue target' : 'Within target' },
-    { label: 'Longest Wait', value: fmtDur(k.longestWait), tone: k.longestWait >= 120 ? 'amber' : 'default', icon: Timer },
+    { label: 'Longest Wait', value: fmtDur(k.longestWait), tone: 'amber', icon: Timer },
   ];
   return (
     <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">

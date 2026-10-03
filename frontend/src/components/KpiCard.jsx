@@ -1,32 +1,34 @@
+// Icon-chip colours — strengthened for vivid, distinct, high-contrast symbols
+// (bg-*-100 + text-*-700 in light; brighter tint + -300 text in dark).
 const TONE = {
   default: {
-    circle: 'bg-gray-100 dark:bg-panel-raised text-gray-500 dark:text-ink-dim',
+    circle: 'bg-gray-100 dark:bg-panel-raised text-gray-600 dark:text-ink-dim',
     value:  'text-gray-900 dark:text-ink',
     card:   '',
   },
   green: {
-    circle: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-    value:  'text-emerald-600 dark:text-emerald-400',
+    circle: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
+    value:  'text-emerald-700 dark:text-emerald-400',
     card:   '',
   },
   amber: {
-    circle: 'bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400',
-    value:  'text-amber-600 dark:text-amber-400',
+    circle: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300',
+    value:  'text-amber-700 dark:text-amber-400',
     card:   '',
   },
   red: {
-    circle: 'bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400',
-    value:  'text-red-600 dark:text-red-400',
+    circle: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300',
+    value:  'text-red-700 dark:text-red-400',
     card:   '',
   },
   blue: {
-    circle: 'bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400',
-    value:  'text-blue-600 dark:text-blue-400',
+    circle: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300',
+    value:  'text-blue-700 dark:text-blue-400',
     card:   '',
   },
   purple: {
-    circle: 'bg-violet-50 dark:bg-violet-500/15 text-violet-600 dark:text-violet-400',
-    value:  'text-violet-600 dark:text-violet-400',
+    circle: 'bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300',
+    value:  'text-violet-700 dark:text-violet-400',
     card:   '',
   },
 };
