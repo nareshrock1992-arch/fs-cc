@@ -38,6 +38,35 @@ describe('observe — create & update', () => {
   });
 });
 
+// CHANNEL_CREATE seed lifecycle: an inbound caller is created with NO observed
+// stage yet (we only know a leg exists), then EXECUTE/DTMF refine the stage. This
+// is the path that makes the monitor populate for the mod_lua IVR (which doesn't
+// emit CHANNEL_EXECUTE for its prompts).
+describe('observe — CHANNEL_CREATE seed then refine', () => {
+  it('creates an entry with no stage (caller present, step not yet observed)', () => {
+    const e = store.observe('chanA', { ani: '96650001111', dnis: '7001', now: 1000 });
+    expect(e.status).toBe('active');
+    expect(e.stage).toBeNull();            // nothing observed yet → not an invented step
+    expect(e.firstSeen).toBe(1000);
+    expect(store.publicView(e).stage).toBeNull(); // panel shows its generic "in IVR" fallback
+  });
+  it('a later observed step refines the stage and advances stageSince (first-seen preserved)', () => {
+    store.observe('chanA', { ani: '9665', now: 1000 });       // seed (no stage)
+    const e = store.observe('chanA', { stage: 'gather_digits', now: 4000 }); // refine
+    expect(store.size()).toBe(1);          // same entry, not a duplicate
+    expect(e.firstSeen).toBe(1000);        // preserved from the seed
+    expect(e.stage).toBe('gather_digits');
+    expect(e.stageSince).toBe(4000);       // stage became known here
+    expect(e.ani).toBe('9665');            // seed ANI retained
+  });
+  it('a stage-less repeat (e.g. another CREATE-like touch) only advances lastUpdate', () => {
+    store.observe('chanA', { now: 1000 });
+    store.observe('chanA', { now: 2500 });
+    expect(store.size()).toBe(1);
+    expect(store.get('chanA')).toMatchObject({ stage: null, firstSeen: 1000, lastUpdate: 2500 });
+  });
+});
+
 describe('hangup before queue entry', () => {
   it('removes the entry and reports reason hangup', () => {
     store.observe('chanA', { stage: 'play', now: 1000 });

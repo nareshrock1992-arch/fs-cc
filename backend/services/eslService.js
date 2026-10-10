@@ -1124,11 +1124,31 @@ async function handleDtmf(evt) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function handleChannelCreate(evt) {
-  ccEvents.emit('channel:create', {
-    uuid: evt.getHeader('Unique-ID'),
-    ani:  evt.getHeader('Caller-Caller-ID-Number'),
-    dnis: evt.getHeader('Caller-Destination-Number')
-  });
+  const uuid = evt.getHeader('Unique-ID');
+  const ani  = evt.getHeader('Caller-Caller-ID-Number');
+  const dnis = evt.getHeader('Caller-Destination-Number');
+  ccEvents.emit('channel:create', { uuid, ani, dnis });
+
+  // Seed the live pre-queue view for INBOUND caller legs.
+  //
+  // Why here and not only in handleChannelExecute: the FS-ENRS IVR runs as a
+  // single mod_lua application and plays its prompts/menus via session:streamFile
+  // / session:playAndGetDigits — core calls that do NOT emit CHANNEL_EXECUTE for
+  // the IVR apps. So CHANNEL_EXECUTE alone never observes most pre-queue callers
+  // (only DTMF and the terminal `callcenter` queue-entry fire). CHANNEL_CREATE
+  // fires once for every inbound caller leg, so we track the caller by its
+  // channel Unique-ID from call start and let handleChannelExecute/handleDtmf
+  // refine the observed stage as those events arrive. The entry is removed on
+  // real queue entry (member-queue-start → handoff), on hangup, or by the TTL
+  // sweep. Creating an entry NEVER implies eligibility or a successful transfer;
+  // those fields stay unknown (see preQueueStore.publicView).
+  //
+  // Only inbound legs: agent/outbound legs (mod_callcenter originations, ENS/ERS
+  // dials) are Call-Direction=outbound and must not appear in the pre-queue view.
+  if (uuid && evt.getHeader('Call-Direction') === 'inbound') {
+    const e = preQueue.observe(uuid.slice(0, 64), { ani: ani || null, dnis: dnis || null, now: Date.now() });
+    if (e) ccEvents.emit('prequeue:update', preQueue.publicView(e));
+  }
 }
 
 function handleChannelAnswer(evt) {
