@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import { config } from '../config/index.js';
 import { query } from '../db/pool.js';
 import * as agentSession from './agentSessionService.js';
+import * as preQueue from './preQueueStore.js';
 
 const { host: FS_ESL_HOST, port: FS_ESL_PORT,
         password: FS_ESL_PASSWORD, reconnectMs: RECONNECT_MS } = config.esl;
@@ -39,6 +40,20 @@ function scheduleReconnect() {
 // Holds steps for callers in the IVR dialplan before they enter a queue.
 // Flushed into the DB row when member-queue-start fires.
 const ivrBuffer = new Map();
+
+// Pre-queue live-view TTL sweep. Emits a "stale" removal for any pre-queue
+// caller we have stopped observing (not a confirmed hangup). Guarded so a
+// reconnect replaces the old timer rather than stacking a second one.
+function startPreQueueReaper() {
+  if (eslService._preQueueReaper) clearInterval(eslService._preQueueReaper);
+  eslService._preQueueReaper = setInterval(() => {
+    const stale = preQueue.sweepStale(Date.now());
+    for (const chanUuid of stale) {
+      ccEvents.emit('prequeue:remove', { chanUuid, reason: 'stale' });
+    }
+  }, 60 * 1000);
+  if (typeof eslService._preQueueReaper.unref === 'function') eslService._preQueueReaper.unref();
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -81,6 +96,11 @@ export function connectESL() {
     _reconnectAttempts = 0;  // reset counter on successful connect
     console.log(`[ESL] Connected to FreeSWITCH at ${FS_ESL_HOST}:${FS_ESL_PORT}`);
     ccEvents.emit('esl:status', { connected: true });
+
+    // Reset the pre-queue live view: the previous connection's in-flight IVR
+    // callers are stale and will rebuild from the resuming event stream.
+    preQueue.clear();
+    startPreQueueReaper();
 
     // CRITICAL: CUSTOM must come AFTER plain event names.
     conn.events('plain',
@@ -815,6 +835,12 @@ async function handleCallcenterEvent(evt) {
         );
         if (chanUuid) await flushIvrBuffer(callUuid, chanUuid, queueName);
       } catch (err) { console.error('[esl] member-queue-start:', err.message); }
+      // Verified handoff: the caller is now a real queue member (calls row,
+      // correlated via CC-Member-UUID). Remove from the pre-queue view so it is
+      // never counted in both the pre-queue list and the queue list.
+      if (chanUuid && preQueue.handoff(chanUuid, { callUuid, queueName, now: Date.now() })) {
+        ccEvents.emit('prequeue:remove', { chanUuid, reason: 'enqueued', callUuid });
+      }
       ccEvents.emit('call:enqueued', { callUuid, queueName, ani, dnis });
       break;
     }
@@ -1052,9 +1078,21 @@ async function handleChannelExecute(evt) {
   }
 
   const step = makeStep({ step: stepName, app });
+  const key = chanUuid.slice(0, 64);
   try {
-    await appendIvrStep(chanUuid.slice(0, 64), step);
+    await appendIvrStep(key, step);
   } catch (err) { console.error('[esl] handleChannelExecute:', err.message); }
+
+  // Surface the caller in the live pre-queue view (same observation that drives
+  // ivrBuffer). Observing a step NEVER implies eligibility or a successful
+  // transfer — those fields stay unknown.
+  const e = preQueue.observe(key, {
+    ani:  evt.getHeader('Caller-Caller-ID-Number') || null,
+    dnis: evt.getHeader('Caller-Destination-Number') || null,
+    stage: stepName,
+    now: Date.now(),
+  });
+  if (e) ccEvents.emit('prequeue:update', preQueue.publicView(e));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1067,9 +1105,18 @@ async function handleDtmf(evt) {
   if (!chanUuid || !digit) return;
 
   const step = makeStep({ step: `pressed_${digit}`, digit });
+  const key = chanUuid.slice(0, 64);
   try {
-    await appendIvrStep(chanUuid.slice(0, 64), step);
+    await appendIvrStep(key, step);
   } catch (err) { console.error('[esl] handleDtmf:', err.message); }
+
+  // A DTMF press is fresh pre-queue activity. Only reflect it for a caller we
+  // are already tracking in IVR (don't create a pre-queue row from a bare digit
+  // on, e.g., an agent channel).
+  if (preQueue.get(key)) {
+    const e = preQueue.observe(key, { stage: `pressed_${digit}`, now: Date.now() });
+    if (e) ccEvents.emit('prequeue:update', preQueue.publicView(e));
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1094,6 +1141,10 @@ async function handleChannelHangup(evt) {
   const chanUuid = evt.getHeader('Unique-ID');
   const cause    = evt.getHeader('Hangup-Cause');
   ivrBuffer.delete(chanUuid);
+  // Caller hung up before/while in the IVR → remove from the live pre-queue view.
+  if (preQueue.remove(chanUuid, { reason: 'hangup', now: Date.now() })) {
+    ccEvents.emit('prequeue:remove', { chanUuid, reason: 'hangup', cause });
+  }
   try {
     const { rows, rowCount } = await query(
       `UPDATE calls SET

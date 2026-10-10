@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PhoneIncoming, PhoneCall, Headphones, Coffee, PowerOff, UserCheck,
   Timer, Search, Wifi, WifiOff, AlertTriangle, RefreshCw, Radio,
+  ChevronDown, ChevronRight, ListTree,
 } from 'lucide-react';
 import { Calls, Stats, Agents as AgentsApi } from '../api/client.js';
 import { useSocketEvent } from '../api/socket.js';
@@ -242,6 +243,79 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus }) {
   );
 }
 
+// ── IVR & Pre-Queue Monitor ──────────────────────────────────────────────────
+// Live view of callers observed in the IVR BEFORE they enter a real queue.
+// Everything shown is directly observed; eligibility reason, target queue,
+// transfer success and human flow name are deliberately shown as "Unknown"
+// because FS-CC cannot reliably obtain them in this phase (see Phase-1A report).
+const UNK = <span className="text-gray-300 dark:text-ink-faint/50" title="Not reliably observable yet">Unknown</span>;
+
+function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed }) {
+  const Chevron = open ? ChevronDown : ChevronRight;
+  return (
+    <Panel noPad>
+      <button onClick={onToggle}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left">
+        <Chevron size={16} className="text-gray-400 dark:text-ink-faint shrink-0" />
+        <ListTree size={15} className="text-primary shrink-0" />
+        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint">Live</span>
+        <span className="text-sm font-semibold text-gray-800 dark:text-ink">IVR &amp; Pre-Queue Monitor</span>
+        <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-gray-100 dark:bg-panel-raised text-gray-600 dark:text-ink-dim">
+          {rows.length}
+        </span>
+        <span className="flex-1" />
+        <span className="text-[11px] text-gray-400 dark:text-ink-faint hidden sm:inline">
+          before queue entry
+        </span>
+      </button>
+
+      {open && (
+        loadFailed ? (
+          <div className="flex items-center gap-2.5 px-4 py-3 text-amber-600 dark:text-lamp-warn">
+            <AlertTriangle size={14} />
+            <span className="text-xs font-semibold">Pre-queue feed unavailable</span>
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex items-center gap-2.5 px-4 py-3 text-gray-400 dark:text-ink-faint border-t border-gray-100 dark:border-panel-border/40">
+            <span className="h-2 w-2 rounded-full shrink-0 bg-emerald-400/70" />
+            <span className="text-xs font-semibold text-gray-500 dark:text-ink-dim">No callers in the IVR</span>
+            <span className="text-[11px] hidden sm:inline">— callers appear here while in the IVR, then move to the queue on transfer</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto overflow-y-auto max-h-[40vh] border-t border-gray-100 dark:border-panel-border/40">
+            <table className="w-full text-sm" style={{ minWidth: 820 }}>
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-gray-50 dark:bg-panel-raised border-b border-gray-200 dark:border-panel-border">
+                  {['Caller', 'Channel', 'Stage', 'In Stage', 'Eligibility', 'Target Queue', 'Last Update'].map(h => (
+                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-panel-border/30">
+                {rows.map(r => (
+                  <tr key={r.chanUuid} className="hover:bg-gray-50/60 dark:hover:bg-panel-raised/20 transition-colors">
+                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">{r.callerMasked || UNK}</td>
+                    <td className="px-4 py-2.5 font-mono tnum text-gray-400 dark:text-ink-faint" title={r.chanUuid}>{r.id}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+                        {r.stage || 'in IVR'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 font-mono tnum text-gray-700 dark:text-ink">{fmtDur(secsSince(r.stageSince, nowMs))}</td>
+                    <td className="px-4 py-2.5">{UNK}</td>
+                    <td className="px-4 py-2.5">{UNK}</td>
+                    <td className="px-4 py-2.5 font-mono tnum text-gray-500 dark:text-ink-dim">{fmtDur(secsSince(r.lastUpdate, nowMs))} ago</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </Panel>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function LiveOperations() {
@@ -252,6 +326,9 @@ export default function LiveOperations() {
   const [calls,  setCalls]  = useState([]);
   const [agents, setAgents] = useState([]);
   const [queueMax, setQueueMax] = useState({}); // { normalizedQueueName: max_wait_time }
+  const [prequeue, setPrequeue] = useState({}); // chanUuid → masked pre-queue record
+  const [pqFailed, setPqFailed] = useState(false);
+  const [pqOpen, setPqOpen] = useState(true);
   const [esl, setEsl]       = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState(null);
@@ -268,9 +345,19 @@ export default function LiveOperations() {
 
   // ── Single load: three canonical sources, resilient to partial failure ──────
   const load = useCallback(async () => {
-    const [cRes, aRes, qRes] = await Promise.allSettled([
-      Calls.live(), Stats.liveAgents(), Stats.queues(),
+    const [cRes, aRes, qRes, pqRes] = await Promise.allSettled([
+      Calls.live(), Stats.liveAgents(), Stats.queues(), Calls.prequeue(),
     ]);
+    // Pre-queue is an INDEPENDENT, additive source: its success/failure never
+    // affects the existing call/agent/queue KPIs or the `ok` health signal.
+    if (pqRes.status === 'fulfilled') {
+      const map = {};
+      for (const p of (Array.isArray(pqRes.value) ? pqRes.value : [])) map[p.chanUuid] = p;
+      setPrequeue(map);
+      setPqFailed(false);
+    } else {
+      setPqFailed(true);
+    }
     let ok = false;
     if (cRes.status === 'fulfilled') { setCalls(Array.isArray(cRes.value) ? cRes.value : []); ok = true; }
     if (aRes.status === 'fulfilled') {
@@ -317,6 +404,17 @@ export default function LiveOperations() {
   useSocketEvent('agent:no-answer', scheduleRefresh);
   useSocketEvent('agent:update',    scheduleRefresh);
   useSocketEvent('esl:status', useCallback((p) => { setEsl(!!p?.connected); scheduleRefresh(); }, [scheduleRefresh]));
+
+  // Pre-queue live updates (supervisor room only) — upsert / remove in place.
+  useSocketEvent('prequeue:update', useCallback((p) => {
+    if (!p?.chanUuid) return;
+    setPrequeue(prev => ({ ...prev, [p.chanUuid]: p }));
+    setPqFailed(false);
+  }, []));
+  useSocketEvent('prequeue:remove', useCallback((p) => {
+    if (!p?.chanUuid) return;
+    setPrequeue(prev => { if (!(p.chanUuid in prev)) return prev; const n = { ...prev }; delete n[p.chanUuid]; return n; });
+  }, []));
 
   const nowMs = tick + skewRef.current;
 
@@ -400,6 +498,12 @@ export default function LiveOperations() {
   }, [agentRows, callRows]);
 
   const waitingExists = kpi.waiting > 0;
+
+  // Pre-queue rows (oldest first — longest in the IVR at the top).
+  const prequeueRows = useMemo(
+    () => Object.values(prequeue).sort((a, b) => new Date(a.firstSeen) - new Date(b.firstSeen)),
+    [prequeue],
+  );
 
   // ── Filtered / sorted CALL view ─────────────────────────────────────────────
   const callView = useMemo(() => {
@@ -505,6 +609,10 @@ export default function LiveOperations() {
 
       {/* KPI command bar */}
       <KpiBar k={kpi} />
+
+      {/* IVR & Pre-Queue Monitor — callers observed before queue entry */}
+      <PreQueuePanel rows={prequeueRows} nowMs={nowMs} open={pqOpen}
+        onToggle={() => setPqOpen(o => !o)} loadFailed={pqFailed} />
 
       {/* Health + filters (stay stable while the tables scroll) */}
       <Panel noPad>

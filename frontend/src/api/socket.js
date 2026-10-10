@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { getToken } from '../hooks/useAuth.js';
 
 // Connect to the same origin as the page — no IP or port needed.
 //
@@ -16,6 +17,17 @@ export const socket = io('/', {
   reconnectionDelay: 2000,
   transports:       ['websocket', 'polling'],
 });
+
+// Authenticate as a supervisor so this connection joins the private
+// `supervisors` room and receives pre-queue monitor events (which are NOT on the
+// global broadcast). Re-sent on every (re)connect. Admin/supervisor tokens are
+// accepted server-side; others are simply ignored (no room joined).
+function authenticateSupervisor() {
+  const token = getToken();
+  if (token) socket.emit('supervisor:authenticate', { token });
+}
+socket.on('connect', authenticateSupervisor);
+if (socket.connected) authenticateSupervisor();
 
 export function useSocketEvent(eventName, handler) {
   useEffect(() => {

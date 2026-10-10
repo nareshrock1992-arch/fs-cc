@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { cc } from '../services/eslService.js';
+import * as preQueue from '../services/preQueueStore.js';
 
 export async function listLiveCalls(req, res) {
   const { rows } = await query(`
@@ -27,6 +28,14 @@ export async function listLiveCalls(req, res) {
     ORDER BY c.queue_enter_time ASC NULLS LAST
   `);
   res.json(rows);
+}
+
+// GET /api/calls/prequeue — active IVR / pre-queue callers (live, observed).
+// Masked by default (no caller-ID permission exists in the project). Eligibility
+// reason / target queue / transfer success / flow name are returned as null:
+// they are NOT reliably observable by FS-CC in Phase 1A (see report).
+export async function listPreQueueCalls(_req, res) {
+  res.json(preQueue.listActive().map(preQueue.publicView));
 }
 
 export async function getQueueMembersLive(req, res) {

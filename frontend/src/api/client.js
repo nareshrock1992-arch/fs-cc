@@ -75,7 +75,8 @@ export const Queues = {
 
 // ---- Live calls ----
 export const Calls = {
-  live: () => api.get('/calls/live').then(r => r.data),
+  live:     () => api.get('/calls/live').then(r => r.data),
+  prequeue: () => api.get('/calls/prequeue').then(r => r.data),
 };
 
 // ---- Stats / Reports ----

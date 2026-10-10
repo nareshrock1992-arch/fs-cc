@@ -72,9 +72,42 @@ export function initSocket(httpServer, corsOrigin) {
       }
     });
 
+    // ── Supervisor / admin authentication (pre-queue monitor) ──────────────────
+    // Supervisor dashboards connect without auth today and receive the global
+    // BROADCAST_EVENTS. Pre-queue caller data must NOT ride that global channel,
+    // so a supervisor explicitly authenticates here (same JWT convention as the
+    // agent path) and joins the private `supervisors` room; pre-queue events are
+    // emitted ONLY to that room. Admin and supervisor are the roles that already
+    // access Live Operations. This is additive — it changes no existing event.
+    socket.on('supervisor:authenticate', ({ token } = {}) => {
+      if (!token) return socket.emit('supervisor:auth-failed');
+      try {
+        const decoded = jwt.verify(token, config.jwt.secret);
+        if (decoded.role !== 'admin' && decoded.role !== 'supervisor') {
+          return socket.emit('supervisor:auth-failed');
+        }
+        socket.join('supervisors');
+        socket.isSupervisor = true;
+        socket.emit('supervisor:authenticated', { role: decoded.role });
+        console.log(`[socket] supervisor (${decoded.role}) joined room supervisors`);
+      } catch {
+        socket.emit('supervisor:auth-failed');
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`[socket] client disconnected: ${socket.id}`);
     });
+  });
+
+  // ── Pre-queue monitor events → authorized supervisors ONLY ────────────────
+  // Deliberately NOT added to BROADCAST_EVENTS. Payloads are already masked at
+  // the source (preQueueStore.publicView), so no raw caller identifier is sent.
+  ccEvents.on('prequeue:update', (payload) => {
+    io.to('supervisors').emit('prequeue:update', payload);
+  });
+  ccEvents.on('prequeue:remove', (payload) => {
+    io.to('supervisors').emit('prequeue:remove', payload);
   });
 
   // ── Broadcast all normalized CC events to every connected client ──────────

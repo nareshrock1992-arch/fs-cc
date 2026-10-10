@@ -38,6 +38,15 @@ export function requirePermission(permission) {
   };
 }
 
+// Passes if the user is a supervisor-class role (admin or supervisor). Used by
+// live supervisor-only reads such as the pre-queue monitor. Additive — does not
+// change the semantics of any existing route.
+export function requireSupervisor(req, res, next) {
+  const role = req.user?.role;
+  if (role === 'admin' || role === 'supervisor') return next();
+  return res.status(403).json({ error: 'Supervisor access required' });
+}
+
 // Used by Agent Desktop routes only — tokens carry role:'agent'
 export function requireAgentAuth(req, res, next) {
   const header = req.headers.authorization || '';
