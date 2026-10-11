@@ -35,7 +35,7 @@ function iso(ms) { return new Date(ms).toISOString(); }
 // for the same channel update the SAME entry in place (no duplicate rows).
 // `stageSince` only advances when the observable stage actually changes, so
 // "time in current stage" is measured from the real stage transition.
-export function observe(chanUuid, { ani = null, dnis = null, stage = null, now = Date.now() } = {}) {
+export function observe(chanUuid, { ani = null, dnis = null, stage = null, name = null, now = Date.now() } = {}) {
   if (!chanUuid) return null;
   let e = entries.get(chanUuid);
   if (!e) {
@@ -43,6 +43,7 @@ export function observe(chanUuid, { ani = null, dnis = null, stage = null, now =
       chanUuid,
       ani: ani || null,
       dnis: dnis || null,
+      name: name || null,   // caller display name (already normalized by the caller), or null
       stage: stage || null,
       firstSeen: now,
       lastUpdate: now,
@@ -55,6 +56,9 @@ export function observe(chanUuid, { ani = null, dnis = null, stage = null, now =
   // Update existing entry in place (dedupe-safe).
   if (ani && !e.ani) e.ani = ani;
   if (dnis && !e.dnis) e.dnis = dnis;
+  // Preserve a valid caller name: a later event WITHOUT a name (null) never
+  // erases one already captured; a later valid name replaces it.
+  if (name) e.name = name;
   if (stage != null && stage !== e.stage) {
     e.stage = stage;
     e.stageSince = now;
@@ -144,5 +148,9 @@ export function publicView(e, { revealAni = false } = {}) {
     flowName: null,
   };
   if (revealAni && e.ani) out.caller = String(e.ani); // full number, authorized only
+  // Caller NAME is PII and (like the full number) is revealed ONLY to authorized
+  // viewers — same `revealAni` gate. Omitted entirely otherwise, so an
+  // unauthorized payload carries no caller name in any field.
+  if (revealAni && e.name) out.callerName = String(e.name);
   return out;
 }

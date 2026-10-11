@@ -161,6 +161,36 @@ describe('publicView — masking & unknown-field safety', () => {
     expect(v).not.toHaveProperty('caller');
     expect(v.callerMasked).toBeNull();
   });
+});
+
+describe('caller name — capture, preservation & gated reveal', () => {
+  it('stores a caller name on create', () => {
+    const e = store.observe('chanA', { ani: '1001', name: 'Naresh Babu', now: 1000 });
+    expect(e.name).toBe('Naresh Babu');
+  });
+  it('a later event WITHOUT a name does not erase a captured name', () => {
+    store.observe('chanA', { ani: '1001', name: 'Naresh Babu', now: 1000 });
+    store.observe('chanA', { stage: 'pressed_1', now: 2000 }); // no name
+    expect(store.get('chanA').name).toBe('Naresh Babu');
+  });
+  it('a later VALID name replaces the earlier one', () => {
+    store.observe('chanA', { ani: '1001', name: 'Old Name', now: 1000 });
+    store.observe('chanA', { name: 'Better Name', now: 2000 });
+    expect(store.get('chanA').name).toBe('Better Name');
+  });
+  it('callerName is revealed ONLY when authorized; omitted otherwise', () => {
+    store.observe('chanA', { ani: '96650001234', name: 'Naresh Babu', now: 1000 });
+    const masked = store.publicView(store.get('chanA'));                    // default: not revealed
+    const full   = store.publicView(store.get('chanA'), { revealAni: true });
+    expect(masked).not.toHaveProperty('callerName');
+    expect(JSON.stringify(masked)).not.toContain('Naresh Babu');            // name absent from unauthorized payload
+    expect(full.callerName).toBe('Naresh Babu');
+    expect(full.caller).toBe('96650001234');
+  });
+  it('no name → no callerName field even when authorized', () => {
+    store.observe('chanA', { ani: '1001', now: 1000 });
+    expect(store.publicView(store.get('chanA'), { revealAni: true })).not.toHaveProperty('callerName');
+  });
   it('exposes a safe short channel id, ISO timestamps, and observed stage', () => {
     store.observe('0123456789abcdef', { stage: 'gather_digits', now: 1000 });
     const v = store.publicView(store.get('0123456789abcdef'));

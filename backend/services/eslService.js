@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 import { query } from '../db/pool.js';
 import * as agentSession from './agentSessionService.js';
 import * as preQueue from './preQueueStore.js';
+import { cleanCallerName } from '../utils/callerName.js';
 
 const { host: FS_ESL_HOST, port: FS_ESL_PORT,
         password: FS_ESL_PASSWORD, reconnectMs: RECONNECT_MS } = config.esl;
@@ -821,17 +822,25 @@ async function handleCallcenterEvent(evt) {
       const ani       = (evt.getHeader('CC-Member-CID-Number') || evt.getHeader('Caller-Caller-ID-Number') || '').slice(0, 64);
       const dnis      = (evt.getHeader('Caller-Destination-Number') || '').slice(0, 64);
       if (!callUuid) break;
+      // Caller display name: prefer the FreeSWITCH-supplied name (member CID name,
+      // else the caller-leg name); fall back to the agent directory ONLY when the
+      // caller number matches an agent extension and no usable name was supplied.
+      let cidName = cleanCallerName(
+        evt.getHeader('CC-Member-CID-Name') || evt.getHeader('Caller-Caller-ID-Name'), ani);
+      if (!cidName && ani) cidName = await resolveAgentNameFallback(ani);
       console.log(`[esl] member-queue-start ${callUuid} (chan:${chanUuid}) → ${queueName}`);
       try {
         await query(
-          `INSERT INTO calls (call_uuid, ani, dnis, vdn, queue_name, queue_enter_time, disposition)
-           VALUES ($1,$2,$3,$4,$5,now(),'waiting')
+          `INSERT INTO calls (call_uuid, ani, cid_name, dnis, vdn, queue_name, queue_enter_time, disposition)
+           VALUES ($1,$2,$3,$4,$5,$6,now(),'waiting')
            ON CONFLICT (call_uuid) DO UPDATE SET
              vdn              = EXCLUDED.vdn,
              queue_name       = EXCLUDED.queue_name,
              queue_enter_time = EXCLUDED.queue_enter_time,
+             -- never erase an already-captured caller name with a later NULL
+             cid_name         = COALESCE(EXCLUDED.cid_name, calls.cid_name),
              disposition      = 'waiting'`,
-          [callUuid, ani, dnis, (chanUuid || '').slice(0, 64), queueName]
+          [callUuid, ani, cidName, dnis, (chanUuid || '').slice(0, 64), queueName]
         );
         if (chanUuid) await flushIvrBuffer(callUuid, chanUuid, queueName);
       } catch (err) { console.error('[esl] member-queue-start:', err.message); }
@@ -1123,6 +1132,26 @@ async function handleDtmf(evt) {
 // Channel lifecycle handlers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Fallback caller name for INTERNAL extension calls: if the caller number
+// matches an active agent's extension, use that agent's full name. Used ONLY
+// when FreeSWITCH supplied no usable caller name. Returns a name or null; never
+// throws into the caller (ESL path must stay resilient).
+async function resolveAgentNameFallback(number) {
+  if (!number) return null;
+  try {
+    const { rows } = await query(
+      `SELECT full_name FROM agents
+        WHERE avaya_extension = $1 AND active = true
+        LIMIT 1`,
+      [String(number)]
+    );
+    return cleanCallerName(rows[0]?.full_name, number);
+  } catch (err) {
+    console.error('[esl] resolveAgentNameFallback:', err.message);
+    return null;
+  }
+}
+
 function handleChannelCreate(evt) {
   const uuid = evt.getHeader('Unique-ID');
   const ani  = evt.getHeader('Caller-Caller-ID-Number');
@@ -1146,7 +1175,10 @@ function handleChannelCreate(evt) {
   // Only inbound legs: agent/outbound legs (mod_callcenter originations, ENS/ERS
   // dials) are Call-Direction=outbound and must not appear in the pre-queue view.
   if (uuid && evt.getHeader('Call-Direction') === 'inbound') {
-    const e = preQueue.observe(uuid.slice(0, 64), { ani: ani || null, dnis: dnis || null, now: Date.now() });
+    // Caller display name from the calling leg (e.g. internal ext → directory
+    // name). Normalized; null when absent/generic/number-identical.
+    const name = cleanCallerName(evt.getHeader('Caller-Caller-ID-Name'), ani);
+    const e = preQueue.observe(uuid.slice(0, 64), { ani: ani || null, dnis: dnis || null, name, now: Date.now() });
     if (e) ccEvents.emit('prequeue:update', preQueue.publicView(e));
   }
 }

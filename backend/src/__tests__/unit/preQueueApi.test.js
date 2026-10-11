@@ -97,40 +97,47 @@ describe('hasPermission — view_caller_id (admin implicit + explicit grant)', (
   });
 });
 
-describe('GET /calls/prequeue — full caller ID gating', () => {
+describe('GET /calls/prequeue — full caller ID + name gating', () => {
   const RAW = '96650007788';
-  beforeEach(() => store.observe('0123456789abcdef', { ani: RAW, stage: 'pressed_1', now: 1000 }));
+  const NAME = 'Naresh Babu';
+  beforeEach(() => store.observe('0123456789abcdef', { ani: RAW, name: NAME, stage: 'pressed_1', now: 1000 }));
 
-  it('AUTHORIZED (explicit view_caller_id) → includes full caller number', async () => {
+  it('AUTHORIZED (explicit view_caller_id) → includes full number AND caller name', async () => {
     const res = mockRes();
     await listPreQueueCalls({ user: { role: 'supervisor', permissions: ['view_caller_id'] } }, res);
     const row = res.json.mock.calls[0][0][0];
     expect(row.caller).toBe(RAW);           // full number revealed
+    expect(row.callerName).toBe(NAME);      // name revealed
     expect(row.callerMasked).toBe('•••••••••88'); // masked still present
   });
 
-  it('UNAUTHORIZED supervisor → masked only, NO raw ANI in any field', async () => {
+  it('UNAUTHORIZED supervisor → masked only; NO raw ANI AND NO caller name in any field', async () => {
     const res = mockRes();
     await listPreQueueCalls({ user: { role: 'supervisor', permissions: [] } }, res);
     const body = res.json.mock.calls[0][0];
-    expect(body[0].caller).toBeUndefined();            // raw field omitted entirely
+    expect(body[0].caller).toBeUndefined();            // raw number field omitted
+    expect(body[0].callerName).toBeUndefined();        // name field omitted
     expect(body[0].callerMasked).toBe('•••••••••88');
-    expect(JSON.stringify(body)).not.toContain(RAW);   // number cannot be recovered from the response
+    expect(JSON.stringify(body)).not.toContain(RAW);   // number not recoverable
+    expect(JSON.stringify(body)).not.toContain(NAME);  // name not recoverable
   });
 
-  it('ADMIN → full caller number (admin has all rights — Option A)', async () => {
+  it('ADMIN → full number AND name (admin has all rights — Option C)', async () => {
     const res = mockRes();
     await listPreQueueCalls({ user: { role: 'admin', permissions: [] } }, res);
     const row = res.json.mock.calls[0][0][0];
     expect(row.caller).toBe(RAW);
+    expect(row.callerName).toBe(NAME);
     expect(row.callerMasked).toBe('•••••••••88');
   });
 
-  it('missing/unauthenticated req.user → fails closed to masked (no raw ANI)', async () => {
+  it('missing/unauthenticated req.user → fails closed to masked (no raw ANI, no name)', async () => {
     const res = mockRes();
     await listPreQueueCalls({}, res);                  // no user (route-level requireAuth gates access separately)
     const body = res.json.mock.calls[0][0];
     expect(body[0].caller).toBeUndefined();
+    expect(body[0].callerName).toBeUndefined();
     expect(JSON.stringify(body)).not.toContain(RAW);
+    expect(JSON.stringify(body)).not.toContain(NAME);
   });
 });
