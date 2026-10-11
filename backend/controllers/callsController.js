@@ -8,6 +8,7 @@ export async function listLiveCalls(req, res) {
     SELECT
       c.call_uuid,
       c.ani,
+      c.cid_name AS caller_name,
       c.dnis,
       c.vdn,
       c.ivr_option,
@@ -56,7 +57,7 @@ export async function listRecentCalls(req, res) {
   const limit = Math.min(parseInt(req.query.limit) || 50, 500);
   const { rows } = await query(
     `SELECT
-       c.call_uuid, c.ani, c.dnis, c.queue_name, c.agent_id,
+       c.call_uuid, c.ani, c.cid_name AS caller_name, c.dnis, c.queue_name, c.agent_id,
        c.queue_enter_time, c.agent_answer_time, c.end_time,
        c.wait_seconds, c.talk_seconds, c.disposition, c.abandoned,
        c.ivr_path,

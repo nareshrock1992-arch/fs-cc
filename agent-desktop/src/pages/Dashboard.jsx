@@ -91,6 +91,7 @@ export default function Dashboard({ auth, theme }) {
             phase:     active.agent_answer_time ? 'talking' : 'ringing',
             callUuid:  active.call_uuid,
             ani:       active.ani,
+            caller_name: active.caller_name,
             queueName: active.queue_name,
             startedAt: active.agent_answer_time || active.queue_enter_time || active.start_time,
           };

@@ -285,7 +285,7 @@ export default function LiveAgents() {
                     <td className="px-4 py-2.5">
                       {cc ? (
                         <span className="font-mono tnum text-xs text-gray-700 dark:text-ink">
-                          {cc.ani || 'unknown'}{cc.queue_name ? ` → ${String(cc.queue_name).split('@')[0]}` : ''}
+                          {cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'unknown')}{cc.queue_name ? ` → ${String(cc.queue_name).split('@')[0]}` : ''}
                         </span>
                       ) : <span className="text-gray-300 dark:text-ink-faint/50">—</span>}
                     </td>

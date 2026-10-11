@@ -261,7 +261,7 @@ export async function agentCallHistory(req, res) {
   params.push(limit, offset);
   const { rows } = await query(
     `SELECT
-        ah.call_uuid, c.direction, c.ani, c.dnis, c.queue_name, ah.agent_id,
+        ah.call_uuid, c.direction, c.ani, c.cid_name AS caller_name, c.dnis, c.queue_name, ah.agent_id,
         c.start_time, c.queue_enter_time, c.agent_answer_time, c.end_time,
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
         ah.ring_seconds, ah.talk_seconds AS agent_talk_seconds, ah.missed
@@ -292,7 +292,7 @@ export async function agentCallHistoryDetail(req, res) {
   // metadata only.
   const { rows } = await query(
     `SELECT
-        ah.call_uuid, c.direction, c.ani, c.dnis, c.vdn, c.queue_name, ah.agent_id,
+        ah.call_uuid, c.direction, c.ani, c.cid_name AS caller_name, c.dnis, c.vdn, c.queue_name, ah.agent_id,
         c.start_time, c.queue_enter_time, c.agent_answer_time, c.end_time,
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
         ah.ring_start, ah.ring_end, ah.ring_seconds,
@@ -422,7 +422,7 @@ export async function agentCalls(req, res) {
   const { fromUTC, toUTC } = businessTodayRange();
   const { rows } = await query(`
     SELECT
-      call_uuid, ani, dnis, queue_name,
+      call_uuid, ani, cid_name AS caller_name, dnis, queue_name,
       start_time, queue_enter_time, agent_answer_time, end_time,
       wait_seconds, talk_seconds, disposition, abandoned,
       CASE

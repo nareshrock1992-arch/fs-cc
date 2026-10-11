@@ -144,7 +144,7 @@ function CallsTable({ rows, allEmpty }) {
                         {r.state === 'Connected' ? 'On Call' : r.state}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">{r.ani || 'Unknown'}</td>
+                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">{r.caller_name ? `${r.caller_name} (${r.ani || '—'})` : (r.ani || 'Unknown')}</td>
                     <td className="px-4 py-2.5 text-gray-600 dark:text-ink-dim truncate max-w-[160px]" title={r.queue}>{r.queue || '—'}</td>
                     <td className="px-4 py-2.5 text-gray-700 dark:text-ink truncate max-w-[160px]" title={r.agent_name}>{r.agent_name || <span className="text-gray-300 dark:text-ink-faint/50">—</span>}</td>
                     <td className="px-4 py-2.5 font-mono tnum text-gray-500 dark:text-ink-dim">{r.agent_ext || '—'}</td>
@@ -214,7 +214,7 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus }) {
                     <td className="px-4 py-2.5">
                       {cc ? (
                         <span className="font-mono tnum text-xs text-gray-700 dark:text-ink">
-                          {cc.ani || 'unknown'}{cc.queue_name ? ` → ${qn(cc.queue_name)}` : ''}
+                          {cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'unknown')}{cc.queue_name ? ` → ${qn(cc.queue_name)}` : ''}
                         </span>
                       ) : <span className="text-gray-300 dark:text-ink-faint/50">—</span>}
                     </td>
@@ -294,9 +294,15 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed }) {
               <tbody className="divide-y divide-gray-50 dark:divide-panel-border/30">
                 {rows.map(r => (
                   <tr key={r.chanUuid} className="hover:bg-gray-50/60 dark:hover:bg-panel-raised/20 transition-colors">
-                    {/* Full number (r.caller) only present for users the backend authorized
-                        via the view_caller_id permission; everyone else sees the masked value. */}
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">{r.caller || r.callerMasked || UNK}</td>
+                    {/* Caller name (r.callerName) and full number (r.caller) are present
+                        only for users the backend authorized via view_caller_id / admin;
+                        everyone else sees the masked number. Show "Name (Number)" when a
+                        name is available, otherwise the number alone. */}
+                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">
+                      {r.callerName
+                        ? `${r.callerName} (${r.caller || r.callerMasked})`
+                        : (r.caller || r.callerMasked || UNK)}
+                    </td>
                     <td className="px-4 py-2.5 font-mono tnum text-gray-400 dark:text-ink-faint" title={r.chanUuid}>{r.id}</td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
@@ -413,7 +419,9 @@ export default function LiveOperations() {
     // Socket payloads are ALWAYS masked (full ANI never travels over Socket.IO).
     // The full number comes only from the authorized REST poll; preserve it across
     // masked socket updates so an authorized viewer doesn't flicker to masked.
-    setPrequeue(prev => ({ ...prev, [p.chanUuid]: { ...p, caller: p.caller ?? prev[p.chanUuid]?.caller } }));
+    setPrequeue(prev => ({ ...prev, [p.chanUuid]: { ...p,
+      caller:     p.caller     ?? prev[p.chanUuid]?.caller,
+      callerName: p.callerName ?? prev[p.chanUuid]?.callerName } }));
     setPqFailed(false);
   }, []));
   useSocketEvent('prequeue:remove', useCallback((p) => {
@@ -457,7 +465,7 @@ export default function LiveOperations() {
       const ag = c.agent_id ? agentsById[c.agent_id] : null;
       seen.add(c.call_uuid);
       out.push({
-        uuid: c.call_uuid, state, ani: c.ani, queue: queueName,
+        uuid: c.call_uuid, state, ani: c.ani, caller_name: c.caller_name || null, queue: queueName,
         agent_name: c.agent_name || ag?.full_name || null,
         agent_ext:  c.agent_extension || ag?.avaya_extension || null,
         dur: isConnected ? talkSec : waitSec,
@@ -473,7 +481,7 @@ export default function LiveOperations() {
       if (a.operational_state === 'Ringing' && cc && !seen.has(cc.call_uuid)) {
         seen.add(cc.call_uuid);
         out.push({
-          uuid: cc.call_uuid, state: 'Ringing', ani: cc.ani, queue: qn(cc.queue_name),
+          uuid: cc.call_uuid, state: 'Ringing', ani: cc.ani, caller_name: cc.caller_name || null, queue: qn(cc.queue_name),
           agent_name: a.full_name, agent_ext: a.avaya_extension,
           dur: a._stateDur, durLabel: 'ring', _wait: a._stateDur ?? 0, _enter: Date.now(), sla: null,
         });
@@ -519,7 +527,7 @@ export default function LiveOperations() {
       if (quick === 'Attention' && !(r.state === 'Waiting' || r.state === 'Ringing')) return false;
       if (queue !== 'All' && r.queue !== queue) return false;
       if (term) {
-        const hay = `${r.ani || ''} ${r.agent_name || ''} ${r.agent_ext || ''} ${r.queue || ''}`.toLowerCase();
+        const hay = `${r.caller_name || ''} ${r.ani || ''} ${r.agent_name || ''} ${r.agent_ext || ''} ${r.queue || ''}`.toLowerCase();
         if (!hay.includes(term)) return false;
       }
       return true;

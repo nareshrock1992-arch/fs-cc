@@ -44,7 +44,7 @@ function WaitingCard({ call, tick }) {
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
-          <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.ani || 'Unknown'}</p>
+          <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Since</p>
@@ -96,7 +96,7 @@ function ActiveCallCard({ call, tick }) {
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
-          <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.ani || 'Unknown'}</p>
+          <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Queue</p>

@@ -247,7 +247,7 @@ export default function CDRTable({ from, to }) {
                   <span title={r.call_uuid} className="cursor-default">{shortUuid(r.call_uuid)}</span>
                 </td>
                 <td className="px-4 py-3 font-semibold text-gray-800 dark:text-ink font-mono">
-                  {r.ani || '—'}
+                  {r.caller_name ? `${r.caller_name} (${r.ani || '—'})` : (r.ani || '—')}
                 </td>
                 <td className="px-4 py-3 text-gray-500 dark:text-ink-dim font-mono">
                   {r.dnis || '—'}

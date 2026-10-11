@@ -63,7 +63,7 @@ function DetailModal({ uuid, onClose }) {
           ) : row ? (
             <div>
               <Row label="Direction" value={row.direction === 'outbound' ? 'Outbound' : 'Inbound'} />
-              <Row label="Caller" value={row.ani} />
+              <Row label="Caller" value={row.caller_name ? `${row.caller_name} (${row.ani || '—'})` : row.ani} />
               <Row label="Called" value={row.dnis} />
               <Row label="Queue" value={row.queue_name} />
               <Row label="Started" value={formatDateTime(row.start_time)} />
@@ -175,7 +175,7 @@ export default function CallHistory() {
                   className="border-b border-panel-border/40 hover:bg-panel-raised cursor-pointer focus:bg-panel-raised focus:outline-none"
                 >
                   <td className="py-2 pr-3"><DirectionBadge direction={c.direction} missed={c.missed} abandoned={c.abandoned} /></td>
-                  <td className="py-2 pr-3 text-ink-dim">{c.direction === 'outbound' ? c.dnis : c.ani || 'Anonymous'}</td>
+                  <td className="py-2 pr-3 text-ink-dim">{c.direction === 'outbound' ? c.dnis : (c.caller_name ? `${c.caller_name} (${c.ani || '—'})` : c.ani || 'Anonymous')}</td>
                   <td className="py-2 pr-3 text-ink-faint">{c.queue_name || '—'}</td>
                   <td className="py-2 pr-3 text-ink-faint">{formatDateTime(c.start_time)}</td>
                   <td className="py-2 pr-3 text-ink-dim tabular-nums">{formatDuration(c.talk_seconds ?? c.agent_talk_seconds)}</td>

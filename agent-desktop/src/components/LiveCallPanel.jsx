@@ -69,7 +69,7 @@ export default function LiveCallPanel({ callState }) {
             )}
           </div>
           <p className="text-ink font-semibold text-lg truncate">
-            {callState.ani || 'Unknown caller'}
+            {callState.caller_name ? `${callState.caller_name} (${callState.ani || '—'})` : (callState.ani || 'Unknown caller')}
           </p>
           {callState.queueName && (
             <p className="text-ink-dim text-sm">

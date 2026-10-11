@@ -506,6 +506,7 @@ export async function getCDRReport(req, res) {
     `SELECT
        ch.call_uuid,
        ch.ani,
+       ch.cid_name AS caller_name,
        ch.dnis,
        ch.queue_name,
 

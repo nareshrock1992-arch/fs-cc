@@ -109,7 +109,7 @@ export default function CallHistoryReport() {
                   <tr key={c.call_uuid} className="border-b border-gray-50 dark:border-panel-border/40">
                     <td className="px-4 py-3"><Dir c={c} /></td>
                     <td className="px-4 py-3 text-gray-700 dark:text-ink-dim">{c.agent_id || '—'}</td>
-                    <td className="px-4 py-3 text-gray-800 dark:text-ink">{c.direction === 'outbound' ? c.dnis : c.ani || 'Anonymous'}</td>
+                    <td className="px-4 py-3 text-gray-800 dark:text-ink">{c.direction === 'outbound' ? c.dnis : (c.caller_name ? `${c.caller_name} (${c.ani || '—'})` : (c.ani || 'Anonymous'))}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{c.queue_name || '—'}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{fmtDT(c.start_time)}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-ink-faint tabular-nums">{fmtDur(c.wait_seconds)}</td>

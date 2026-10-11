@@ -293,6 +293,7 @@ export async function getLiveAgents(_req, res) {
       CASE WHEN oc.call_uuid IS NULL THEN NULL ELSE json_build_object(
         'call_uuid',         oc.call_uuid,
         'ani',               oc.ani,
+        'caller_name',       oc.cid_name,
         'dnis',              oc.dnis,
         'queue_name',        oc.queue_name,
         'agent_answer_time', oc.agent_answer_time,
@@ -340,7 +341,7 @@ export async function getLiveAgents(_req, res) {
 
     -- Current open call for this agent (agent_id is a varchar on calls).
     LEFT JOIN LATERAL (
-      SELECT call_uuid, ani, dnis, queue_name, agent_answer_time, queue_enter_time, start_time
+      SELECT call_uuid, ani, cid_name, dnis, queue_name, agent_answer_time, queue_enter_time, start_time
       FROM calls
       WHERE agent_id = a.agent_id AND end_time IS NULL
       ORDER BY start_time DESC

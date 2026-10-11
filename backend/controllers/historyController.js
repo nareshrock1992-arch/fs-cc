@@ -89,7 +89,7 @@ export async function supervisorCallHistory(req, res) {
   params.push(limit, offset);
   const { rows } = await query(
     `SELECT
-        c.call_uuid, c.direction, c.ani, c.dnis, c.queue_name, c.agent_id,
+        c.call_uuid, c.direction, c.ani, c.cid_name AS caller_name, c.dnis, c.queue_name, c.agent_id,
         c.start_time, c.queue_enter_time, c.agent_answer_time, c.end_time,
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition
        FROM calls c
