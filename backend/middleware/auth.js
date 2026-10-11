@@ -48,6 +48,14 @@ export function hasExplicitPermission(user, permission) {
   return Array.isArray(user?.permissions) && user.permissions.includes(permission);
 }
 
+// Field-level permission check that mirrors the app's standard authorization
+// model: admins implicitly hold every permission, otherwise the permission must
+// be explicitly present. Used to decide, per authenticated user, whether to
+// reveal sensitive data (e.g. the full caller ID in the pre-queue monitor).
+export function hasPermission(user, permission) {
+  return user?.role === 'admin' || hasExplicitPermission(user, permission);
+}
+
 // Passes if the user is a supervisor-class role (admin or supervisor). Used by
 // live supervisor-only reads such as the pre-queue monitor. Additive — does not
 // change the semantics of any existing route.

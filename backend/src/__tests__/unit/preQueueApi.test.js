@@ -11,7 +11,7 @@ vi.mock('../../../services/eslService.js', () => ({ cc: {}, isConnected: () => f
 
 const store = await import('../../../services/preQueueStore.js');
 const { listPreQueueCalls } = await import('../../../controllers/callsController.js');
-const { requireSupervisor, hasExplicitPermission } = await import('../../../middleware/auth.js');
+const { requireSupervisor, hasExplicitPermission, hasPermission } = await import('../../../middleware/auth.js');
 
 function mockRes() {
   const res = {};
@@ -82,6 +82,21 @@ describe('hasExplicitPermission — view_caller_id (no admin bypass)', () => {
   });
 });
 
+// Option A: admins implicitly hold all permissions, plus explicit grants.
+describe('hasPermission — view_caller_id (admin implicit + explicit grant)', () => {
+  const P = 'view_caller_id';
+  it('grants to admin (implicitly) and to anyone with the explicit permission', () => {
+    expect(hasPermission({ role: 'admin', permissions: [] }, P)).toBe(true);     // admin: all rights
+    expect(hasPermission({ role: 'admin' }, P)).toBe(true);
+    expect(hasPermission({ role: 'supervisor', permissions: ['view_caller_id'] }, P)).toBe(true);
+  });
+  it('denies supervisor without the permission, and unauthenticated', () => {
+    expect(hasPermission({ role: 'supervisor', permissions: ['view_reports'] }, P)).toBe(false);
+    expect(hasPermission({ role: 'supervisor' }, P)).toBe(false);
+    expect(hasPermission(null, P)).toBe(false);
+  });
+});
+
 describe('GET /calls/prequeue — full caller ID gating', () => {
   const RAW = '96650007788';
   beforeEach(() => store.observe('0123456789abcdef', { ani: RAW, stage: 'pressed_1', now: 1000 }));
@@ -103,12 +118,12 @@ describe('GET /calls/prequeue — full caller ID gating', () => {
     expect(JSON.stringify(body)).not.toContain(RAW);   // number cannot be recovered from the response
   });
 
-  it('ADMIN without the explicit permission → masked only (no admin bypass)', async () => {
+  it('ADMIN → full caller number (admin has all rights — Option A)', async () => {
     const res = mockRes();
     await listPreQueueCalls({ user: { role: 'admin', permissions: [] } }, res);
-    const body = res.json.mock.calls[0][0];
-    expect(body[0].caller).toBeUndefined();
-    expect(JSON.stringify(body)).not.toContain(RAW);
+    const row = res.json.mock.calls[0][0][0];
+    expect(row.caller).toBe(RAW);
+    expect(row.callerMasked).toBe('•••••••••88');
   });
 
   it('missing/unauthenticated req.user → fails closed to masked (no raw ANI)', async () => {

@@ -1,7 +1,7 @@
 import { query } from '../db/pool.js';
 import { cc } from '../services/eslService.js';
 import * as preQueue from '../services/preQueueStore.js';
-import { hasExplicitPermission } from '../middleware/auth.js';
+import { hasPermission } from '../middleware/auth.js';
 
 export async function listLiveCalls(req, res) {
   const { rows } = await query(`
@@ -36,10 +36,10 @@ export async function listLiveCalls(req, res) {
 // reason / target queue / transfer success / flow name are returned as null:
 // they are NOT reliably observable by FS-CC in Phase 1A (see report).
 export async function listPreQueueCalls(req, res) {
-  // Full caller number only for users who explicitly hold `view_caller_id`
-  // (no admin bypass — Option B). Everyone else gets the masked projection with
+  // Full caller number for admins (implicitly all permissions) or users who hold
+  // the `view_caller_id` permission. Everyone else gets the masked projection with
   // no raw ANI field at all.
-  const revealAni = hasExplicitPermission(req.user, 'view_caller_id');
+  const revealAni = hasPermission(req.user, 'view_caller_id');
   res.json(preQueue.listActive().map(e => preQueue.publicView(e, { revealAni })));
 }
 
