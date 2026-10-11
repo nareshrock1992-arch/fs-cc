@@ -11,7 +11,7 @@ vi.mock('../../../services/eslService.js', () => ({ cc: {}, isConnected: () => f
 
 const store = await import('../../../services/preQueueStore.js');
 const { listPreQueueCalls } = await import('../../../controllers/callsController.js');
-const { requireSupervisor } = await import('../../../middleware/auth.js');
+const { requireSupervisor, hasExplicitPermission } = await import('../../../middleware/auth.js');
 
 function mockRes() {
   const res = {};
@@ -60,5 +60,62 @@ describe('GET /calls/prequeue controller', () => {
     const res = mockRes();
     await listPreQueueCalls({}, res);
     expect(res.json.mock.calls[0][0]).toEqual([]);
+  });
+});
+
+// ── view_caller_id: explicit permission only (Option B — no admin bypass) ──────
+describe('hasExplicitPermission — view_caller_id (no admin bypass)', () => {
+  const P = 'view_caller_id';
+  it('grants ONLY when the permission is explicitly listed', () => {
+    expect(hasExplicitPermission({ role: 'supervisor', permissions: ['view_caller_id'] }, P)).toBe(true);
+    expect(hasExplicitPermission({ role: 'admin',      permissions: ['view_caller_id'] }, P)).toBe(true);
+  });
+  it('denies admin role WITHOUT the explicit permission (Option B: no implicit admin grant)', () => {
+    expect(hasExplicitPermission({ role: 'admin', permissions: [] }, P)).toBe(false);
+    expect(hasExplicitPermission({ role: 'admin' }, P)).toBe(false);
+  });
+  it('denies supervisor without it, unknown shapes, and unauthenticated', () => {
+    expect(hasExplicitPermission({ role: 'supervisor', permissions: ['view_reports'] }, P)).toBe(false);
+    expect(hasExplicitPermission({ role: 'supervisor' }, P)).toBe(false);
+    expect(hasExplicitPermission(null, P)).toBe(false);
+    expect(hasExplicitPermission({ permissions: 'not-an-array' }, P)).toBe(false);
+  });
+});
+
+describe('GET /calls/prequeue — full caller ID gating', () => {
+  const RAW = '96650007788';
+  beforeEach(() => store.observe('0123456789abcdef', { ani: RAW, stage: 'pressed_1', now: 1000 }));
+
+  it('AUTHORIZED (explicit view_caller_id) → includes full caller number', async () => {
+    const res = mockRes();
+    await listPreQueueCalls({ user: { role: 'supervisor', permissions: ['view_caller_id'] } }, res);
+    const row = res.json.mock.calls[0][0][0];
+    expect(row.caller).toBe(RAW);           // full number revealed
+    expect(row.callerMasked).toBe('•••••••••88'); // masked still present
+  });
+
+  it('UNAUTHORIZED supervisor → masked only, NO raw ANI in any field', async () => {
+    const res = mockRes();
+    await listPreQueueCalls({ user: { role: 'supervisor', permissions: [] } }, res);
+    const body = res.json.mock.calls[0][0];
+    expect(body[0].caller).toBeUndefined();            // raw field omitted entirely
+    expect(body[0].callerMasked).toBe('•••••••••88');
+    expect(JSON.stringify(body)).not.toContain(RAW);   // number cannot be recovered from the response
+  });
+
+  it('ADMIN without the explicit permission → masked only (no admin bypass)', async () => {
+    const res = mockRes();
+    await listPreQueueCalls({ user: { role: 'admin', permissions: [] } }, res);
+    const body = res.json.mock.calls[0][0];
+    expect(body[0].caller).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain(RAW);
+  });
+
+  it('missing/unauthenticated req.user → fails closed to masked (no raw ANI)', async () => {
+    const res = mockRes();
+    await listPreQueueCalls({}, res);                  // no user (route-level requireAuth gates access separately)
+    const body = res.json.mock.calls[0][0];
+    expect(body[0].caller).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain(RAW);
   });
 });

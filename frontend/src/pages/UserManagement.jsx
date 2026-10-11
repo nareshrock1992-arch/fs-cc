@@ -28,6 +28,12 @@ const ALL_PERMISSIONS = [
     label:       'Manage Break Codes',
     description: 'Create, edit, and enable/disable agent break reasons',
   },
+  {
+    key:         'view_caller_id',
+    group:       'Operations',
+    label:       'View Full Caller ID',
+    description: 'See the full caller phone number (not masked) in the IVR & Pre-Queue Monitor',
+  },
 ];
 
 function RoleBadge({ role }) {

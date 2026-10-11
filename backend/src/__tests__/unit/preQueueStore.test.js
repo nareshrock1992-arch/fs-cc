@@ -139,6 +139,28 @@ describe('publicView — masking & unknown-field safety', () => {
     expect(v.transferSucceeded).toBeNull();
     expect(v.flowName).toBeNull();
   });
+  it('default (and revealAni:false) OMITS the raw caller field entirely', () => {
+    store.observe('chanA', { ani: '96650001234', stage: 'play', now: 1000 });
+    const def = store.publicView(store.get('chanA'));
+    const noReveal = store.publicView(store.get('chanA'), { revealAni: false });
+    for (const v of [def, noReveal]) {
+      expect(v).not.toHaveProperty('caller');          // no raw field at all
+      expect(v.callerMasked).toBe('•••••••••34');
+      expect(JSON.stringify(v)).not.toContain('96650001234');
+    }
+  });
+  it('revealAni:true includes the full caller number alongside the masked value', () => {
+    store.observe('chanA', { ani: '96650001234', stage: 'play', now: 1000 });
+    const v = store.publicView(store.get('chanA'), { revealAni: true });
+    expect(v.caller).toBe('96650001234');
+    expect(v.callerMasked).toBe('•••••••••34');
+  });
+  it('revealAni:true with no ANI known does not fabricate a caller field', () => {
+    store.observe('chanA', { stage: 'play', now: 1000 }); // seed, no ANI
+    const v = store.publicView(store.get('chanA'), { revealAni: true });
+    expect(v).not.toHaveProperty('caller');
+    expect(v.callerMasked).toBeNull();
+  });
   it('exposes a safe short channel id, ISO timestamps, and observed stage', () => {
     store.observe('0123456789abcdef', { stage: 'gather_digits', now: 1000 });
     const v = store.publicView(store.get('0123456789abcdef'));

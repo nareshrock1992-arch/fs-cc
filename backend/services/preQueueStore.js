@@ -121,9 +121,15 @@ export function safeId(chanUuid) {
 }
 
 // Masked, PII-safe projection for API responses and supervisor socket payloads.
-export function publicView(e) {
+//
+// callerMasked is ALWAYS masked. The full caller number is included (as `caller`)
+// ONLY when the caller explicitly passes { revealAni: true } — which the backend
+// sets solely for users holding the `view_caller_id` permission. When not
+// revealed, the raw ANI field is OMITTED ENTIRELY (never present as null or in
+// any alternate field), so an unauthorized response carries no raw number.
+export function publicView(e, { revealAni = false } = {}) {
   if (!e) return null;
-  return {
+  const out = {
     id: safeId(e.chanUuid),
     chanUuid: e.chanUuid,
     callerMasked: maskAni(e.ani),
@@ -137,4 +143,6 @@ export function publicView(e) {
     transferSucceeded: null,
     flowName: null,
   };
+  if (revealAni && e.ani) out.caller = String(e.ani); // full number, authorized only
+  return out;
 }

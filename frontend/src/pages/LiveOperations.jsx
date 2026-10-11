@@ -294,7 +294,9 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed }) {
               <tbody className="divide-y divide-gray-50 dark:divide-panel-border/30">
                 {rows.map(r => (
                   <tr key={r.chanUuid} className="hover:bg-gray-50/60 dark:hover:bg-panel-raised/20 transition-colors">
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">{r.callerMasked || UNK}</td>
+                    {/* Full number (r.caller) only present for users the backend authorized
+                        via the view_caller_id permission; everyone else sees the masked value. */}
+                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">{r.caller || r.callerMasked || UNK}</td>
                     <td className="px-4 py-2.5 font-mono tnum text-gray-400 dark:text-ink-faint" title={r.chanUuid}>{r.id}</td>
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
@@ -408,7 +410,10 @@ export default function LiveOperations() {
   // Pre-queue live updates (supervisor room only) — upsert / remove in place.
   useSocketEvent('prequeue:update', useCallback((p) => {
     if (!p?.chanUuid) return;
-    setPrequeue(prev => ({ ...prev, [p.chanUuid]: p }));
+    // Socket payloads are ALWAYS masked (full ANI never travels over Socket.IO).
+    // The full number comes only from the authorized REST poll; preserve it across
+    // masked socket updates so an authorized viewer doesn't flicker to masked.
+    setPrequeue(prev => ({ ...prev, [p.chanUuid]: { ...p, caller: p.caller ?? prev[p.chanUuid]?.caller } }));
     setPqFailed(false);
   }, []));
   useSocketEvent('prequeue:remove', useCallback((p) => {

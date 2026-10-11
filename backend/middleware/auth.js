@@ -38,6 +38,16 @@ export function requirePermission(permission) {
   };
 }
 
+// Explicit permission check for field-level reveals (e.g. full caller ID in the
+// pre-queue monitor). Unlike requirePermission(), this does NOT grant admins an
+// implicit pass — the permission must be explicitly present in the user's
+// permissions list (Option B: least privilege, no admin bypass). Used to decide,
+// per authenticated user, whether to reveal sensitive data; never weakens the
+// route-level auth that still gates access.
+export function hasExplicitPermission(user, permission) {
+  return Array.isArray(user?.permissions) && user.permissions.includes(permission);
+}
+
 // Passes if the user is a supervisor-class role (admin or supervisor). Used by
 // live supervisor-only reads such as the pre-queue monitor. Additive — does not
 // change the semantics of any existing route.
