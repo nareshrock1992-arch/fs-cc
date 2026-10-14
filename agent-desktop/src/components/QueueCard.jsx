@@ -12,7 +12,7 @@ function SlaBar({ pct }) {
   const textCol = n >= 90 ? 'text-lamp-available' : n >= 70 ? 'text-lamp-live' : 'text-lamp-alert';
   return (
     <div className="mt-1">
-      <div className="flex justify-between text-[10px] text-ink-faint mb-1">
+      <div className="flex justify-between text-[0.6875rem] text-ink-faint mb-1">
         <span>SLA</span>
         <span className={textCol}>{n}%</span>
       </div>
@@ -32,9 +32,9 @@ export default function QueueCard({ q }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold text-ink leading-tight">{q.display_name}</h3>
-          <p className="text-[11px] text-ink-faint mt-0.5">{q.name}</p>
+          <p className="text-[0.6875rem] text-ink-faint mt-0.5">{q.name}</p>
         </div>
-        <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full
+        <span className="shrink-0 text-[0.6875rem] px-2 py-0.5 rounded-full
                          bg-panel-raised border border-panel-border text-ink-dim capitalize">
           {strategyLabel}
         </span>

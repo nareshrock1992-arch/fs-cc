@@ -339,7 +339,7 @@ export default function Agents() {
                       </div>
                       <div>
                         <p className="font-semibold text-gray-800 dark:text-ink">{a.full_name}</p>
-                        <p className="text-[11px] text-gray-400 dark:text-ink-faint font-mono">{a.agent_id}</p>
+                        <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint font-mono">{a.agent_id}</p>
                       </div>
                     </div>
                   </td>
@@ -378,12 +378,12 @@ export default function Agents() {
                   {/* PIN */}
                   <td className="px-4 py-3">
                     {a.pin_hash ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold
+                      <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold
                                        text-emerald-600 dark:text-lamp-available">
                         <CheckCircle2 size={12} /> Set
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold
+                      <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold
                                        text-gray-400 dark:text-ink-faint">
                         <XCircle size={12} /> Not set
                       </span>

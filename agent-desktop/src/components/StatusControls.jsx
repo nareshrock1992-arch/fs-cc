@@ -106,7 +106,7 @@ export default function StatusControls({ currentStatus, breakCodes, onStatusChan
                   />
                   <span className="flex-1 truncate">{bc.name}</span>
                   {bc.max_duration_seconds
-                    ? <span className="text-[10px] text-ink-faint">{Math.round(bc.max_duration_seconds / 60)}m</span>
+                    ? <span className="text-[0.6875rem] text-ink-faint">{Math.round(bc.max_duration_seconds / 60)}m</span>
                     : null}
                 </button>
               ))}

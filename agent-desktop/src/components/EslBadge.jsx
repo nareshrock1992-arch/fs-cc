@@ -3,7 +3,7 @@ import { Wifi, WifiOff } from 'lucide-react';
 export default function EslBadge({ connected }) {
   return (
     <span className={`
-      inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full
+      inline-flex items-center gap-1.5 text-[0.6875rem] font-semibold px-2.5 py-1 rounded-full
       border transition-colors
       ${connected
         ? 'bg-lamp-available/15 text-lamp-available border-lamp-available/30'

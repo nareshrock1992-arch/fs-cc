@@ -15,15 +15,15 @@ export default function LoadingState({ rows = 3, cols = 4, label = 'Loading…' 
           </div>
         ))}
       </div>
-      <p className="text-[12px] text-ink-faint mt-3 text-center">{label}</p>
+      <p className="text-xs text-ink-faint mt-3 text-center">{label}</p>
     </div>
   );
 }
 
 // Matches KpiCard's compact footprint so the layout doesn't jump on first load.
-export function KpiSkeleton({ count = 5, className = 'grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]' }) {
+export function KpiSkeleton({ count = 5, className = 'kpi-grid', cols }) {
   return (
-    <div className={className} role="status" aria-label="Loading metrics">
+    <div className={className} data-cols={cols} role="status" aria-label="Loading metrics">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="rounded-md border border-border bg-surface px-3.5 py-3 space-y-2.5">
           <div className="skeleton h-3 w-20 rounded" />

@@ -74,7 +74,7 @@ function DetailModal({ uuid, onClose }) {
               <Row label="Total" value={formatDuration(row.total_seconds)} />
               <Row label="Disposition" value={row.disposition} />
               <Row label="Abandoned" value={row.abandoned ? 'Yes' : 'No'} />
-              <Row label="Call UUID" value={<code className="text-[10px]">{row.call_uuid}</code>} />
+              <Row label="Call UUID" value={<code className="text-[0.6875rem]">{row.call_uuid}</code>} />
             </div>
           ) : null}
         </div>
@@ -156,7 +156,7 @@ export default function CallHistory() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-ink-faint border-b border-panel-border">
+              <tr className="text-left text-[0.6875rem] uppercase tracking-wider text-ink-faint border-b border-panel-border">
                 <th className="py-2 pr-3 font-semibold">Direction</th>
                 <th className="py-2 pr-3 font-semibold">Caller</th>
                 <th className="py-2 pr-3 font-semibold">Queue</th>

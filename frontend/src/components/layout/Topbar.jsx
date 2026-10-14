@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sun, Moon, ChevronDown, ShieldCheck, LogOut, WifiOff } from 'lucide-react';
+import { Sun, Moon, ChevronDown, ShieldCheck, LogOut, WifiOff, Menu } from 'lucide-react';
 import { socket, useSocketEvent } from '../../api/socket.js';
 import { useAuth, clearToken } from '../../hooks/useAuth.js';
 import { pageMetaFor } from '../../lib/pageMeta.js';
@@ -45,14 +45,14 @@ function AdminMenu({ user }) {
           ${open ? 'border-border bg-surface-2' : ''}`}
       >
         <div className="h-7 w-7 rounded-full bg-navy flex items-center justify-center
-          text-white text-[11px] font-semibold shrink-0">
+          text-white text-[0.6875rem] font-semibold shrink-0">
           {initials}
         </div>
-        <div className="hidden sm:block text-left leading-tight">
-          <p className="text-[13px] font-medium text-ink capitalize">
+        <div className="hidden lg:block text-left leading-tight">
+          <p className="text-[0.8125rem] font-medium text-ink capitalize">
             {user?.username ?? 'User'}
           </p>
-          <p className="text-[11px] text-ink-faint capitalize">
+          <p className="text-[0.6875rem] text-ink-faint capitalize">
             {user?.role ?? ''}
           </p>
         </div>
@@ -64,8 +64,8 @@ function AdminMenu({ user }) {
           border border-border bg-surface shadow-card-hover z-[200] overflow-hidden">
 
           <div className="px-4 py-3 border-b border-border">
-            <p className="text-[13px] font-semibold text-ink capitalize">{user?.username}</p>
-            <p className="text-[12px] text-ink-faint mt-0.5 capitalize">
+            <p className="text-[0.8125rem] font-semibold text-ink capitalize">{user?.username}</p>
+            <p className="text-xs text-ink-faint mt-0.5 capitalize">
               {user?.role} account
             </p>
           </div>
@@ -75,7 +75,7 @@ function AdminMenu({ user }) {
               <button
                 role="menuitem"
                 onClick={() => { setOpen(false); navigate('/users'); }}
-                className="w-full flex items-center gap-3 px-4 py-2 text-[13px]
+                className="w-full flex items-center gap-3 px-4 py-2 text-[0.8125rem]
                   text-ink-dim hover:bg-surface-2 hover:text-ink
                   transition-colors text-left"
               >
@@ -87,7 +87,7 @@ function AdminMenu({ user }) {
             <button
               role="menuitem"
               onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-2 text-[13px]
+              className="w-full flex items-center gap-3 px-4 py-2 text-[0.8125rem]
                 text-danger hover:bg-danger/10 transition-colors text-left"
             >
               <LogOut size={15} className="shrink-0" aria-hidden="true" />
@@ -106,17 +106,17 @@ function ConnectionStatus({ connected }) {
   return (
     <div role="status" aria-live="polite">
       {connected ? (
-        <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium text-status-available">
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-status-available">
           <span className="h-2 w-2 rounded-full bg-status-available" aria-hidden="true" />
-          <span className="hidden sm:inline">Contact center connected</span>
-          <span className="sm:hidden">Connected</span>
+          <span className="hidden lg:inline">Contact center connected</span>
+          <span className="lg:hidden">Connected</span>
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold
+        <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold
           border border-status-error/35 bg-status-error/10 text-status-error">
           <WifiOff size={13} aria-hidden="true" />
-          <span className="hidden sm:inline">Contact center offline</span>
-          <span className="sm:hidden">Offline</span>
+          <span className="hidden lg:inline">Contact center offline</span>
+          <span className="lg:hidden">Offline</span>
         </span>
       )}
     </div>
@@ -125,7 +125,7 @@ function ConnectionStatus({ connected }) {
 
 // ── Main Topbar ───────────────────────────────────────────────────────────────
 
-export default function Topbar({ isDark, toggleTheme }) {
+export default function Topbar({ isDark, toggleTheme, onOpenNav }) {
   const { pathname }   = useLocation();
   const { user }       = useAuth();
   const { title, description } = pageMetaFor(pathname);
@@ -153,29 +153,38 @@ export default function Topbar({ isDark, toggleTheme }) {
   }, []);
 
   return (
-    <header className="relative z-30 h-14 shrink-0 border-b border-border bg-surface
-      px-4 md:px-6 flex items-center justify-between gap-4">
+    <header className="relative z-30 min-h-[3.5rem] shrink-0 border-b border-border bg-surface
+      px-3 md:px-6 py-1.5 flex items-center justify-between gap-3">
 
-      <div className="min-w-0">
-        <h1 className="text-[18px] font-semibold tracking-[-0.01em] leading-tight text-ink truncate">
-          {title}
-        </h1>
-        {description && (
-          <p className="hidden md:block text-[12px] text-ink-faint leading-tight truncate mt-0.5">{description}</p>
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Navigation drawer trigger — only when the sidebar column is hidden */}
+        {onOpenNav && (
+          <button type="button" onClick={onOpenNav} aria-label="Open navigation"
+            className="md:hidden h-9 w-9 -ml-1 flex items-center justify-center rounded-md text-ink-dim hover:text-ink hover:bg-surface-2">
+            <Menu size={20} aria-hidden="true" />
+          </button>
         )}
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold tracking-[-0.01em] leading-tight text-ink truncate" title={title}>
+            {title}
+          </h1>
+          {description && (
+            <p className="hidden lg:block text-xs text-ink-faint leading-tight truncate mt-0.5">{description}</p>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+      <div className="flex items-center gap-1 md:gap-2 lg:gap-3 shrink-0">
         <ConnectionStatus connected={eslConnected} />
 
-        <span className="hidden lg:block h-6 w-px bg-border" aria-hidden="true" />
+        <span className="hidden xl:block h-6 w-px bg-border" aria-hidden="true" />
 
-        {/* Clock */}
-        <div className="hidden md:flex flex-col items-end leading-tight" aria-label="Current time">
-          <span className="text-[13px] font-medium tabular-nums text-ink-dim">
+        {/* Clock — only when there is room beside the title */}
+        <div className="hidden xl:flex flex-col items-end leading-tight" aria-label="Current time">
+          <span className="text-[0.8125rem] font-medium tabular-nums text-ink-dim">
             {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
-          <span className="text-[11px] text-ink-faint">
+          <span className="text-[0.6875rem] text-ink-faint">
             {now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
           </span>
         </div>

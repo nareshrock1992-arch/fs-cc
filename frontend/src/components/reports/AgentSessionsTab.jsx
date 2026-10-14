@@ -48,7 +48,7 @@ function TH({ children, right = false }) {
 function MetricCard({ label, value }) {
   return (
     <div className="px-4 py-3 rounded-lg bg-gray-50 dark:bg-panel-raised border border-gray-200 dark:border-panel-border">
-      <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400 dark:text-ink-faint">
+      <p className="text-[0.6875rem] uppercase tracking-widest font-bold text-gray-400 dark:text-ink-faint">
         {label}
       </p>
       <p className="text-lg font-mono font-semibold text-gray-800 dark:text-ink mt-0.5 tabular-nums">
@@ -152,7 +152,7 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
               )}
 
               {/* Metrics grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              <div className="kpi-grid [--kpi-min:8.5rem]">
                 <MetricCard label="Sessions"      value={detail.sessions?.count ?? '—'} />
                 <MetricCard label="Login Time"    value={fmtSec(detail.sessions?.total_login_seconds)} />
                 <MetricCard label="Available"     value={fmtSec(detail.state_durations?.available_seconds)} />
@@ -204,7 +204,7 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
                             </td>
                             <td className="px-3 py-2.5">
                               {s.is_open && (
-                                <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold
                                   bg-emerald-100 text-emerald-700
                                   dark:bg-emerald-900/30 dark:text-emerald-400">
                                   LIVE
@@ -241,7 +241,7 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
                             className="hover:bg-gray-50 dark:hover:bg-panel-raised/40 transition-colors">
                             <td className="px-3 py-2.5">
                               <span className={[
-                                'inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold',
+                                'inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold',
                                 e.status === 'Available'
                                   ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                   : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -397,7 +397,7 @@ export default function AgentSessionsTab({ from, to }) {
                   <p className="font-semibold text-gray-800 dark:text-ink">
                     {a.full_name || a.agent_id}
                   </p>
-                  <p className="text-[11px] dark:text-ink-faint text-gray-400 font-mono">
+                  <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">
                     {a.agent_id}
                   </p>
                 </td>
@@ -461,7 +461,7 @@ export default function AgentSessionsTab({ from, to }) {
       {!loading && !error && (
         <div className="px-6 py-3 border-t border-gray-200 dark:border-panel-border
           bg-gray-50 dark:bg-panel-raised/30">
-          <p className="text-[11px] text-gray-400 dark:text-ink-faint">
+          <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint">
             Occupancy = (ring + talk) / available × 100. — means no Available state recorded in range.
             Avg Talk = average talk time for answered calls only — not Average Handle Time.
           </p>

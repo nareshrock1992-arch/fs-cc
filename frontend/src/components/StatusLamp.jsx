@@ -32,7 +32,7 @@ export default function StatusLamp({ status, label, size = 'md', showLabel = tru
   if (variant === 'badge') {
     return (
       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full whitespace-nowrap
-        text-[11px] font-semibold border ${cfg.badge} ${cfg.text}`}>
+        text-[0.6875rem] font-semibold border ${cfg.badge} ${cfg.text}`}>
         <span
           className={`rounded-full h-1.5 w-1.5 shrink-0 ${cfg.color}
             ${cfg.pulse ? 'animate-pulse-soft' : ''}`}

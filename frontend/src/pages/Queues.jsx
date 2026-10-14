@@ -142,7 +142,7 @@ export default function Queues() {
     ? allAgents.filter((a) => !tierQueue.agents.some((t) => t.agent_id === a.agent_id))
     : [];
 
-  const thClass = 'pb-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint whitespace-nowrap';
+  const thClass = 'pb-2 text-left text-xs font-semibold text-ink-dim whitespace-nowrap';
 
   return (
     <div className="space-y-4">
@@ -176,7 +176,7 @@ export default function Queues() {
                 <tr key={q.name} className="border-b dark:border-panel-border/60 border-gray-50 last:border-0">
                   <td className="py-3">
                     <p className="font-medium dark:text-ink text-gray-800">{q.display_name}</p>
-                    <p className="text-[11px] dark:text-ink-faint text-gray-400 font-mono">{q.name}</p>
+                    <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">{q.name}</p>
                   </td>
                   <td className="py-3 dark:text-ink-dim text-gray-500">
                     {STRATEGIES.find((s) => s.value === q.strategy)?.label || q.strategy}
@@ -307,15 +307,15 @@ export default function Queues() {
                       <StatusLamp status={a.status} showLabel={false} />
                       <div>
                         <p className="text-sm font-medium dark:text-ink text-gray-800">{a.full_name}</p>
-                        <p className="text-[11px] dark:text-ink-faint text-gray-400 font-mono">{a.agent_id}</p>
+                        <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">{a.agent_id}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <label className="text-[10px] uppercase tracking-wide dark:text-ink-faint text-gray-400">Lvl</label>
+                      <label className="text-[0.6875rem] uppercase tracking-wide dark:text-ink-faint text-gray-400">Lvl</label>
                       <input type="number" min="1" max="10" defaultValue={a.level}
                         onBlur={(e) => { const v = Number(e.target.value); if (v !== a.level) handleSetTier(a.agent_id, { level: v }); }}
                         className={`${inputClass} w-14 py-1`} title="Tier level (lower tried first)" />
-                      <label className="text-[10px] uppercase tracking-wide dark:text-ink-faint text-gray-400">Pos</label>
+                      <label className="text-[0.6875rem] uppercase tracking-wide dark:text-ink-faint text-gray-400">Pos</label>
                       <input type="number" min="1" max="100" defaultValue={a.position}
                         onBlur={(e) => { const v = Number(e.target.value); if (v !== a.position) handleSetTier(a.agent_id, { position: v }); }}
                         className={`${inputClass} w-14 py-1`} title="Tie-break position within a level" />

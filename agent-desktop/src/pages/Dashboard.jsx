@@ -302,7 +302,7 @@ export default function Dashboard({ auth, theme }) {
           <span className={`w-2 h-2 rounded-full ${statusDotClass(agentStatus)}`} />
           <div className="text-right hidden sm:block">
             <p className="text-sm font-semibold text-ink leading-tight">{agent?.full_name}</p>
-            <p className={`text-[11px] font-medium ${statusTextClass(agentStatus)}`}>{agentStatus}</p>
+            <p className={`text-[0.6875rem] font-medium ${statusTextClass(agentStatus)}`}>{agentStatus}</p>
           </div>
           <div className="w-8 h-8 rounded-full bg-brand/20 border border-brand/30
                           flex items-center justify-center text-brand-light font-bold text-sm">
@@ -388,7 +388,7 @@ export default function Dashboard({ auth, theme }) {
                 <h2 className="text-sm font-semibold text-ink-dim uppercase tracking-wider">
                   My Queues
                 </h2>
-                <span className="text-[11px] text-ink-faint">Live · 3s refresh</span>
+                <span className="text-[0.6875rem] text-ink-faint">Live · 3s refresh</span>
               </div>
 
               {queues.length === 0 ? (
@@ -402,7 +402,7 @@ export default function Dashboard({ auth, theme }) {
               )}
             </div>
 
-            <div className="text-[11px] text-ink-faint flex flex-wrap gap-4
+            <div className="text-[0.6875rem] text-ink-faint flex flex-wrap gap-4
                             border-t border-panel-border pt-3">
               <span>Agent: <code className="text-ink-dim">{agent?.agent_id}</code></span>
               <span>Extension: <code className="text-ink-dim">{agent?.avaya_extension}</code></span>
@@ -415,7 +415,7 @@ export default function Dashboard({ auth, theme }) {
       </main>
 
       <footer className="border-t border-panel-border px-4 py-2 text-center">
-        <p className="text-[11px] text-ink-faint">
+        <p className="text-[0.6875rem] text-ink-faint">
           CC Version 1.0.0 · © Naresh — All Rights Reserved
         </p>
       </footer>

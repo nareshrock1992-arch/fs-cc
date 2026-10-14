@@ -1,13 +1,13 @@
 export function FormField({ label, hint, children, required }) {
   return (
     <label className="block mb-4">
-      <span className="block text-[11px] font-semibold text-gray-500 dark:text-ink-faint
+      <span className="block text-[0.6875rem] font-semibold text-gray-500 dark:text-ink-faint
                        uppercase tracking-wider mb-1.5">
         {label}{required && <span className="text-lamp-alert ml-0.5">*</span>}
       </span>
       {children}
       {hint && (
-        <span className="block text-[11px] text-gray-400 dark:text-ink-faint mt-1">{hint}</span>
+        <span className="block text-[0.6875rem] text-gray-400 dark:text-ink-faint mt-1">{hint}</span>
       )}
     </label>
   );

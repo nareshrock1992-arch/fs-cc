@@ -18,17 +18,17 @@
 
 :root {
   /* ── Brand / intent ──────────────────────────────────────────────── */
-  /* Enterprise operations palette (UI modernization): navy brand, teal
-     action colour. Every intent colour is ≥4.5:1 on white so it can be used
-     for text as well as fills. */
+  /* FS-CC identity: dark navy brand + FS-CC blue for primary actions,
+     active navigation and selection. Every intent colour is ≥4.5:1 on white
+     so it can be used for text as well as fills. */
   --brand-navy:     20 38 61;     /* #14263D  brand mark / identity */
-  --primary:         8 127 140;   /* #087F8C  primary action (teal) */
-  --primary-hover:   6 107 118;   /* #066B76 */
+  --primary:        37 99 235;    /* #2563EB  FS-CC blue — actions / active nav */
+  --primary-hover:  30 79 181;    /* #1E4FB5 */
   --success:        18 128 92;    /* #12805C */
   --warning:       180 83 9;      /* #B45309  amber — readable as text */
   --danger:        196 43 43;     /* #C42B2B */
   --info:           37 89 199;    /* #2559C7 */
-  --focus:           8 127 140;   /* #087F8C */
+  --focus:          37 99 235;    /* #2563EB */
 
   /* ── Surfaces ────────────────────────────────────────────────────── */
   --bg:            243 246 250;   /* #F3F6FA  page background */
@@ -72,13 +72,13 @@
 
 .dark {
   --brand-navy:     20 38 61;     /* #14263D */
-  --primary:        14 140 153;   /* #0E8C99  teal, legible on dark + white text */
-  --primary-hover:  11 122 134;   /* #0B7A86 */
+  --primary:        37 99 235;    /* #2563EB  FS-CC blue (unchanged identity) */
+  --primary-hover:  30 79 181;    /* #1E4FB5 */
   --success:        52 195 145;   /* #34C391 */
   --warning:       240 164 58;    /* #F0A43A */
   --danger:        240 106 106;   /* #F06A6A */
   --info:          108 155 242;   /* #6C9BF2 */
-  --focus:          34 178 192;   /* #22B2C0 */
+  --focus:          96 165 250;   /* #60A5FA  visible ring on dark */
 
   --bg:             6 11 23;      /* #060B17 */
   --surface:       11 18 32;      /* #0B1220 */
@@ -165,9 +165,9 @@
            transition-colors;
   }
 
-  /* Compact toolbar controls (search / select) — 32px tall. */
+  /* Toolbar controls (search / select / chips) — one height: 2rem. */
   .input-sm {
-    @apply h-8 rounded-md border border-border-strong bg-surface px-2.5 text-[13px] text-ink
+    @apply h-8 min-w-0 rounded-md border border-border-strong bg-surface px-2.5 text-[0.8125rem] text-ink
            placeholder:text-ink-faint
            focus:outline-none focus:ring-2 focus:ring-focus/30 focus:border-primary
            transition-colors;
@@ -175,7 +175,7 @@
 
   /* Segmented filter chip (quick filters). Pair with aria-pressed. */
   .chip {
-    @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium
+    @apply inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium whitespace-nowrap
            text-ink-dim border border-transparent hover:bg-surface-2 hover:text-ink
            transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus/50;
   }
@@ -185,25 +185,38 @@
 
   /* Small count pill (section headers, tabs). */
   .count-pill {
-    @apply inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full
-           text-[11px] font-semibold tabular-nums bg-surface-2 text-ink-dim;
+    @apply inline-flex items-center justify-center min-w-[1.375rem] h-5 px-1.5 rounded-full
+           text-[0.6875rem] font-semibold tabular-nums bg-surface-2 text-ink-dim;
   }
 
-  /* Table header cell — one header style for every data table. */
+  /* Table header cell — one header style for every data table. Sentence /
+     title case (no uppercase tracking) for calmer, more readable headers. */
   .th {
-    @apply px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em]
-           text-ink-faint bg-surface-2 whitespace-nowrap;
+    @apply px-4 py-2 text-left text-xs font-semibold normal-case tracking-normal text-ink-dim bg-surface-2 whitespace-nowrap;
   }
 
   /* Status badge base */
   .status-badge {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full
-           text-[11px] font-semibold;
+           text-[0.6875rem] font-semibold;
+  }
+
+  /* ── KPI grid ─────────────────────────────────────────────────────────
+     Intrinsic, zoom-safe reflow: as many ≥--kpi-min columns as fit, cards
+     share the remaining width, and `min(100%, …)` lets a single card shrink
+     to the container on very narrow widths instead of overflowing. Browser
+     zoom just narrows the CSS viewport, so this reflows naturally — no zoom
+     detection or breakpoint juggling. Set --kpi-min per grid if needed. */
+  .kpi-grid {
+    display: grid;
+    gap: 0.625rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--kpi-min, 9.5rem)), 1fr));
+    grid-auto-rows: 1fr;           /* equal card heights within the grid */
   }
 
   /* ── Shared table system ─────────────────────────────────────────────
      `.th` above is the header cell; these add body cells, rows and density. */
-  .data-table        { @apply w-full text-[13px]; }
+  .data-table        { @apply w-full text-[0.8125rem]; }
   .td                { @apply px-4 py-2 align-middle text-ink; }
   .td-secondary      { @apply px-4 py-2 align-middle text-ink-dim; }
   .td-num            { @apply px-4 py-2 align-middle text-right tabular-nums text-ink; }
@@ -215,25 +228,53 @@
   .data-table.is-compact .td-num,
   .data-table.is-compact .th { @apply py-1.5; }
 
-  /* ── Typography scale ─────────────────────────────────────────────────
-     20 page · 14 section · 14/13 body · 12 label · 11 table head · 24 metric */
-  .text-page-title    { @apply font-sans text-[20px] font-semibold leading-tight tracking-[-0.01em] text-ink; }
-  .text-section-title { @apply font-sans text-[14px] font-semibold leading-snug text-ink; }
+  /* ── Typography scale (rem — scales with browser zoom AND the user's
+     default font-size setting) ───────────────────────────────────────────
+     1.25 page · 0.875 section · 0.875/0.8125 body · 0.75 label/table head ·
+     0.6875 smallest helper (11px floor — nothing smaller) · 1.5 metric     */
+  .text-page-title    { @apply font-sans text-xl font-semibold leading-tight tracking-[-0.01em] text-ink; }
+  .text-section-title { @apply font-sans text-sm font-semibold leading-snug text-ink; }
   /* Canonical KPI / metric value — the number is the hero. Inter with tabular
-     figures (digits align and don't jitter as live values tick), bounded size
-     (20–26px) so the KPI strip never dominates the working area. */
+     figures (digits align and don't jitter as live values tick). A fixed rem
+     size (not vw) so zooming in makes it larger, never smaller. */
   .text-metric        {
-    @apply font-sans font-semibold leading-none tabular-nums text-ink;
-    font-size: clamp(1.25rem, 1.05rem + 0.45vw, 1.625rem);
+    @apply font-sans font-semibold leading-tight tabular-nums text-ink;
+    font-size: 1.5rem;
     letter-spacing: -0.02em;
     min-width: 0;
     overflow-wrap: anywhere;
   }
-  .text-table-head    { @apply font-sans text-[12px] font-semibold text-ink-dim; }
-  .text-body          { @apply font-sans text-[14px] font-normal text-ink; }
-  .text-secondary-sm  { @apply font-sans text-[13px] text-ink-dim; }
-  .text-label         { @apply font-sans text-[12px] font-medium text-ink-dim; }
-  .text-status        { @apply font-sans text-[12px] font-semibold; }
+  .text-table-head    { @apply font-sans text-xs font-semibold text-ink-dim; }
+  .text-body          { @apply font-sans text-sm font-normal text-ink; }
+  .text-secondary-sm  { @apply font-sans text-[0.8125rem] text-ink-dim; }
+  .text-label         { @apply font-sans text-xs font-medium text-ink-dim; }
+  .text-status        { @apply font-sans text-xs font-semibold; }
+}
+
+/* ═══ KPI groups (container-query layout) ═══════════════════════════════
+   A KPI group sizes its columns from ITS OWN width, not the viewport, so it
+   reflows correctly whatever the sidebar, window size or browser zoom.
+   Balanced steps (no lonely orphan card): 5-card group → 5 / 3+2 / 2+2+1,
+   3-card group → 3 / 2+1. Rows share one height so cards stay aligned.     */
+.kpi-group {
+  container-type: inline-size;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.kpi-cols {
+  flex: 1;
+  display: grid;
+  gap: 0.625rem;
+  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@container (min-width: 23rem) {
+  .kpi-cols[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .kpi-cols[data-cols="5"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@container (min-width: 39rem) {
+  .kpi-cols[data-cols="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 /* ═══ Text selection ═════════════════════════════════════════════════════ */

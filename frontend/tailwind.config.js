@@ -16,6 +16,11 @@ export default {
       // Tailwind breakpoints (sm…2xl) are preserved via `extend`.
       screens: {
         '3xl': '2560px',
+        // Viewport is both wide AND tall enough for panels to own an internal
+        // scroll area (sticky table headers). Below this — short windows or
+        // high browser zoom — tables grow naturally and the page scrolls, so
+        // rows are never trapped in a tiny scroll box.
+        tall: { raw: '(min-width: 64rem) and (min-height: 44rem)' },
       },
       colors: {
         // ── Neutral ramp (UI modernization) ─────────────────────────────

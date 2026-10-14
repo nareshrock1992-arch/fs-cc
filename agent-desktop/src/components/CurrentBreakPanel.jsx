@@ -44,9 +44,9 @@ export default function CurrentBreakPanel({
             <Coffee size={18} className="text-lamp-break" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wider text-ink-faint font-semibold">On Break</p>
+            <p className="text-[0.6875rem] uppercase tracking-wider text-ink-faint font-semibold">On Break</p>
             <p className="text-sm font-bold text-ink truncate">{breakName || breakCode || 'Break'}</p>
-            <p className="text-[11px] text-ink-faint">Started {formatTime(breakStartedAt)}</p>
+            <p className="text-[0.6875rem] text-ink-faint">Started {formatTime(breakStartedAt)}</p>
           </div>
         </div>
 
@@ -56,7 +56,7 @@ export default function CurrentBreakPanel({
             {formatDuration(elapsed)}
           </p>
           {maxDurationSeconds != null && (
-            <p className="text-[11px] text-ink-faint">
+            <p className="text-[0.6875rem] text-ink-faint">
               of {formatDuration(maxDurationSeconds)} max
             </p>
           )}

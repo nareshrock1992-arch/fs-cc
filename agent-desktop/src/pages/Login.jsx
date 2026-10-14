@@ -103,7 +103,7 @@ export default function Login({ onLogin, theme }) {
             </button>
           </form>
 
-          <p className="text-center text-[11px] text-ink-faint mt-6">
+          <p className="text-center text-[0.6875rem] text-ink-faint mt-6">
             CC Version 1.0.0 · © Naresh — All Rights Reserved
           </p>
         </div>

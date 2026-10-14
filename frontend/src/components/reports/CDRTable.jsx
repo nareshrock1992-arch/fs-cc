@@ -40,7 +40,7 @@ const DISP = {
 function DispositionBadge({ value }) {
   const d = DISP[value] ?? { label: (value ?? 'UNKNOWN').toUpperCase(), cls: 'bg-gray-100 text-gray-500 ring-1 ring-gray-200' };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${d.cls}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.6875rem] font-bold tracking-wide ${d.cls}`}>
       {d.label}
     </span>
   );
@@ -243,7 +243,7 @@ export default function CDRTable({ from, to }) {
                 key={r.call_uuid}
                 className="hover:bg-blue-50/50 dark:hover:bg-panel-raised/40 transition-colors"
               >
-                <td className="px-4 py-3 font-mono text-[11px] text-gray-400">
+                <td className="px-4 py-3 font-mono text-[0.6875rem] text-gray-400">
                   <span title={r.call_uuid} className="cursor-default">{shortUuid(r.call_uuid)}</span>
                 </td>
                 <td className="px-4 py-3 font-semibold text-gray-800 dark:text-ink font-mono">

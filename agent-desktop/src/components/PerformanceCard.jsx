@@ -101,7 +101,7 @@ function KpiTile({ label, value, color = 'text-ink', Icon, iconColor = 'text-ink
 
 function Chip({ children, color }) {
   return (
-    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${color}`}>
+    <span className={`text-[0.6875rem] font-semibold px-2 py-0.5 rounded-full border ${color}`}>
       {children}
     </span>
   );

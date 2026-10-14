@@ -59,7 +59,7 @@ export default function LiveCallPanel({ callState }) {
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${labelColor}`}>
+            <span className={`text-[0.6875rem] font-bold uppercase tracking-wider ${labelColor}`}>
               {labelText}
             </span>
             {!isRinging && (

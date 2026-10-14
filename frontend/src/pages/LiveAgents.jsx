@@ -187,7 +187,7 @@ export default function LiveAgents() {
   return (
     <div className="space-y-4">
       {/* KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="kpi-grid">
         {KPI.map(k => <KpiCard key={k.label} {...k} />)}
       </div>
 
@@ -202,7 +202,7 @@ export default function LiveAgents() {
         title="Live Agents"
         noPad
         action={
-          <div className="flex items-center gap-2 text-[11px]">
+          <div className="flex items-center gap-2 text-[0.6875rem]">
             <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full font-semibold ${esl ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'}`}>
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: esl ? '#27C98A' : '#EF4444' }} />
               {esl ? 'FS Connected' : 'FS Offline'}
@@ -223,7 +223,7 @@ export default function LiveAgents() {
           <div className="flex items-center gap-1">
             {FILTERS.map(f => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${filter === f ? 'bg-brand text-white border-brand' : 'border-gray-200 dark:border-panel-border text-gray-600 dark:text-ink-dim hover:bg-gray-50 dark:hover:bg-panel-raised'}`}>
+                className={`px-2.5 py-1 rounded-full text-[0.6875rem] font-semibold border transition-colors ${filter === f ? 'bg-brand text-white border-brand' : 'border-gray-200 dark:border-panel-border text-gray-600 dark:text-ink-dim hover:bg-gray-50 dark:hover:bg-panel-raised'}`}>
                 {f}{f !== 'All' && kpis[f] !== undefined ? ` ${kpis[f]}` : ''}
               </button>
             ))}
@@ -247,7 +247,7 @@ export default function LiveAgents() {
             <thead>
               <tr className="border-b border-gray-200 dark:border-panel-border">
                 {['Agent', 'Ext', 'State', 'State Duration', 'Idle', 'Queue(s)', 'Current Call', 'Since', canChangeState ? 'Actions' : ''].map((h, i) => (
-                  <th key={i} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint bg-gray-50 dark:bg-panel-raised whitespace-nowrap">{h}</th>
+                  <th key={i} className="px-4 py-2.5 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint bg-gray-50 dark:bg-panel-raised whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -264,12 +264,12 @@ export default function LiveAgents() {
                     <td className="px-4 py-2.5">
                       <div className="font-medium text-gray-800 dark:text-ink truncate max-w-[180px]">{r.full_name || r.agent_id}</div>
                       {r._loginDur != null && r.operational_state !== 'Offline' && (
-                        <div className="text-[10px] text-gray-400 dark:text-ink-faint">logged in {fmtDur(r._loginDur)}</div>
+                        <div className="text-[0.6875rem] text-gray-400 dark:text-ink-faint">logged in {fmtDur(r._loginDur)}</div>
                       )}
                     </td>
                     <td className="px-4 py-2.5 font-mono tnum text-gray-600 dark:text-ink-dim">{r.avaya_extension || '—'}</td>
                     <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${meta.pill}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold ${meta.pill}`}>
                         <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.dot }} />
                         {meta.label}
                         {r.operational_state === 'On Break' && r.break_name ? ` · ${r.break_name}` : ''}

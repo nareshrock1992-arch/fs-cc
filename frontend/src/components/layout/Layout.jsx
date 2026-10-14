@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
@@ -30,12 +30,17 @@ export default function Layout() {
 
   const toggleTheme = () => setIsDark((d) => !d);
 
+  // Navigation drawer (below `md` — small windows / high browser zoom).
+  const [navOpen, setNavOpen] = useState(false);
+  const closeNav = useCallback(() => setNavOpen(false), []);
+  useEffect(() => { setNavOpen(false); }, [pathname]);
+
   return (
     <div className="flex h-screen overflow-hidden font-sans bg-bg text-ink antialiased">
-      <Sidebar />
+      <Sidebar mobileOpen={navOpen} onClose={closeNav} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar isDark={isDark} toggleTheme={toggleTheme} />
-        <main className="flex-1 overflow-y-auto">
+        <Topbar isDark={isDark} toggleTheme={toggleTheme} onOpenNav={() => setNavOpen(true)} />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           {/* Standardized enterprise content container: wide for information
               density, centered, consistent gutters. (Phase 3A.6) */}
           {/* Adaptive content width: 1600px on standard desktops (1366–2559 →
@@ -43,9 +48,10 @@ export default function Layout() {
               use the extra space while keeping bounded, readable line lengths. */}
           <div className="mx-auto w-full max-w-[1600px] 3xl:max-w-[2240px] px-4 md:px-6 3xl:px-8 py-4 md:py-5">
             {/* Title AND description live in the Topbar (one compact header for
-                every page). On small screens, where the Topbar hides the
-                description, show it here instead. */}
-            <div className="md:hidden"><PageHeader description={meta.description} /></div>
+                every page). Below `lg`, where the Topbar hides the description
+                to keep the title clear of the status/user controls, show it
+                here instead. */}
+            <div className="lg:hidden"><PageHeader description={meta.description} /></div>
             <Outlet />
           </div>
         </main>

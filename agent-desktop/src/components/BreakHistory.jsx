@@ -58,7 +58,7 @@ export default function BreakHistory({ breakCodes }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wider text-ink-faint border-b border-panel-border">
+              <tr className="text-left text-[0.6875rem] uppercase tracking-wider text-ink-faint border-b border-panel-border">
                 <th className="py-2 pr-3 font-semibold">Reason</th>
                 <th className="py-2 pr-3 font-semibold">Started</th>
                 <th className="py-2 pr-3 font-semibold">Ended</th>

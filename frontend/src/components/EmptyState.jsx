@@ -5,10 +5,12 @@ export default function EmptyState({ icon: Icon, title, body, action, compact = 
   if (compact) {
     const dot = tone === 'ok' ? 'bg-status-available' : tone === 'warn' ? 'bg-status-ringing' : 'bg-gray-300 dark:bg-ink-faint/50';
     return (
-      <div className="flex items-center gap-2.5 px-4 py-3 min-w-0">
-        <span className={`h-2 w-2 rounded-full shrink-0 ${dot}`} aria-hidden="true" />
-        {title && <span className="text-[13px] font-medium text-ink-dim whitespace-nowrap">{title}</span>}
-        {body && <span className="text-[12px] text-ink-faint truncate hidden sm:inline">— {body}</span>}
+      <div className="flex items-start gap-2.5 px-4 py-3 min-w-0">
+        <span className={`h-2 w-2 rounded-full shrink-0 mt-[0.35rem] ${dot}`} aria-hidden="true" />
+        <p className="min-w-0 leading-snug">
+          {title && <span className="text-[0.8125rem] font-medium text-ink-dim">{title}</span>}
+          {body && <span className="text-xs text-ink-faint"> — {body}</span>}
+        </p>
         {action && <span className="ml-auto shrink-0">{action}</span>}
       </div>
     );
@@ -22,10 +24,10 @@ export default function EmptyState({ icon: Icon, title, body, action, compact = 
         </div>
       )}
       {title && (
-        <p className="text-[13px] font-semibold text-ink-dim">{title}</p>
+        <p className="text-[0.8125rem] font-semibold text-ink-dim">{title}</p>
       )}
       {body && (
-        <p className="text-[12px] text-ink-faint max-w-sm leading-relaxed">{body}</p>
+        <p className="text-xs text-ink-faint max-w-sm leading-relaxed">{body}</p>
       )}
       {action && <div className="mt-3">{action}</div>}
     </div>

@@ -25,7 +25,7 @@ const LIVE = {
 export function LiveIndicator({ state = 'live', label }) {
   const m = LIVE[state] || LIVE.live;
   return (
-    <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium ${m.text}`}>
+    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${m.text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} aria-hidden="true" />
       {label ?? m.label}
     </span>
@@ -36,17 +36,19 @@ export default function Panel({ title, eyebrow, count, live, action, children, c
   const hasHeader = title || action;
   return (
     <section className={`card ${className}`}>
+      {/* Header wraps instead of truncating: on narrow widths / high zoom the
+          actions drop below the title rather than squeezing it. */}
       {hasHeader && (
-        <div className="flex items-center justify-between gap-3 min-h-[44px] px-4 py-2 border-b border-border">
-          <div className="flex items-center gap-2 min-w-0">
-            {title && <h2 className="text-section-title truncate">{title}</h2>}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 min-h-[2.75rem] px-4 py-2 border-b border-border">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+            {title && <h2 className="text-section-title">{title}</h2>}
             {count != null && <span className="count-pill">{count}</span>}
             {eyebrow && (
-              <span className="hidden sm:inline text-[12px] text-ink-faint whitespace-nowrap">· {eyebrow}</span>
+              <span className="text-xs text-ink-faint">· {eyebrow}</span>
             )}
             {live && <span className="ml-1"><LiveIndicator state={live} /></span>}
           </div>
-          {action && <div className="shrink-0 flex items-center gap-2">{action}</div>}
+          {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
         </div>
       )}
       <div className={noPad ? '' : 'p-4'}>{children}</div>

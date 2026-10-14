@@ -37,17 +37,17 @@ function WaitingCard({ call, tick }) {
       {/* Info grid */}
       <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Queue</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Queue</p>
           <p className="text-sm font-semibold text-gray-800 dark:text-ink truncate" title={call.queue_name}>
             {call.queue_name || '—'}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
           <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Since</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Since</p>
           <p className="text-sm font-mono text-gray-600 dark:text-ink-dim">
             {call.queue_enter_time
               ? new Date(call.queue_enter_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -55,7 +55,7 @@ function WaitingCard({ call, tick }) {
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Waiting</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Waiting</p>
           <p className={`text-sm font-mono font-bold tnum ${isLong ? 'text-lamp-alert' : 'text-amber-600 dark:text-lamp-live'}`}>
             {fmt(waitSec)}
           </p>
@@ -63,7 +63,7 @@ function WaitingCard({ call, tick }) {
       </div>
 
       {/* Status pill */}
-      <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold
+      <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[0.6875rem] font-semibold
                        bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-lamp-live
                        border border-amber-200 dark:border-amber-500/25">
         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 dark:bg-lamp-live animate-pulse-soft" />
@@ -89,29 +89,29 @@ function ActiveCallCard({ call, tick }) {
       {/* Info grid */}
       <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Agent</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Agent</p>
           <p className="text-sm font-semibold text-gray-800 dark:text-ink truncate" title={call.agent_name}>
             {call.agent_name || call.agent_id || '—'}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
           <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Queue</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Queue</p>
           <p className="text-sm text-gray-600 dark:text-ink-dim truncate" title={call.queue_name}>
             {call.queue_name || '—'}
           </p>
         </div>
         <div className="hidden sm:block">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Extension</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Extension</p>
           <p className="text-sm font-mono text-gray-500 dark:text-ink-faint">
             {call.agent_extension ? `ext ${call.agent_extension}` : '—'}
           </p>
         </div>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Duration</p>
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-widest text-gray-400 dark:text-ink-faint mb-0.5">Duration</p>
           <p className="text-sm font-mono font-bold tnum text-emerald-600 dark:text-lamp-available">
             {fmt(talkSec)}
           </p>
@@ -119,7 +119,7 @@ function ActiveCallCard({ call, tick }) {
       </div>
 
       {/* Status pill */}
-      <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold
+      <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[0.6875rem] font-semibold
                        bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-lamp-available
                        border border-emerald-200 dark:border-emerald-500/25">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-lamp-available" />
@@ -228,7 +228,7 @@ export default function LiveCalls() {
           </h2>
           {waiting.length > 0 && (
             <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full
-                             text-[10px] font-bold bg-amber-100 dark:bg-amber-500/20
+                             text-[0.6875rem] font-bold bg-amber-100 dark:bg-amber-500/20
                              text-amber-700 dark:text-lamp-live">
               {waiting.length}
             </span>
@@ -261,7 +261,7 @@ export default function LiveCalls() {
           </h2>
           {onCall.length > 0 && (
             <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full
-                             text-[10px] font-bold bg-emerald-100 dark:bg-emerald-500/20
+                             text-[0.6875rem] font-bold bg-emerald-100 dark:bg-emerald-500/20
                              text-emerald-700 dark:text-lamp-available">
               {onCall.length}
             </span>

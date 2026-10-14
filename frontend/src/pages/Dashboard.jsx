@@ -78,10 +78,10 @@ function ServiceLevelGauge({ pct }) {
       </svg>
       <div className="min-w-0">
         <p className="text-xs font-semibold text-gray-700 dark:text-ink">Service Level</p>
-        <p className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: stroke }}>
+        <p className="text-[0.6875rem] font-bold uppercase tracking-wider mt-0.5" style={{ color: stroke }}>
           {status}
         </p>
-        <p className="text-[10px] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
+        <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
           Target: ≥80% answered within<br />each queue's configured target
         </p>
       </div>
@@ -130,7 +130,7 @@ function QueueHealthSection({ distribution, liveByName }) {
   }));
 
   const legend = (
-    <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-400 dark:text-ink-faint">
+    <div className="hidden sm:flex items-center gap-3 text-[0.6875rem] text-gray-400 dark:text-ink-faint">
       {[['#3B82F6','Offered'],['#27C98A','Answered'],['#EF4444','Abandoned']].map(([c, l]) => (
         <span key={l} className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: c }} />
@@ -175,7 +175,7 @@ function QueueHealthSection({ distribution, liveByName }) {
             </div>
             {totalOffered === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-[10px] text-gray-400 dark:text-ink-faint bg-white/80
+                <span className="text-[0.6875rem] text-gray-400 dark:text-ink-faint bg-white/80
                   dark:bg-panel-surface/80 px-2 py-1 rounded">
                   No calls today
                 </span>
@@ -214,11 +214,11 @@ function QueueHealthSection({ distribution, liveByName }) {
                     ['Ans%',    'text-right', 'today'],
                     ['SLA',     'text-right', 'today'],
                   ].map(([h, align, basis]) => (
-                    <th key={h} className={`pb-2 px-1.5 text-[9px] font-semibold uppercase
+                    <th key={h} className={`pb-2 px-1.5 text-[0.6875rem] font-semibold uppercase
                       tracking-wider text-gray-400 dark:text-ink-faint ${align}`}>
                       {h}
                       {basis && (
-                        <span className={`block text-[8px] font-medium tracking-normal normal-case ${
+                        <span className={`block text-[0.6875rem] font-medium tracking-normal normal-case ${
                           basis === 'live'
                             ? 'text-amber-500 dark:text-amber-400'
                             : 'text-gray-300 dark:text-ink-faint/60'
@@ -269,7 +269,7 @@ function QueueHealthSection({ distribution, liveByName }) {
                             {q.display_name || q.queue_name}
                           </span>
                           {avail !== null && (
-                            <span className="shrink-0 text-[9px] font-mono text-gray-400 dark:text-ink-faint">
+                            <span className="shrink-0 text-[0.6875rem] font-mono text-gray-400 dark:text-ink-faint">
                               · {avail} avail
                             </span>
                           )}
@@ -279,7 +279,7 @@ function QueueHealthSection({ distribution, liveByName }) {
                         {waiting > 0 ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded-full
                             bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400
-                            text-[9px] font-bold animate-pulse-soft">
+                            text-[0.6875rem] font-bold animate-pulse-soft">
                             {waiting}
                           </span>
                         ) : (
@@ -321,7 +321,7 @@ function MetricRow({ icon: Icon, label, value, valueClass, iconClass }) {
           ${iconClass || 'bg-gray-100 dark:bg-panel-raised text-gray-400 dark:text-ink-dim'}`}>
           <Icon size={12} strokeWidth={2} />
         </div>
-        <span className="text-[11px] text-gray-600 dark:text-ink-dim">{label}</span>
+        <span className="text-[0.6875rem] text-gray-600 dark:text-ink-dim">{label}</span>
       </div>
       <span className={`text-sm font-mono tnum font-semibold
         ${valueClass || 'text-gray-800 dark:text-ink'}`}>
@@ -396,7 +396,7 @@ const ACTIVITY_CFG = {
 function ActivityFeed({ activities }) {
   const viewAgents = (
     <Link to="/live-agents"
-      className="inline-flex items-center gap-1 text-[11px] font-semibold
+      className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold
         text-primary hover:underline">
       View Live Agents <ArrowRight size={12} />
     </Link>
@@ -408,7 +408,7 @@ function ActivityFeed({ activities }) {
           <Radio size={15} strokeWidth={1.5} className="shrink-0" />
           <div>
             <p className="text-xs font-semibold text-gray-500 dark:text-ink-dim">No recent activity</p>
-            <p className="text-[10px] mt-0.5">Events appear here in real time</p>
+            <p className="text-[0.6875rem] mt-0.5">Events appear here in real time</p>
           </div>
         </div>
       ) : (
@@ -426,14 +426,14 @@ function ActivityFeed({ activities }) {
                   <Icon size={11} strokeWidth={2} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-medium text-gray-800 dark:text-ink leading-snug">
+                  <p className="text-[0.6875rem] font-medium text-gray-800 dark:text-ink leading-snug">
                     {act.text}
                   </p>
                   {act.detail && (
-                    <p className="text-[10px] text-gray-400 dark:text-ink-faint">{act.detail}</p>
+                    <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint">{act.detail}</p>
                   )}
                 </div>
-                <span className="text-[9px] text-gray-400 dark:text-ink-faint shrink-0 mt-0.5 tabular-nums">
+                <span className="text-[0.6875rem] text-gray-400 dark:text-ink-faint shrink-0 mt-0.5 tabular-nums">
                   {timeAgo(act.ts)}
                 </span>
               </div>
@@ -487,7 +487,7 @@ function AgentStatusCard({ agents }) {
           {/* Counts */}
           <div className="space-y-1">
             {AGENT_STATUS.map(s => (
-              <div key={s.key} className="flex items-center gap-2 text-[11px]">
+              <div key={s.key} className="flex items-center gap-2 text-[0.6875rem]">
                 <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: s.color }} />
                 <span className="flex-1 text-gray-500 dark:text-ink-dim truncate">{s.label}</span>
                 <span className="font-mono tnum font-semibold text-gray-700 dark:text-ink">{counts[s.key]}</span>
@@ -496,7 +496,7 @@ function AgentStatusCard({ agents }) {
           </div>
           {/* Available capacity */}
           <div className="pt-2 border-t border-gray-100 dark:border-panel-border/40">
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
+            <p className="text-[0.6875rem] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
               Available Capacity
             </p>
             <p className="text-metric text-emerald-600 dark:text-emerald-400 mt-0.5">
@@ -574,7 +574,7 @@ function CallsTrendCard({ data, ready }) {
             </ResponsiveContainer>
             {!anyVolume && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-[10px] text-gray-400 dark:text-ink-faint bg-white/80 dark:bg-panel-surface/80 px-2 py-1 rounded">
+                <span className="text-[0.6875rem] text-gray-400 dark:text-ink-faint bg-white/80 dark:bg-panel-surface/80 px-2 py-1 rounded">
                   No calls today
                 </span>
               </div>
@@ -600,19 +600,19 @@ function UtilizationCard({ util, agents }) {
     <Panel eyebrow="Today" title="Agent Utilization">
       <div className="space-y-3">
         <div>
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
+          <p className="text-[0.6875rem] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
             Today
           </p>
           <p className="text-metric mt-0.5" style={{ color: tone }}>
             {pct == null ? '—' : `${pct}%`}
           </p>
-          <p className="text-[10px] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
+          <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
             (Ring + Talk) ÷ Available time · excludes ACW/hold
           </p>
         </div>
         <div className="pt-2 border-t border-gray-100 dark:border-panel-border/40 grid grid-cols-2 gap-x-3 gap-y-1">
           {AGENT_STATUS.filter(s => s.key !== 'Offline').map(s => (
-            <div key={s.key} className="flex items-center gap-2 text-[11px]">
+            <div key={s.key} className="flex items-center gap-2 text-[0.6875rem]">
               <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: s.color }} />
               <span className="flex-1 text-gray-500 dark:text-ink-dim truncate">{s.label}</span>
               <span className="font-mono tnum font-semibold text-gray-700 dark:text-ink">{counts[s.key]}</span>
@@ -763,8 +763,10 @@ export default function Dashboard() {
   return (
     <div className="space-y-4">
 
-      {/* ── KPI Row — the single authoritative home for global scalars ─────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+      {/* ── KPI Row — the single authoritative home for global scalars ───────
+          Container-query grid (index.css .kpi-group/.kpi-cols): 5 → 3+2 → 2+2+1
+          from the row's own width, so it reflows cleanly at any zoom level. */}
+      <div className="kpi-group"><div className="kpi-cols" data-cols="5">
         <KpiCard
           label="Agents Available"
           value={stats.agents?.Available ?? 0}
@@ -797,7 +799,7 @@ export default function Dashboard() {
             ? `${Math.round(abandoned / stats.callsToday.total * 100)}% of total`
             : 'No abandoned calls'}
         />
-      </div>
+      </div></div>
 
       {/* ── Row 2: Operational health — Queue Health (2/3) beside a stacked
             Service Health + Agent Utilization column (1/3). Stacking the two

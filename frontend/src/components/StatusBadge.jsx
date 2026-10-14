@@ -45,7 +45,7 @@ const STATUS_TONE = {
 };
 
 const SIZE = {
-  sm: { pad: 'px-2 py-0.5', textGap: 'text-[11px] gap-1.5', dot: 'h-1.5 w-1.5' },
+  sm: { pad: 'px-2 py-0.5', textGap: 'text-[0.6875rem] gap-1.5', dot: 'h-1.5 w-1.5' },
   md: { pad: 'px-2.5 py-1',  textGap: 'text-xs gap-2',       dot: 'h-2 w-2' },
 };
 

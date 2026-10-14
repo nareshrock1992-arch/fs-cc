@@ -13,7 +13,7 @@
   --panel-surface: 255 255 255;   /* #FFFFFF */
   --panel-raised:  238 242 247;   /* #EEF2F7 */
   --panel-border:  220 228 237;   /* #DCE4ED */
-  --panel-accent:    8 127 140;   /* #087F8C */
+  --panel-accent:   37 99 235;    /* #2563EB */
 
   /* Text */
   --ink:       23  35  52;        /* #172334 */
@@ -22,13 +22,13 @@
 
   /* ── FS-CC canonical design tokens (shared with Admin) ───────────────── */
   --brand-navy:     20 38 61;     /* #14263D */
-  --primary:         8 127 140;   /* #087F8C */
-  --primary-hover:   6 107 118;   /* #066B76 */
+  --primary:        37 99 235;    /* #2563EB  FS-CC blue */
+  --primary-hover:  30 79 181;    /* #1E4FB5 */
   --success:        18 128 92;    /* #12805C */
   --warning:       180 83 9;      /* #B45309 */
   --danger:        196 43 43;     /* #C42B2B */
   --info:           37 89 199;    /* #2559C7 */
-  --focus:           8 127 140;   /* #087F8C */
+  --focus:          37 99 235;    /* #2563EB */
 
   --bg:            243 246 250;   /* = panel-bg   */
   --surface:       255 255 255;   /* = panel-surface */
@@ -60,7 +60,7 @@
   --panel-surface: 11  18  32;    /* #0B1220 */
   --panel-raised:  17  27  46;    /* #111B2E */
   --panel-border:  28  42  66;    /* #1C2A42 */
-  --panel-accent:  14 140 153;    /* #0E8C99 */
+  --panel-accent:  30  58 110;    /* #1E3A6E */
 
   /* Text */
   --ink:       232 236 246;       /* #E8ECF6 */
@@ -69,13 +69,13 @@
 
   /* ── FS-CC canonical tokens — dark overrides ─────────────────────────── */
   --brand-navy:     20 38 61;
-  --primary:        14 140 153;   /* #0E8C99 */
-  --primary-hover:  11 122 134;
+  --primary:        37 99 235;    /* #2563EB */
+  --primary-hover:  30 79 181;
   --success:        52 195 145;   /* #34C391 */
   --warning:       240 164 58;    /* #F0A43A */
   --danger:        240 106 106;   /* #F06A6A */
   --info:          108 155 242;   /* #6C9BF2 */
-  --focus:          34 178 192;
+  --focus:          96 165 250;
 
   --bg:             6 11 23;
   --surface:       11 18 32;

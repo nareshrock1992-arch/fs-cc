@@ -63,7 +63,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Username */}
             <div>
-              <label className="block text-[11px] font-semibold text-ink-faint mb-1.5 uppercase tracking-widest">
+              <label className="block text-[0.6875rem] font-semibold text-ink-faint mb-1.5 uppercase tracking-widest">
                 Username
               </label>
               <input
@@ -79,7 +79,7 @@ export default function Login() {
 
             {/* Password */}
             <div>
-              <label className="block text-[11px] font-semibold text-ink-faint mb-1.5 uppercase tracking-widest">
+              <label className="block text-[0.6875rem] font-semibold text-ink-faint mb-1.5 uppercase tracking-widest">
                 Password
               </label>
               <div className="relative">
@@ -116,7 +116,7 @@ export default function Login() {
           </form>
         </div>
 
-        <p className="text-center text-[11px] text-ink-faint mt-5">
+        <p className="text-center text-[0.6875rem] text-ink-faint mt-5">
           SIPCommunication ACD · Avaya Aura Gateway
         </p>
       </div>

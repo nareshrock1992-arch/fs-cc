@@ -159,7 +159,7 @@ export default function BreakCodesPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-ink-faint
+                <tr className="text-left text-[0.6875rem] uppercase tracking-wider text-gray-400 dark:text-ink-faint
                                border-b border-gray-100 dark:border-panel-border">
                   <th className="th">Code</th>
                   <th className="th">Name</th>
@@ -185,8 +185,8 @@ export default function BreakCodesPage() {
                     <td className="px-4 py-3 text-gray-800 dark:text-ink">{r.name}</td>
                     <td className="px-4 py-3">
                       {r.active
-                        ? <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-lamp-available/10 text-lamp-available border border-lamp-available/20">Active</span>
-                        : <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-gray-100 dark:bg-panel-raised text-gray-400 dark:text-ink-faint border border-gray-200 dark:border-panel-border">Inactive</span>}
+                        ? <span className="inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold uppercase bg-lamp-available/10 text-lamp-available border border-lamp-available/20">Active</span>
+                        : <span className="inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold uppercase bg-gray-100 dark:bg-panel-raised text-gray-400 dark:text-ink-faint border border-gray-200 dark:border-panel-border">Inactive</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{r.agent_selectable ? 'Yes' : 'No'}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-ink-faint tabular-nums">{r.display_order}</td>

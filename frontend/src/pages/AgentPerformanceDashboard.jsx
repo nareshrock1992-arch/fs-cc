@@ -214,21 +214,21 @@ export default function AgentPerformanceDashboard() {
       {/* ── Filters ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">From</span>
+          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-ink-faint">From</span>
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="field-input w-auto" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">To</span>
+          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-ink-faint">To</span>
           <input type="date" value={to} onChange={e => setTo(e.target.value)} className="field-input w-auto" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Agent</span>
+          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-ink-faint">Agent</span>
           <select value={agent} onChange={e => setAgent(e.target.value)} className="field-input w-auto">
             <option value="">All agents</option>
             {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.full_name} ({a.agent_id})</option>)}
           </select>
         </label>
-        <span className="text-[11px] text-ink-faint pb-2">
+        <span className="text-[0.6875rem] text-ink-faint pb-2">
           Scope: <strong className="text-ink-dim">{scope}</strong>
           {!from && !to && ' · default: last 7 business days'}
         </span>
@@ -249,7 +249,7 @@ export default function AgentPerformanceDashboard() {
               available space (min usable card ≈ 150px) rather than a fixed
               count, so the seven cards spread across one row on wide screens and
               gracefully wrap to multiple rows when narrower or zoomed in. */}
-          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+          <div className="kpi-grid">
             <KpiCard label="Calls Offered"  value={kpi.offered}  tone="blue"   icon={Phone} />
             <KpiCard label="Calls Answered" value={kpi.answered} tone="green"  icon={CheckCircle2} />
             <KpiCard label="Calls Missed"   value={kpi.missed}   tone={kpi.missed > 0 ? 'red' : 'default'} icon={PhoneMissed} />
@@ -341,17 +341,17 @@ function RecognitionHero({ recognition }) {
                 <Ico size={22} />
               </span>
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider font-semibold text-ink-faint">{c.label}</p>
+                <p className="text-[0.6875rem] uppercase tracking-wider font-semibold text-ink-faint">{c.label}</p>
                 <p className="text-lg font-semibold text-ink truncate leading-tight">{c.who}</p>
                 <p className="text-base font-mono font-semibold text-primary tabular-nums mt-0.5">{c.value}</p>
-                {c.sub && <p className="text-[11px] text-ink-dim mt-0.5">{c.sub}</p>}
+                {c.sub && <p className="text-[0.6875rem] text-ink-dim mt-0.5">{c.sub}</p>}
               </div>
             </div>
           );
         })}
       </div>
       {isTeam && (
-        <p className="text-[11px] text-ink-faint mt-3">
+        <p className="text-[0.6875rem] text-ink-faint mt-3">
           Metric-specific recognition — no composite score. Ties broken by supporting volume, then agent&nbsp;ID.
         </p>
       )}

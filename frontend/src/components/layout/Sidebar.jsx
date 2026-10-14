@@ -1,7 +1,8 @@
+import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, PhoneCall, Users, Layers,
-  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones, Gauge,
+  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones, Gauge, X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
@@ -29,7 +30,7 @@ const USERS_ITEM         = { to: '/users',                  label: 'User Managem
 // Light visual weight: quiet inactive items, one unmistakable active state
 // (teal tint + left rule + bolder icon).
 const NAV_BASE =
-  'group relative flex items-center gap-2.5 px-3 py-[7px] rounded-md text-[13px] ' +
+  'group relative flex items-center gap-2.5 px-3 py-[7px] rounded-md text-[0.8125rem] ' +
   'transition-colors focus-visible:outline-none focus-visible:ring-2 ' +
   'focus-visible:ring-focus/50 focus-visible:ring-offset-0';
 const NAV_INACTIVE =
@@ -37,12 +38,13 @@ const NAV_INACTIVE =
 const NAV_ACTIVE =
   'font-semibold text-primary bg-primary/10';
 
-function NavItem({ to, label, icon: Icon, end }) {
+function NavItem({ to, label, icon: Icon, end, onNavigate }) {
   return (
     <NavLink
       key={to}
       to={to}
       end={end}
+      onClick={onNavigate}
       className={({ isActive }) =>
         `${NAV_BASE} ${isActive ? NAV_ACTIVE : NAV_INACTIVE}`
       }
@@ -69,7 +71,42 @@ function NavItem({ to, label, icon: Icon, end }) {
   );
 }
 
-export default function Sidebar() {
+// Sidebar — persistent column from `md` up; below that (small windows or high
+// browser zoom) the SAME navigation opens as a slide-in drawer from the
+// Topbar menu button, so navigation is never lost. Routes and permission
+// filtering are identical in both presentations.
+export default function Sidebar({ mobileOpen = false, onClose = () => {} }) {
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen, onClose]);
+
+  return (
+    <>
+      <aside className="hidden md:flex md:flex-col w-56 shrink-0
+        bg-surface border-r border-border" aria-label="Main navigation">
+        <SidebarContent />
+      </aside>
+
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="Navigation">
+          <button type="button" className="absolute inset-0 bg-gray-950/40" aria-label="Close navigation" onClick={onClose} />
+          <aside className="relative flex flex-col w-64 max-w-[85vw] h-full bg-surface border-r border-border shadow-card-hover animate-slide-in-up">
+            <button type="button" onClick={onClose} aria-label="Close navigation"
+              className="absolute right-2 top-3 h-8 w-8 flex items-center justify-center rounded-md text-ink-faint hover:text-ink hover:bg-surface-2">
+              <X size={18} aria-hidden="true" />
+            </button>
+            <SidebarContent onNavigate={onClose} />
+          </aside>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SidebarContent({ onNavigate }) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const perms = Array.isArray(user?.permissions) ? user.permissions : [];
@@ -87,19 +124,17 @@ export default function Sidebar() {
   const managementItems = navItems.filter(({ to }) => MANAGEMENT_PATHS.includes(to));
 
   return (
-    <aside className="hidden md:flex md:flex-col w-56 shrink-0
-      bg-surface border-r border-border" aria-label="Main navigation">
-
+    <>
       {/* Brand header — aligned with the 56px Topbar */}
       <div className="h-14 flex items-center gap-2.5 px-4 border-b border-border shrink-0">
         <div className="h-8 w-8 rounded-md bg-navy flex items-center justify-center shrink-0">
           <Radio size={15} className="text-white" aria-hidden="true" />
         </div>
         <div className="leading-tight min-w-0">
-          <p className="font-semibold text-[14px] text-ink truncate">
+          <p className="font-semibold text-sm text-ink truncate">
             Switchboard
           </p>
-          <p className="text-[11px] text-ink-faint font-medium">
+          <p className="text-[0.6875rem] text-ink-faint font-medium">
             Contact Center
           </p>
         </div>
@@ -108,23 +143,23 @@ export default function Sidebar() {
       {/* Nav — fits without an internal scrollbar at normal heights;
           overflow-y-auto only engages on very short viewports. */}
       <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
-        <p className="px-3 pb-1 text-[11px] font-semibold text-ink-faint">
+        <p className="px-3 pb-1 text-[0.6875rem] font-semibold text-ink-faint">
           Operations
         </p>
         <div className="space-y-0.5">
           {operationsItems.map((item) => (
-            <NavItem key={item.to} {...item} />
+            <NavItem key={item.to} {...item} onNavigate={onNavigate} />
           ))}
         </div>
 
         {(canViewReports || canManageBreaks || isAdmin) && (
           <>
-            <p className="px-3 pt-4 pb-1 text-[11px] font-semibold text-ink-faint">
+            <p className="px-3 pt-4 pb-1 text-[0.6875rem] font-semibold text-ink-faint">
               Management
             </p>
             <div className="space-y-0.5">
               {managementItems.map((item) => (
-                <NavItem key={item.to} {...item} />
+                <NavItem key={item.to} {...item} onNavigate={onNavigate} />
               ))}
             </div>
           </>
@@ -133,13 +168,13 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border shrink-0">
-        <p className="text-[11px] font-medium text-ink-dim">
+        <p className="text-[0.6875rem] font-medium text-ink-dim">
           CC Version 1.0.0
         </p>
-        <p className="text-[11px] text-ink-faint mt-0.5">
+        <p className="text-[0.6875rem] text-ink-faint mt-0.5">
           © Naresh — All Rights Reserved
         </p>
       </div>
-    </aside>
+    </>
   );
 }

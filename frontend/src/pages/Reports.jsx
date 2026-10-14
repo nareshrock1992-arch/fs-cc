@@ -41,17 +41,17 @@ function IvrSection({ title, subtitle, rows, labelKey, labelHeader, color }) {
       <p className="text-xs font-bold uppercase tracking-wider dark:text-ink text-gray-800 mb-0.5">
         {title}
       </p>
-      <p className="text-[11px] dark:text-ink-faint text-gray-400 mb-2">{subtitle}</p>
+      <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 mb-2">{subtitle}</p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b dark:border-panel-border border-gray-100 text-left">
-            <th className="pb-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">
+            <th className="pb-2 text-left text-xs font-semibold text-ink-dim">
               {labelHeader}
             </th>
-            <th className="pb-2 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">
+            <th className="pb-2 text-right text-xs font-semibold text-ink-dim">
               Calls
             </th>
-            <th className="pb-2 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">
+            <th className="pb-2 text-right text-xs font-semibold text-ink-dim">
               Share
             </th>
           </tr>
@@ -180,7 +180,7 @@ export default function Reports() {
 
   useEffect(() => { load(); }, []);
 
-  const thClass = 'pb-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint whitespace-nowrap';
+  const thClass = 'pb-2 text-left text-xs font-semibold text-ink-dim whitespace-nowrap';
 
   return (
     <div className="space-y-4">
@@ -263,7 +263,7 @@ export default function Reports() {
                       'Abandoned Queue', 'Missed by Agent',
                       'ASA', 'Avg Talk', 'Abandon %', 'SLA %'
                     ].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider
+                      <th key={h} className="px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider
                         text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap">
                         {h}
                       </th>
@@ -316,7 +316,7 @@ export default function Reports() {
                     ].map(h => (
                       <th
                         key={h}
-                        className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider
+                        className="px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider
                           text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap"
                       >
                         {h}
@@ -334,7 +334,7 @@ export default function Reports() {
                         <p className="font-semibold text-gray-800 dark:text-ink">
                           {a.full_name || a.agent_id}
                         </p>
-                        <p className="text-[11px] dark:text-ink-faint text-gray-400 font-mono">
+                        <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">
                           {a.agent_id}
                         </p>
                       </td>

@@ -69,18 +69,18 @@ function Caller({ name, number }) {
   if (!name) return <span className="tabular-nums text-ink">{number}</span>;
   return (
     <div className="min-w-0 leading-tight">
-      <div className="font-medium text-ink truncate max-w-[220px]" title={name}>{name}</div>
-      <div className="text-[12px] tabular-nums text-ink-dim">{number}</div>
+      <div className="font-medium text-ink break-words max-w-[18rem]">{name}</div>
+      <div className="text-xs tabular-nums text-ink-dim">{number}</div>
     </div>
   );
 }
 
 function SortControl({ value, onChange, options, label }) {
   return (
-    <label className="flex items-center gap-1.5 text-[12px] text-ink-faint">
+    <label className="flex items-center gap-1.5 text-xs text-ink-dim">
       <span className="hidden sm:inline">Sort</span>
       <select value={value} onChange={e => onChange(e.target.value)} aria-label={label}
-        className="input-sm h-7 pr-6 text-[12px]">
+        className="input-sm pr-7 text-xs max-w-[12rem]">
         {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
       </select>
     </label>
@@ -93,7 +93,7 @@ function HealthIndicator({ health, lastOk }) {
   const ago = lastOk ? Math.max(0, Math.floor((Date.now() - lastOk) / 1000)) : null;
   if (health === 'disconnected') {
     return (
-      <span role="status" className="inline-flex items-center gap-1.5 rounded-md px-2 h-7 text-[12px] font-semibold
+      <span role="status" className="inline-flex items-center gap-1.5 rounded-md px-2 h-8 text-xs font-semibold
         border border-status-error/35 bg-status-error/10 text-status-error whitespace-nowrap">
         <WifiOff size={13} aria-hidden="true" /> Disconnected
       </span>
@@ -101,7 +101,7 @@ function HealthIndicator({ health, lastOk }) {
   }
   if (health === 'stale') {
     return (
-      <span role="status" className="inline-flex items-center gap-1.5 rounded-md px-2 h-7 text-[12px] font-semibold
+      <span role="status" className="inline-flex items-center gap-1.5 rounded-md px-2 h-8 text-xs font-semibold
         border border-status-ringing/35 bg-status-ringing/10 text-status-ringing whitespace-nowrap">
         <AlertTriangle size={13} aria-hidden="true" /> Stale — reconnecting
         {ago != null && <span className="font-normal tabular-nums">· {fmtDur(ago)} ago</span>}
@@ -109,21 +109,24 @@ function HealthIndicator({ health, lastOk }) {
     );
   }
   return (
-    <span role="status" className="inline-flex items-center gap-2 h-7 whitespace-nowrap">
+    <span role="status" className="inline-flex items-center gap-2 h-8 whitespace-nowrap">
       <LiveIndicator state="live" />
-      {ago != null && <span className="text-[12px] text-ink-faint tabular-nums hidden lg:inline">updated {fmtDur(ago)} ago</span>}
+      {ago != null && <span className="text-xs text-ink-faint tabular-nums hidden lg:inline">updated {fmtDur(ago)} ago</span>}
     </span>
   );
 }
 
 // ── KPI summary ──────────────────────────────────────────────────────────────
 // Two groups so queue health (wait / SLA) reads separately from agent-state
-// counts. One row each at ≥1280px; the groups sit side by side at that width.
-function KpiGroup({ label, className, children }) {
+// counts. The groups sit side by side when both fit (flex-basis in rem, grow
+// 3:5 so each card gets a similar width) and wrap to two rows otherwise.
+// Inside a group, columns come from the group's own width via container
+// queries (see .kpi-group / .kpi-cols in index.css) — zoom-safe reflow.
+function KpiGroup({ label, cols, className = '', children }) {
   return (
-    <section aria-label={label} className="min-w-0">
-      <h2 className="text-[12px] font-semibold text-ink-faint mb-1.5">{label}</h2>
-      <div className={`grid gap-2.5 ${className}`}>{children}</div>
+    <section aria-label={label} className={`kpi-group ${className}`}>
+      <h2 className="text-xs font-semibold text-ink-dim mb-1.5">{label}</h2>
+      <div className="kpi-cols" data-cols={cols}>{children}</div>
     </section>
   );
 }
@@ -131,18 +134,18 @@ function KpiGroup({ label, className, children }) {
 function KpiBar({ k }) {
   const breached = k.slaBreached > 0;
   return (
-    <div className="grid gap-x-4 gap-y-3 xl:grid-cols-[3fr_5fr]">
-      <KpiGroup label="Queue" className="grid-cols-3">
+    <div className="flex flex-wrap gap-x-4 gap-y-3">
+      <KpiGroup label="Queue" cols="3" className="flex-[3_1_23rem]">
         <KpiCard label="Waiting" value={k.waiting} tone="amber" icon={PhoneIncoming}
           sub={k.waiting > 0 ? 'Callers in queue' : 'No callers waiting'} />
         <KpiCard label="Longest Wait" value={fmtDur(k.longestWait)} tone="amber" icon={Timer}
-          sub={k.waiting > 0 ? 'Oldest waiting caller' : '—'} />
+          sub={k.waiting > 0 ? 'Oldest waiting caller' : null} />
         <KpiCard label="SLA Breached" value={k.slaBreached} tone={breached ? 'red' : 'green'}
           icon={breached ? AlertTriangle : CheckCircle2}
           alert={breached ? 'critical' : null}
           sub={breached ? 'Wait ≥ queue target' : 'All within target'} />
       </KpiGroup>
-      <KpiGroup label="Agents" className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+      <KpiGroup label="Agents" cols="5" className="flex-[5_1_39rem]">
         <KpiCard label="Available" value={k.available} tone="green"   icon={UserCheck} />
         <KpiCard label="On Call"   value={k.onCall}    tone="blue"    icon={PhoneCall} />
         <KpiCard label="Ringing"   value={k.ringing}   tone="amber"   icon={Radio} />
@@ -170,7 +173,7 @@ function CallsTable({ rows, allEmpty, sort, onSort }) {
           title={allEmpty ? 'No active calls' : 'No calls match the current filters'}
           body={allEmpty ? 'waiting, ringing and connected calls appear here in real time' : 'adjust the filters or search'} />
       ) : (
-        <div className="overflow-auto max-h-[46vh]">
+        <div className="overflow-auto tall:max-h-[46vh]">
           <table className="data-table" style={{ minWidth: 720 }}>
             <thead className="sticky top-0 z-10">
               <tr>
@@ -189,24 +192,24 @@ function CallsTable({ rows, allEmpty, sort, onSort }) {
                     <td className="td">
                       <Caller name={r.caller_name} number={r.caller_name ? (r.ani || '—') : (r.ani || 'Unknown')} />
                     </td>
-                    <td className="td-secondary truncate max-w-[180px]" title={r.queue}>{r.queue || DASH}</td>
+                    <td className="td-secondary break-words max-w-[14rem]">{r.queue || DASH}</td>
                     <td className="td">
                       {r.agent_name || r.agent_ext ? (
                         <div className="leading-tight min-w-0">
-                          <div className="truncate max-w-[180px]" title={r.agent_name}>{r.agent_name || DASH}</div>
-                          {r.agent_ext && <div className="text-[12px] tabular-nums text-ink-faint">Ext {r.agent_ext}</div>}
+                          <div className="break-words max-w-[14rem]">{r.agent_name || DASH}</div>
+                          {r.agent_ext && <div className="text-xs tabular-nums text-ink-faint">Ext {r.agent_ext}</div>}
                         </div>
                       ) : DASH}
                     </td>
                     <td className="td whitespace-nowrap">
                       <span className={`tabular-nums font-semibold ${breached ? 'text-status-error' : 'text-ink'}`}>{fmtDur(r.dur)}</span>
-                      <span className="ml-1.5 text-[11px] text-ink-faint">{r.durLabel}</span>
+                      <span className="ml-1.5 text-[0.6875rem] text-ink-faint">{r.durLabel}</span>
                     </td>
                     <td className="td whitespace-nowrap">
                       {r.state === 'Waiting'
                         ? (breached
-                            ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-status-error"><AlertTriangle size={13} aria-hidden="true" /> Breached</span>
-                            : <span className="inline-flex items-center gap-1 text-[12px] text-ink-dim"><CheckCircle2 size={13} className="text-status-available" aria-hidden="true" /> Within</span>)
+                            ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-status-error"><AlertTriangle size={13} aria-hidden="true" /> Breached</span>
+                            : <span className="inline-flex items-center gap-1 text-xs text-ink-dim"><CheckCircle2 size={13} className="text-status-available" aria-hidden="true" /> Within</span>)
                         : DASH}
                     </td>
                   </tr>
@@ -236,7 +239,7 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
           title={allEmpty ? 'No agents configured' : 'No agents match the current filters'}
           body={allEmpty ? 'Agent states will appear here in real time.' : 'Adjust the filters or search to see agents.'} />
       ) : (
-        <div className="overflow-auto max-h-[46vh]">
+        <div className="overflow-auto tall:max-h-[46vh]">
           <table className="data-table" style={{ minWidth: 760 }}>
             <thead className="sticky top-0 z-10">
               <tr>
@@ -253,8 +256,8 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
                   <tr key={r.agent_id} className="tr-row">
                     <td className="td">
                       <div className="leading-tight min-w-0">
-                        <div className="font-medium truncate max-w-[200px]" title={r.full_name || r.agent_id}>{r.full_name || r.agent_id}</div>
-                        <div className="text-[12px] text-ink-faint tabular-nums whitespace-nowrap">
+                        <div className="font-medium break-words max-w-[16rem]">{r.full_name || r.agent_id}</div>
+                        <div className="text-xs text-ink-faint tabular-nums">
                           {r.avaya_extension ? `Ext ${r.avaya_extension}` : 'No ext'}
                           {r._loginDur != null && r.operational_state !== 'Offline' && ` · logged in ${fmtDur(r._loginDur)}`}
                         </div>
@@ -265,14 +268,14 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
                         label={r.operational_state === 'On Break' && r.break_name ? `On Break · ${r.break_name}` : undefined} />
                     </td>
                     <td className="td tabular-nums whitespace-nowrap">{fmtDur(r._stateDur)}</td>
-                    <td className="td-secondary truncate max-w-[170px]" title={queues}>{queues || DASH}</td>
+                    <td className="td-secondary break-words max-w-[14rem]">{queues || DASH}</td>
                     <td className="td">
                       {cc ? (
                         <div className="leading-tight min-w-0">
-                          <div className="tabular-nums truncate max-w-[220px]">
+                          <div className="tabular-nums break-words max-w-[16rem]">
                             {cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'unknown')}
                           </div>
-                          {cc.queue_name && <div className="text-[12px] text-ink-faint truncate">→ {qn(cc.queue_name)}</div>}
+                          {cc.queue_name && <div className="text-xs text-ink-faint break-words">→ {qn(cc.queue_name)}</div>}
                         </div>
                       ) : DASH}
                     </td>
@@ -283,7 +286,7 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
                       <td className="td">
                         <select value="" onChange={e => { if (e.target.value) onSetStatus(r.agent_id, e.target.value); }}
                           aria-label={`Set state for ${r.full_name || r.agent_id}`}
-                          className="input-sm h-7 text-[12px]">
+                          className="input-sm text-xs">
                           <option value="">Set…</option>
                           <option value="Available">Available</option>
                           <option value="On Break">On Break</option>
@@ -326,13 +329,13 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
           className="flex items-center gap-2 min-w-0 rounded-md px-2 py-1.5 hover:bg-surface-2 transition-colors">
           <Chevron size={16} className="text-ink-faint shrink-0" aria-hidden="true" />
           <ListTree size={16} className="text-primary shrink-0" aria-hidden="true" />
-          <h2 className="text-section-title truncate">IVR &amp; Pre-Queue Monitor</h2>
+          <h2 className="text-section-title">IVR &amp; Pre-Queue Monitor</h2>
           <span className={`count-pill ${hasCallers ? '!bg-primary/10 !text-primary' : ''}`}
             aria-label={`${rows.length} caller${rows.length === 1 ? '' : 's'} in the IVR`}>{rows.length}</span>
         </button>
         <LiveIndicator state={feed.state} label={feed.label} />
         <span className="flex-1" />
-        <span className="text-[12px] text-ink-faint hidden md:inline">Callers before queue entry</span>
+        <span className="text-xs text-ink-faint hidden md:inline">Callers before queue entry</span>
       </div>
 
       {open && (
@@ -347,7 +350,7 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
             <EmptyState compact tone="ok" title="No callers in the IVR"
               body="callers appear here while in the IVR, then move to the queue on transfer" />
           ) : (
-            <div className="overflow-auto max-h-[40vh]">
+            <div className="overflow-auto tall:max-h-[40vh]">
               <table className="data-table" style={{ minWidth: 820 }}>
                 <thead className="sticky top-0 z-10">
                   <tr>
@@ -368,8 +371,8 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
                           : <span className="text-ink-faint" title="Not reliably observable yet">Unknown</span>}
                       </td>
                       <td className="td">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[12px] font-medium
-                          bg-status-oncall/10 text-status-oncall whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium
+                          bg-status-oncall/10 text-status-oncall break-words">
                           {r.stage || 'in IVR'}
                         </span>
                       </td>
@@ -377,7 +380,7 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
                       <td className="td">{r.eligibilityReason || NOT_REPORTED}</td>
                       <td className="td">{r.targetQueue ? qn(r.targetQueue) : NOT_REPORTED}</td>
                       <td className="td-secondary tabular-nums whitespace-nowrap">{fmtDur(secsSince(r.lastUpdate, nowMs))} ago</td>
-                      <td className="td-secondary tabular-nums text-[12px]" title={r.chanUuid}>{r.id}</td>
+                      <td className="td-secondary tabular-nums text-xs" title={r.chanUuid}>{r.id}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -673,9 +676,9 @@ export default function LiveOperations() {
   if (loading) {
     return (
       <div className="space-y-4" aria-busy="true">
-        <div className="grid gap-x-4 gap-y-3 xl:grid-cols-[3fr_5fr]">
-          <KpiSkeleton count={3} className="grid gap-2.5 grid-cols-3 pt-5" />
-          <KpiSkeleton count={5} className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 pt-5" />
+        <div className="flex flex-wrap gap-x-4 gap-y-3">
+          <div className="kpi-group flex-[3_1_23rem] pt-5"><KpiSkeleton count={3} cols="3" className="kpi-cols" /></div>
+          <div className="kpi-group flex-[5_1_39rem] pt-5"><KpiSkeleton count={5} cols="5" className="kpi-cols" /></div>
         </div>
         <div className="skeleton h-11 rounded-md" />
         <div className="skeleton h-11 rounded-md" />
@@ -720,7 +723,7 @@ export default function LiveOperations() {
           </select>
         </div>
         {error && (
-          <p role="alert" className="basis-full inline-flex items-center gap-1.5 text-[12px] text-status-error">
+          <p role="alert" className="basis-full inline-flex items-center gap-1.5 text-xs text-status-error">
             <RefreshCw size={13} aria-hidden="true" /> {error}
           </p>
         )}
