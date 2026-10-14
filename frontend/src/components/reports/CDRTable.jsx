@@ -133,7 +133,7 @@ export default function CDRTable({ from, to }) {
   // ── Header columns ──────────────────────────────────────────────────────────
 
   const TH = ({ children, className = '' }) => (
-    <th className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50 whitespace-nowrap ${className}`}>
+    <th className={`th ${className}`}>
       {children}
     </th>
   );

@@ -18,44 +18,46 @@
 
 :root {
   /* ── Brand / intent ──────────────────────────────────────────────── */
-  --primary:        37 99 235;    /* #2563EB */
-  --primary-hover:  30 79 181;    /* #1E4FB5 */
-  --success:        22 163 74;    /* #16A34A */
-  --warning:       217 119 6;     /* #D97706 */
-  --danger:        220 38 38;     /* #DC2626 */
-  --info:           37 99 235;    /* #2563EB */
-  --focus:          37 99 235;    /* #2563EB */
+  /* Enterprise operations palette (UI modernization): navy brand, teal
+     action colour. Every intent colour is ≥4.5:1 on white so it can be used
+     for text as well as fills. */
+  --brand-navy:     20 38 61;     /* #14263D  brand mark / identity */
+  --primary:         8 127 140;   /* #087F8C  primary action (teal) */
+  --primary-hover:   6 107 118;   /* #066B76 */
+  --success:        18 128 92;    /* #12805C */
+  --warning:       180 83 9;      /* #B45309  amber — readable as text */
+  --danger:        196 43 43;     /* #C42B2B */
+  --info:           37 89 199;    /* #2559C7 */
+  --focus:           8 127 140;   /* #087F8C */
 
   /* ── Surfaces ────────────────────────────────────────────────────── */
-  /* Page bg deepened a step so white cards/panels separate crisply
-     (clarity pass). surface stays pure white. */
-  --bg:            232 238 245;   /* #E8EEF5  page background (was #F0F4F8) */
-  --surface:       255 255 255;   /* #FFFFFF  cards / sidebar   */
-  --surface-2:     241 245 249;   /* #F1F5F9  table head / hover */
-  --surface-raised:248 250 252;   /* #F8FAFC  raised panels     */
+  --bg:            243 246 250;   /* #F3F6FA  page background */
+  --surface:       255 255 255;   /* #FFFFFF  cards / sidebar */
+  --surface-2:     238 242 247;   /* #EEF2F7  table head / hover */
+  --surface-raised:247 249 252;   /* #F7F9FC  raised / inset areas */
 
   /* ── Borders ─────────────────────────────────────────────────────── */
-  /* Default border darkened slightly for visible-but-light card edges. */
-  --border:        212 220 231;   /* #D4DCE7 (was #E2E8F0) */
-  --border-strong: 196 206 220;   /* #C4CEDC (was #CBD5E1) */
+  --border:        220 228 237;   /* #DCE4ED  subtle hairline */
+  --border-strong: 197 208 221;   /* #C5D0DD  inputs / dividers */
 
   /* ── Text ────────────────────────────────────────────────────────── */
-  --text-primary:   15 23 42;     /* #0F172A */
-  --text-secondary: 71 85 105;    /* #475569 */
-  --text-muted:    100 116 139;   /* #64748B */
-  --text-disabled: 148 163 184;   /* #94A3B8 */
+  --text-primary:   23 35 52;     /* #172334  14.9:1 on white */
+  --text-secondary: 82 97 118;    /* #526176   6.4:1 */
+  --text-muted:    102 117 138;   /* #66758A   4.7:1 — still AA for labels */
+  --text-disabled: 154 166 181;   /* #9AA6B5  decorative / disabled only */
 
-  /* ── Contact-center status colours (identical in both themes) ────────
-     Crisp, no glow. Consumed by StatusBadge/StatusLamp and charts.       */
-  --status-available:  22 163 74;    /* green   */
-  --status-oncall:     37 99 235;    /* blue    */
-  --status-ringing:   217 119 6;     /* amber   */
-  --status-onbreak:   124 58 237;    /* violet  */
-  --status-loggedout: 100 116 139;   /* slate   */
-  --status-waiting:   217 119 6;     /* amber   */
-  --status-abandoned: 220 38 38;     /* red     */
-  --status-noanswer:  234 88 12;     /* orange  */
-  --status-error:     220 38 38;     /* red     */
+  /* ── Contact-center status colours ───────────────────────────────────
+     Crisp, no glow. Consumed by StatusBadge/StatusLamp and charts. Light
+     values are text-safe (≥4.5:1 on white); dark overrides below.        */
+  --status-available:  18 128 92;    /* #12805C green-teal */
+  --status-oncall:     37 89 199;    /* #2559C7 blue       */
+  --status-ringing:   180 83 9;      /* #B45309 amber      */
+  --status-onbreak:   109 63 196;    /* #6D3FC4 violet     */
+  --status-loggedout: 102 117 138;   /* #66758A slate      */
+  --status-waiting:   180 83 9;      /* #B45309 amber      */
+  --status-abandoned: 196 43 43;     /* #C42B2B red        */
+  --status-noanswer:  194 65 12;     /* #C2410C orange     */
+  --status-error:     196 43 43;     /* #C42B2B red        */
 
   /* ── Legacy aliases → canonical (do not add new usages of these) ───── */
   --panel-bg:      var(--bg);
@@ -69,15 +71,14 @@
 }
 
 .dark {
-  /* Dark values are the EXACT pre-migration admin hex → dark mode is
-     pixel-identical to before this refactor. */
-  --primary:        37 99 235;    /* #2563EB */
-  --primary-hover:  30 79 181;    /* #1E4FB5 */
-  --success:        39 201 138;   /* #27C98A */
-  --warning:       245 166 35;    /* #F5A623 */
-  --danger:        239 68 68;     /* #EF4444 */
-  --info:          96 165 250;    /* #60A5FA */
-  --focus:          37 99 235;    /* #2563EB */
+  --brand-navy:     20 38 61;     /* #14263D */
+  --primary:        14 140 153;   /* #0E8C99  teal, legible on dark + white text */
+  --primary-hover:  11 122 134;   /* #0B7A86 */
+  --success:        52 195 145;   /* #34C391 */
+  --warning:       240 164 58;    /* #F0A43A */
+  --danger:        240 106 106;   /* #F06A6A */
+  --info:          108 155 242;   /* #6C9BF2 */
+  --focus:          34 178 192;   /* #22B2C0 */
 
   --bg:             6 11 23;      /* #060B17 */
   --surface:       11 18 32;      /* #0B1220 */
@@ -89,10 +90,19 @@
 
   --text-primary:  232 236 246;   /* #E8ECF6 */
   --text-secondary:139 153 184;   /* #8B99B8 */
-  --text-muted:    124 137 166;   /* #7C89A6  Phase 2: raised for legibility */
+  --text-muted:    133 146 172;   /* #8592AC  ≥5:1 on surface */
   --text-disabled: 100 112 138;   /* #64708A  dimmer than muted, still readable */
 
-  /* status colours unchanged in dark — inherited from :root */
+  /* Status colours — brighter tints so dots AND text stay legible on dark. */
+  --status-available:  52 195 145;   /* #34C391 */
+  --status-oncall:    108 155 242;   /* #6C9BF2 */
+  --status-ringing:   240 164 58;    /* #F0A43A */
+  --status-onbreak:   169 139 240;   /* #A98BF0 */
+  --status-loggedout: 140 153 176;   /* #8C99B0 */
+  --status-waiting:   240 164 58;    /* #F0A43A */
+  --status-abandoned: 240 106 106;   /* #F06A6A */
+  --status-noanswer:  242 138 74;    /* #F28A4A */
+  --status-error:     240 106 106;   /* #F06A6A */
 }
 
 /* ═══ Base ═══════════════════════════════════════════════════════════════ */
@@ -111,90 +121,110 @@
 
 /* ═══ Component primitives (token-driven; no dark: scatter) ═══════════════ */
 @layer components {
-  /* Card — the single canonical card container */
+  /* Card — the single canonical card container (8px radius, hairline border,
+     near-flat elevation). */
   .card {
-    @apply bg-surface border border-border rounded-[10px] shadow-card;
+    @apply bg-surface border border-border rounded-md shadow-card;
   }
   .dark .card {
     @apply shadow-card-dark;
   }
 
-  /* Button primitives */
+  /* Button primitives — 8px radius, 36px tall, visible keyboard focus. */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-primary
            hover:bg-primary-hover text-white font-semibold text-sm px-4 py-2
-           transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40
+           transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus/50
+           focus-visible:ring-offset-1 focus-visible:ring-offset-surface
            disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg
-           border border-border bg-surface-2
-           text-ink-dim hover:text-ink
+    @apply inline-flex items-center justify-center gap-2 rounded-md
+           border border-border-strong bg-surface
+           text-ink hover:bg-surface-2
            font-medium text-sm px-4 py-2 transition-colors
-           focus:outline-none focus:ring-2 focus:ring-primary/30
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-focus/50
            disabled:opacity-60 disabled:pointer-events-none;
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg
-           border border-danger/30 text-danger
+    @apply inline-flex items-center justify-center gap-2 rounded-md
+           border border-danger/40 text-danger bg-surface
            hover:bg-danger/10 font-medium text-sm px-4 py-2 transition-colors
-           focus:outline-none focus:ring-2 focus:ring-danger/30
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/40
            disabled:opacity-60 disabled:pointer-events-none;
   }
 
   /* Field input */
   .field-input {
-    @apply w-full rounded-lg border border-border bg-surface-2
+    @apply w-full rounded-md border border-border-strong bg-surface
            px-3 py-2 text-sm text-ink
            placeholder:text-ink-faint
-           focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60
+           focus:outline-none focus:ring-2 focus:ring-focus/30 focus:border-primary
            transition-colors;
   }
 
-  /* Table header cell */
+  /* Compact toolbar controls (search / select) — 32px tall. */
+  .input-sm {
+    @apply h-8 rounded-md border border-border-strong bg-surface px-2.5 text-[13px] text-ink
+           placeholder:text-ink-faint
+           focus:outline-none focus:ring-2 focus:ring-focus/30 focus:border-primary
+           transition-colors;
+  }
+
+  /* Segmented filter chip (quick filters). Pair with aria-pressed. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[12px] font-medium
+           text-ink-dim border border-transparent hover:bg-surface-2 hover:text-ink
+           transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-focus/50;
+  }
+  .chip[aria-pressed="true"] {
+    @apply bg-primary/10 text-primary border-primary/25 font-semibold;
+  }
+
+  /* Small count pill (section headers, tabs). */
+  .count-pill {
+    @apply inline-flex items-center justify-center min-w-[22px] h-5 px-1.5 rounded-full
+           text-[11px] font-semibold tabular-nums bg-surface-2 text-ink-dim;
+  }
+
+  /* Table header cell — one header style for every data table. */
   .th {
-    @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider
-           text-ink-dim bg-surface-2;
+    @apply px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em]
+           text-ink-faint bg-surface-2 whitespace-nowrap;
   }
 
   /* Status badge base */
   .status-badge {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full
            text-[11px] font-semibold;
   }
 
-  /* ── Shared table system (Phase 3A.5) ────────────────────────────────
-     Reusable primitives so Phase 3C can migrate existing tables to one
-     consistent visual language WITHOUT a functional rewrite. `.th` above
-     remains the header-cell class; these add body cells, rows and density. */
-  .data-table        { @apply w-full text-sm; }
-  .td                { @apply px-4 py-2.5 align-middle text-ink; }
-  .td-secondary      { @apply px-4 py-2.5 align-middle text-ink-dim; }
-  .td-num            { @apply px-4 py-2.5 align-middle text-right font-mono tabular-nums text-ink; }
-  .tr-row            { @apply border-b border-border/60 last:border-0
-                              hover:bg-surface-2/70 transition-colors; }
+  /* ── Shared table system ─────────────────────────────────────────────
+     `.th` above is the header cell; these add body cells, rows and density. */
+  .data-table        { @apply w-full text-[13px]; }
+  .td                { @apply px-4 py-2 align-middle text-ink; }
+  .td-secondary      { @apply px-4 py-2 align-middle text-ink-dim; }
+  .td-num            { @apply px-4 py-2 align-middle text-right tabular-nums text-ink; }
+  .tr-row            { @apply border-b border-border/70 last:border-0
+                              hover:bg-surface-2/60 transition-colors; }
   /* Compact density modifier — apply on the <table> to tighten row height. */
   .data-table.is-compact .td,
   .data-table.is-compact .td-secondary,
   .data-table.is-compact .td-num,
   .data-table.is-compact .th { @apply py-1.5; }
 
-  /* ── Typography scale (foundation — available to later phases) ─────── */
-  .text-page-title    { @apply font-sans text-[20px] font-semibold leading-tight text-ink; }
-  .text-section-title { @apply font-sans text-[15px] font-semibold leading-snug text-ink; }
-  /* Canonical KPI / metric value treatment (single source of truth for KPI
-     numbers across KpiCard, QueueStats, etc.). Monospace tabular figures for
-     column-aligned digits; fluid size that scales with the viewport but is
-     BOUNDED (≤26px) so it never becomes oversized on 2560/4K; min-width:0 +
-     overflow-wrap so long durations/large numbers wrap instead of being
-     clipped. Colour is applied by the caller (tone utilities override text-ink). */
+  /* ── Typography scale ─────────────────────────────────────────────────
+     20 page · 14 section · 14/13 body · 12 label · 11 table head · 24 metric */
+  .text-page-title    { @apply font-sans text-[20px] font-semibold leading-tight tracking-[-0.01em] text-ink; }
+  .text-section-title { @apply font-sans text-[14px] font-semibold leading-snug text-ink; }
+  /* Canonical KPI / metric value — the number is the hero. Inter with tabular
+     figures (digits align and don't jitter as live values tick), bounded size
+     (20–26px) so the KPI strip never dominates the working area. */
   .text-metric        {
-    @apply font-mono font-bold leading-tight tabular-nums text-ink;
-    font-size: clamp(1.05rem, 0.85rem + 0.75vw, 1.625rem);
-    /* Slight negative tracking so decimals/percentages (e.g. "5.5%") read as a
-       single number rather than widely-spaced monospace glyphs. */
+    @apply font-sans font-semibold leading-none tabular-nums text-ink;
+    font-size: clamp(1.25rem, 1.05rem + 0.45vw, 1.625rem);
     letter-spacing: -0.02em;
     min-width: 0;
     overflow-wrap: anywhere;
@@ -206,16 +236,16 @@
   .text-status        { @apply font-sans text-[12px] font-semibold; }
 }
 
-/* ═══ Page background ════════════════════════════════════════════════════ */
-html.dark body {
-  background-image:
-    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.04), transparent 35%),
-    radial-gradient(circle at 100% 0%, rgba(76, 142, 245, 0.04), transparent 35%);
-}
-
 /* ═══ Text selection ═════════════════════════════════════════════════════ */
 ::selection {
-  background: rgba(37, 99, 235, 0.25);
+  background: rgb(var(--primary) / 0.22);
+}
+
+/* ═══ Keyboard focus ═════════════════════════════════════════════════════
+   Visible focus for any interactive element that doesn't style its own. */
+:where(a, button, select, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--focus) / 0.6);
+  outline-offset: 1px;
 }
 
 /* ═══ Tabular numerals ═══════════════════════════════════════════════════ */
@@ -278,6 +308,16 @@ html {
 }
 .animate-slide-in-up {
   animation: slide-in-up 0.2s ease-out;
+}
+
+/* ═══ Reduced motion ═════════════════════════════════════════════════════
+   Respect the OS preference: no pulsing/ringing/sliding. State is still
+   conveyed by colour + label, never by motion alone. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse, .animate-pulse-soft, .animate-ring-pulse, .animate-slide-in-up {
+    animation: none !important;
+  }
+  * { transition-duration: 0.01ms !important; }
 }
 
 /* ═══ Skeleton loader ════════════════════════════════════════════════════ */

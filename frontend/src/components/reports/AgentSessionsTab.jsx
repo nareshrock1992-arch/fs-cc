@@ -35,8 +35,7 @@ function fmtTs(iso) {
 function TH({ children, right = false }) {
   return (
     <th className={[
-      'px-3 py-3 text-[11px] font-bold uppercase tracking-wider whitespace-nowrap',
-      'text-gray-500 dark:text-ink-faint bg-gray-50 dark:bg-panel-raised',
+      'th px-3',
       right ? 'text-right' : 'text-left',
     ].join(' ')}>
       {children}

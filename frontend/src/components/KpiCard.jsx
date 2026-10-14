@@ -1,92 +1,57 @@
-// Icon-chip colours — strengthened for vivid, distinct, high-contrast symbols
-// (bg-*-100 + text-*-700 in light; brighter tint + -300 text in dark).
-const TONE = {
-  default: {
-    circle: 'bg-gray-100 dark:bg-panel-raised text-gray-600 dark:text-ink-dim',
-    value:  'text-gray-900 dark:text-ink',
-    card:   '',
-  },
-  green: {
-    circle: 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
-    value:  'text-emerald-700 dark:text-emerald-400',
-    card:   '',
-  },
-  amber: {
-    circle: 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300',
-    value:  'text-amber-700 dark:text-amber-400',
-    card:   '',
-  },
-  red: {
-    circle: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300',
-    value:  'text-red-700 dark:text-red-400',
-    card:   '',
-  },
-  blue: {
-    circle: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300',
-    value:  'text-blue-700 dark:text-blue-400',
-    card:   '',
-  },
-  purple: {
-    circle: 'bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300',
-    value:  'text-violet-700 dark:text-violet-400',
-    card:   '',
-  },
-  orange: {
-    circle: 'bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300',
-    value:  'text-orange-700 dark:text-orange-400',
-    card:   '',
-  },
+/**
+ * KpiCard — compact, number-first metric tile.
+ *
+ * Layout: label + small semantic icon on one line, the value as the hero, an
+ * optional one-line context underneath. Colour identity is carried by the icon
+ * only; the card itself stays neutral so a quiet floor reads calm. Operational
+ * urgency is expressed with `alert` (left rule + tinted value), never by
+ * flooding every tile with colour.
+ *
+ * Props (backwards compatible):
+ *   label, value, suffix, icon, sub, trend
+ *   tone   — icon colour: default|green|amber|red|blue|purple|orange
+ *   alert  — null | 'warning' | 'critical'  (adds rule + value colour + label)
+ *   title  — optional tooltip / accessible description
+ */
+const ICON_TONE = {
+  default: 'text-ink-faint',
+  green:   'text-status-available',
+  amber:   'text-status-ringing',
+  red:     'text-status-error',
+  blue:    'text-status-oncall',
+  purple:  'text-status-onbreak',
+  orange:  'text-status-noanswer',
 };
 
-const ACCENT = {
-  default: '',
-  green:   'bg-emerald-500/60',
-  amber:   'bg-amber-500/60',
-  red:     'bg-red-500/60',
-  blue:    'bg-blue-500/60',
-  purple:  'bg-violet-500/60',
-  orange:  'bg-orange-500/60',
+const ALERT = {
+  warning:  { rule: 'bg-status-ringing', value: 'text-status-ringing', ring: 'border-status-ringing/40' },
+  critical: { rule: 'bg-status-error',   value: 'text-status-error',   ring: 'border-status-error/45' },
 };
 
-export default function KpiCard({ label, value, suffix, tone = 'default', icon: Icon, sub, trend }) {
-  const t = TONE[tone] ?? TONE.default;
-  const accent = ACCENT[tone] ?? '';
-
+export default function KpiCard({ label, value, suffix, tone = 'default', icon: Icon, sub, trend, alert = null, title }) {
+  const a = alert ? ALERT[alert] : null;
   return (
-    <div className="relative overflow-hidden rounded-[10px] border border-gray-200 dark:border-panel-border
-                    bg-white dark:bg-panel-surface shadow-card p-4 flex items-center gap-3">
+    <div
+      className={`relative overflow-hidden rounded-md border bg-surface shadow-card dark:shadow-card-dark
+                  px-3.5 py-3 flex flex-col gap-1.5 min-w-0 ${a ? a.ring : 'border-border'}`}
+      title={title}
+    >
+      {a && <span className={`absolute left-0 top-0 bottom-0 w-[3px] ${a.rule}`} aria-hidden="true" />}
 
-      {/* Icon chip */}
-      {Icon && (
-        <div className={`shrink-0 h-10 w-10 rounded-lg flex items-center justify-center ${t.circle}`}>
-          <Icon size={19} strokeWidth={1.9} />
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <p className="text-[11px] uppercase tracking-widest font-semibold
-                      text-ink-dim mb-0.5 leading-snug break-words">
-          {label}
-        </p>
-        {/* Canonical KPI value — strong, high-contrast primary ink (not tinted),
-            so the number has visual authority. Semantic colour is carried by the
-            icon chip + accent stripe, not the figure itself. See `.text-metric`. */}
-        <p className="text-metric">
-          {value}
-          {suffix && <span className="text-sm ml-1 font-normal opacity-60">{suffix}</span>}
-        </p>
-        {sub && (
-          <p className="text-[11px] text-gray-400 dark:text-ink-faint mt-1 truncate">{sub}</p>
-        )}
-        {trend && (
-          <p className="text-[11px] text-gray-400 dark:text-ink-faint mt-1 truncate">{trend}</p>
-        )}
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <p className="text-[12px] font-medium text-ink-dim leading-tight truncate">{label}</p>
+        {Icon && <Icon size={15} strokeWidth={2} className={`shrink-0 ${ICON_TONE[tone] ?? ICON_TONE.default}`} aria-hidden="true" />}
       </div>
 
-      {/* Accent stripe — right edge */}
-      {accent && (
-        <div className={`absolute right-0 top-2 bottom-2 w-[3px] rounded-full ${accent}`} />
+      <p className={`text-metric ${a ? a.value : ''}`}>
+        {value}
+        {suffix && <span className="text-[13px] ml-1 font-medium text-ink-faint">{suffix}</span>}
+      </p>
+
+      {(sub || trend) && (
+        <p className={`text-[11px] leading-tight truncate ${a ? a.value : 'text-ink-faint'}`}>{sub || trend}</p>
       )}
+      {sub && trend && <p className="text-[11px] leading-tight text-ink-faint truncate">{trend}</p>}
     </div>
   );
 }

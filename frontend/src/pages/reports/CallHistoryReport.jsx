@@ -79,7 +79,7 @@ export default function CallHistoryReport() {
         </form>
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-surface overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="p-5"><LoadingState rows={5} cols={6} label="Loading call history…" /></div>
         ) : error ? (
@@ -94,14 +94,14 @@ export default function CallHistoryReport() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-ink-faint border-b border-gray-100 dark:border-panel-border">
-                  <th className="px-4 py-3 font-semibold">Direction</th>
-                  <th className="px-4 py-3 font-semibold">Agent</th>
-                  <th className="px-4 py-3 font-semibold">Caller</th>
-                  <th className="px-4 py-3 font-semibold">Queue</th>
-                  <th className="px-4 py-3 font-semibold">Started</th>
-                  <th className="px-4 py-3 font-semibold">Wait</th>
-                  <th className="px-4 py-3 font-semibold">Talk</th>
-                  <th className="px-4 py-3 font-semibold">Disposition</th>
+                  <th className="th">Direction</th>
+                  <th className="th">Agent</th>
+                  <th className="th">Caller</th>
+                  <th className="th">Queue</th>
+                  <th className="th">Started</th>
+                  <th className="th">Wait</th>
+                  <th className="th">Talk</th>
+                  <th className="th">Disposition</th>
                 </tr>
               </thead>
               <tbody>

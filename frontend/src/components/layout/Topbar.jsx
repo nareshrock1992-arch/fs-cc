@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Sun, Moon, ChevronDown, ShieldCheck, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { Sun, Moon, ChevronDown, ShieldCheck, LogOut, WifiOff } from 'lucide-react';
 import { socket, useSocketEvent } from '../../api/socket.js';
 import { useAuth, clearToken } from '../../hooks/useAuth.js';
 import { pageMetaFor } from '../../lib/pageMeta.js';
@@ -17,8 +17,13 @@ function AdminMenu({ user }) {
     function handler(e) {
       if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     }
+    function onKey(e) { if (e.key === 'Escape') setOpen(false); }
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', onKey);
+    };
   }, []);
 
   function logout() {
@@ -32,62 +37,87 @@ function AdminMenu({ user }) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className={`flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors
-          hover:bg-gray-100 dark:hover:bg-panel-raised border border-transparent
-          ${open ? 'border-gray-200 dark:border-panel-border bg-gray-100 dark:bg-panel-raised' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account menu for ${user?.username ?? 'user'}`}
+        className={`flex items-center gap-2 rounded-md pl-1 pr-2 py-1 transition-colors
+          hover:bg-surface-2 border border-transparent
+          ${open ? 'border-border bg-surface-2' : ''}`}
       >
-        <div className="h-8 w-8 rounded-full bg-brand flex items-center justify-center
-          text-white text-xs font-bold shrink-0">
+        <div className="h-7 w-7 rounded-full bg-navy flex items-center justify-center
+          text-white text-[11px] font-semibold shrink-0">
           {initials}
         </div>
         <div className="hidden sm:block text-left leading-tight">
-          <p className="text-xs font-semibold dark:text-ink text-gray-800 capitalize">
+          <p className="text-[13px] font-medium text-ink capitalize">
             {user?.username ?? 'User'}
           </p>
-          <p className="text-[10px] uppercase tracking-wider font-medium dark:text-ink-faint text-gray-400">
+          <p className="text-[11px] text-ink-faint capitalize">
             {user?.role ?? ''}
           </p>
         </div>
-        <ChevronDown size={13} className={`dark:text-ink-faint text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown size={14} className={`text-ink-faint transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl
-          border dark:border-panel-border border-gray-200
-          dark:bg-panel-surface bg-white shadow-card-hover z-[200] overflow-hidden">
+        <div role="menu" className="absolute right-0 top-full mt-1.5 w-56 rounded-md
+          border border-border bg-surface shadow-card-hover z-[200] overflow-hidden">
 
-          <div className="px-4 py-3 border-b dark:border-panel-border border-gray-100">
-            <p className="text-xs font-bold dark:text-ink text-gray-800 capitalize">{user?.username}</p>
-            <p className="text-[11px] dark:text-ink-faint text-gray-400 mt-0.5 capitalize">
-              {user?.role} Account
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-[13px] font-semibold text-ink capitalize">{user?.username}</p>
+            <p className="text-[12px] text-ink-faint mt-0.5 capitalize">
+              {user?.role} account
             </p>
           </div>
 
           <div className="py-1">
             {isAdmin && (
               <button
+                role="menuitem"
                 onClick={() => { setOpen(false); navigate('/users'); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm
-                  dark:text-ink-dim text-gray-700
-                  hover:bg-brand/10 dark:hover:bg-brand/10 hover:text-brand-light
+                className="w-full flex items-center gap-3 px-4 py-2 text-[13px]
+                  text-ink-dim hover:bg-surface-2 hover:text-ink
                   transition-colors text-left"
               >
-                <ShieldCheck size={15} className="shrink-0" />
+                <ShieldCheck size={15} className="shrink-0" aria-hidden="true" />
                 User Management
               </button>
             )}
 
             <button
+              role="menuitem"
               onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm
-                text-red-500 dark:text-red-400
-                hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-4 py-2 text-[13px]
+                text-danger hover:bg-danger/10 transition-colors text-left"
             >
-              <LogOut size={15} className="shrink-0" />
-              Sign Out
+              <LogOut size={15} className="shrink-0" aria-hidden="true" />
+              Sign out
             </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Contact-center connection status ─────────────────────────────────────────
+// Healthy = quiet (dot + short label). Offline = an unmistakable red pill.
+function ConnectionStatus({ connected }) {
+  return (
+    <div role="status" aria-live="polite">
+      {connected ? (
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium text-status-available">
+          <span className="h-2 w-2 rounded-full bg-status-available" aria-hidden="true" />
+          <span className="hidden sm:inline">Contact center connected</span>
+          <span className="sm:hidden">Connected</span>
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-semibold
+          border border-status-error/35 bg-status-error/10 text-status-error">
+          <WifiOff size={13} aria-hidden="true" />
+          <span className="hidden sm:inline">Contact center offline</span>
+          <span className="sm:hidden">Offline</span>
+        </span>
       )}
     </div>
   );
@@ -98,7 +128,7 @@ function AdminMenu({ user }) {
 export default function Topbar({ isDark, toggleTheme }) {
   const { pathname }   = useLocation();
   const { user }       = useAuth();
-  const { title }      = pageMetaFor(pathname);
+  const { title, description } = pageMetaFor(pathname);
   const [eslConnected, setEslConnected] = useState(false);
   const [now, setNow]  = useState(new Date());
 
@@ -123,37 +153,29 @@ export default function Topbar({ isDark, toggleTheme }) {
   }, []);
 
   return (
-    <header className="relative z-30 h-16 shrink-0 border-b dark:border-panel-border border-gray-200
-      dark:bg-panel-surface bg-white px-6 flex items-center justify-between">
+    <header className="relative z-30 h-14 shrink-0 border-b border-border bg-surface
+      px-4 md:px-6 flex items-center justify-between gap-4">
 
-      <div>
-        <h1 className="font-display font-bold text-xl tracking-tight leading-tight dark:text-ink text-gray-900">
+      <div className="min-w-0">
+        <h1 className="text-[18px] font-semibold tracking-[-0.01em] leading-tight text-ink truncate">
           {title}
         </h1>
+        {description && (
+          <p className="hidden md:block text-[12px] text-ink-faint leading-tight truncate mt-0.5">{description}</p>
+        )}
       </div>
 
-      <div className="flex items-center gap-2">
-        {/* ESL status pill */}
-        <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold
-          border tracking-wide uppercase transition-colors
-          ${eslConnected
-            ? 'dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 bg-emerald-50 text-emerald-700'
-            : 'dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 border-red-200 bg-red-50 text-red-600 animate-pulse'
-          }`}>
-          {eslConnected
-            ? <Wifi size={11} />
-            : <WifiOff size={11} />}
-          <span className="hidden sm:inline">
-            {eslConnected ? 'Contact Center Connected' : 'Contact Center Offline'}
-          </span>
-        </div>
+      <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+        <ConnectionStatus connected={eslConnected} />
+
+        <span className="hidden lg:block h-6 w-px bg-border" aria-hidden="true" />
 
         {/* Clock */}
-        <div className="hidden md:flex flex-col items-end px-2 leading-none gap-0.5">
-          <span className="text-sm font-mono tnum dark:text-ink-faint text-gray-500">
+        <div className="hidden md:flex flex-col items-end leading-tight" aria-label="Current time">
+          <span className="text-[13px] font-medium tabular-nums text-ink-dim">
             {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
-          <span className="text-[10px] dark:text-ink-faint/60 text-gray-400">
+          <span className="text-[11px] text-ink-faint">
             {now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
           </span>
         </div>
@@ -161,15 +183,12 @@ export default function Topbar({ isDark, toggleTheme }) {
         {/* Theme toggle */}
         <button
           onClick={toggleTheme}
-          className="h-8 w-8 flex items-center justify-center rounded-lg
-            border dark:border-panel-border border-gray-200
-            dark:bg-panel-raised bg-gray-50
-            dark:text-ink-faint text-gray-500
-            dark:hover:text-ink hover:text-gray-900
-            dark:hover:bg-panel-border hover:bg-gray-100 transition-colors"
+          className="h-8 w-8 flex items-center justify-center rounded-md
+            text-ink-faint hover:text-ink hover:bg-surface-2 transition-colors"
           aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDark ? 'Light mode' : 'Dark mode'}
         >
-          {isDark ? <Sun size={14} /> : <Moon size={14} />}
+          {isDark ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
         <AdminMenu user={user} />

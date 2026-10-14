@@ -49,7 +49,7 @@ export async function getQueueMembersLive(req, res) {
     const members = await cc.queueListMembers(req.params.queueName);
     res.json(members);
   } catch (err) {
-    res.status(503).json({ error: 'FreeSWITCH ESL unavailable', detail: err.message });
+    res.status(503).json({ error: 'SIPCommunication service unavailable', detail: err.message });
   }
 }
 

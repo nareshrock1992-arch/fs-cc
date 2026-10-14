@@ -68,7 +68,7 @@ export default function BreakHistoryReport() {
         <input type="date" className="field-input w-auto" value={to} onChange={reset(setTo)} aria-label="To date" />
       </div>
 
-      <div className="rounded-xl border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-surface overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="p-5"><LoadingState rows={5} cols={5} label="Loading break history…" /></div>
         ) : error ? (
@@ -83,12 +83,12 @@ export default function BreakHistoryReport() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-ink-faint border-b border-gray-100 dark:border-panel-border">
-                  <th className="px-4 py-3 font-semibold">Agent</th>
-                  <th className="px-4 py-3 font-semibold">Reason</th>
-                  <th className="px-4 py-3 font-semibold">Started</th>
-                  <th className="px-4 py-3 font-semibold">Ended</th>
-                  <th className="px-4 py-3 font-semibold">Duration</th>
-                  <th className="px-4 py-3 font-semibold">Source</th>
+                  <th className="th">Agent</th>
+                  <th className="th">Reason</th>
+                  <th className="th">Started</th>
+                  <th className="th">Ended</th>
+                  <th className="th">Duration</th>
+                  <th className="th">Source</th>
                 </tr>
               </thead>
               <tbody>

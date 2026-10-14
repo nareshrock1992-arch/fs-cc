@@ -18,6 +18,26 @@ export default {
         '3xl': '2560px',
       },
       colors: {
+        // ── Neutral ramp (UI modernization) ─────────────────────────────
+        // Replaces Tailwind's default gray so the ~430 hardcoded `gray-*`
+        // utilities across pages follow the design palette instead of the
+        // stock cool-grey. Anchored on the tokens: 200 = border, 400 = muted
+        // text (≥4.5:1 on white, was 2.5:1), 500 = secondary text, 900 = ink.
+        gray: {
+          50:  '#F5F7FA',
+          100: '#EDF1F6',
+          200: '#DCE4ED',
+          300: '#B9C4D2',
+          400: '#66758A',
+          500: '#526176',
+          600: '#445268',
+          700: '#33415A',
+          800: '#232F44',
+          900: '#172334',
+          950: '#0E1724',
+        },
+        navy: v('--brand-navy'),
+
         // ── Semantic surfaces / borders / text (canonical) ──────────────
         bg:      v('--bg'),
         surface: {
@@ -73,7 +93,7 @@ export default {
         brand: {
           DEFAULT: v('--primary'),
           dim:     v('--primary-hover'),
-          light:   '#60A5FA',
+          light:   v('--primary'),
         },
         lamp: {
           live:      v('--status-ringing'),
@@ -86,26 +106,30 @@ export default {
         },
       },
       fontFamily: {
-        display: ['"IBM Plex Sans Condensed"', 'Inter', 'ui-sans-serif', 'sans-serif'],
-        sans:    ['Inter', 'ui-sans-serif', 'sans-serif'],
-        mono:    ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        // One typeface for the whole product. `display` is kept as an alias so
+        // existing `font-display` headings render in Inter instead of the
+        // condensed face (which read as cramped at small sizes).
+        display: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
+        sans:    ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
+        mono:    ['"IBM Plex Mono"', 'ui-monospace', 'Consolas', 'monospace'],
       },
       boxShadow: {
-        // Subtle enterprise shadows only (Phase 2: glow "lamp" shadows removed)
         // Restrained enterprise elevation: cards are near-flat and rely on a
         // crisp hairline border; real elevation is reserved for overlays.
-        card:        '0 1px 1px rgba(15,23,42,0.04)',
+        card:        '0 1px 2px rgba(20,38,61,0.05)',
         'card-dark': '0 1px 2px rgba(0,0,0,0.45)',
-        'card-hover':'0 8px 24px rgba(15,23,42,0.12)',
+        'card-hover':'0 8px 24px rgba(20,38,61,0.12)',
       },
       borderRadius: {
-        // Restrained enterprise scale: 6 / 8 / 12 / 16
+        // Restrained enterprise scale: controls & cards 8px, overlays 10–12px.
+        // (lg/xl tightened from 12px so existing `rounded-lg/xl` usages across
+        // pages converge on the 8px design radius without per-file edits.)
         sm:      '6px',
         DEFAULT: '8px',
         md:      '8px',
-        lg:      '12px',
-        xl:      '12px',
-        '2xl':   '16px',
+        lg:      '8px',
+        xl:      '10px',
+        '2xl':   '12px',
       },
       animation: {
         'pulse-soft': 'pulse-soft 2s ease-in-out infinite',

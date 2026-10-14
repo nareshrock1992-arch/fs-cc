@@ -148,7 +148,7 @@ export default function BreakCodesPage() {
         </div>
       )}
 
-      <div className="rounded-xl border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-surface overflow-hidden">
+      <div className="card overflow-hidden">
         {loading ? (
           <div className="p-5"><LoadingState rows={4} cols={5} label="Loading break codes…" /></div>
         ) : rows.length === 0 ? (
@@ -161,14 +161,14 @@ export default function BreakCodesPage() {
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-ink-faint
                                border-b border-gray-100 dark:border-panel-border">
-                  <th className="px-4 py-3 font-semibold">Code</th>
-                  <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Active</th>
-                  <th className="px-4 py-3 font-semibold">Selectable</th>
-                  <th className="px-4 py-3 font-semibold">Order</th>
-                  <th className="px-4 py-3 font-semibold">Warning</th>
-                  <th className="px-4 py-3 font-semibold">Maximum</th>
-                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
+                  <th className="th">Code</th>
+                  <th className="th">Name</th>
+                  <th className="th">Active</th>
+                  <th className="th">Selectable</th>
+                  <th className="th">Order</th>
+                  <th className="th">Warning</th>
+                  <th className="th">Maximum</th>
+                  <th className="th text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>

@@ -41,10 +41,11 @@ export default function Layout() {
           {/* Adaptive content width: 1600px on standard desktops (1366–2559 →
               unchanged), widening to 2240px only on ≥2560px monitors so QHD/4K
               use the extra space while keeping bounded, readable line lengths. */}
-          <div className="mx-auto w-full max-w-[1600px] 3xl:max-w-[2240px] px-6 3xl:px-8 py-5">
-            {/* Title lives in the Topbar; this header carries context (description)
-                + future page actions, so the title is not repeated underneath. */}
-            <PageHeader description={meta.description} />
+          <div className="mx-auto w-full max-w-[1600px] 3xl:max-w-[2240px] px-4 md:px-6 3xl:px-8 py-4 md:py-5">
+            {/* Title AND description live in the Topbar (one compact header for
+                every page). On small screens, where the Topbar hides the
+                description, show it here instead. */}
+            <div className="md:hidden"><PageHeader description={meta.description} /></div>
             <Outlet />
           </div>
         </main>

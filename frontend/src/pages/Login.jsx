@@ -45,7 +45,7 @@ export default function Login() {
             <Radio size={24} className="text-white" />
           </div>
           <h1 className="font-display font-bold text-2xl tracking-wide text-ink">Switchboard</h1>
-          <p className="text-sm text-ink-faint mt-1">FreeSWITCH Contact Center</p>
+          <p className="text-sm text-ink-faint mt-1">SIPCommunication Contact Center</p>
         </div>
 
         {/* Card */}
@@ -117,7 +117,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-[11px] text-ink-faint mt-5">
-          FreeSWITCH ACD · Avaya Aura Gateway
+          SIPCommunication ACD · Avaya Aura Gateway
         </p>
       </div>
     </div>

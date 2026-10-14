@@ -45,13 +45,13 @@ function IvrSection({ title, subtitle, rows, labelKey, labelHeader, color }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b dark:border-panel-border border-gray-100 text-left">
-            <th className="pb-2 text-[11px] font-bold uppercase tracking-wider dark:text-ink-faint text-gray-400">
+            <th className="pb-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">
               {labelHeader}
             </th>
-            <th className="pb-2 text-[11px] font-bold uppercase tracking-wider dark:text-ink-faint text-gray-400 text-right">
+            <th className="pb-2 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">
               Calls
             </th>
-            <th className="pb-2 text-[11px] font-bold uppercase tracking-wider dark:text-ink-faint text-gray-400 text-right">
+            <th className="pb-2 text-right text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint">
               Share
             </th>
           </tr>
@@ -180,7 +180,7 @@ export default function Reports() {
 
   useEffect(() => { load(); }, []);
 
-  const thClass = 'pb-2 font-display font-medium dark:text-ink-faint text-gray-400 text-[11px] uppercase tracking-widest';
+  const thClass = 'pb-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint whitespace-nowrap';
 
   return (
     <div className="space-y-4">
@@ -376,7 +376,7 @@ export default function Reports() {
               {ivrPaths.queues.length > 0 && (
                 <IvrSection
                   title="Queue Destinations"
-                  subtitle="Calls that actually entered a FreeSWITCH queue (based on confirmed queue membership)."
+                  subtitle="Calls that actually entered a SIPCommunication queue (based on confirmed queue membership)."
                   rows={ivrPaths.queues}
                   labelKey="queue"
                   labelHeader="Queue"
@@ -388,7 +388,7 @@ export default function Reports() {
               {ivrPaths.other.length > 0 && (
                 <IvrSection
                   title="Other System Events"
-                  subtitle="FreeSWITCH application and system events recorded during the call."
+                  subtitle="SIPCommunication application and system events recorded during the call."
                   rows={ivrPaths.other}
                   labelKey="step"
                   labelHeader="Event"

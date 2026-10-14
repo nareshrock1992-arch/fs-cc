@@ -25,13 +25,13 @@ const CALL_HISTORY_ITEM  = { to: '/reports/call-history',   label: 'Call History
 const BREAK_CODES_ITEM   = { to: '/break-codes',            label: 'Break Codes',     icon: Coffee };
 const USERS_ITEM         = { to: '/users',                  label: 'User Management', icon: ShieldCheck };
 
-// ── Enterprise navigation tab styling (Phase 3A: semantic tokens, theme-aware) ─
-// Uses the Phase 1 semantic tokens so the sidebar follows light AND dark mode:
-//   light → white surface / slate ink;  dark → panel surface / light ink.
+// ── Navigation item styling (semantic tokens, theme-aware) ───────────────────
+// Light visual weight: quiet inactive items, one unmistakable active state
+// (teal tint + left rule + bolder icon).
 const NAV_BASE =
-  'group relative flex items-center gap-3 px-3 py-2 rounded-[8px] text-sm ' +
+  'group relative flex items-center gap-2.5 px-3 py-[7px] rounded-md text-[13px] ' +
   'transition-colors focus-visible:outline-none focus-visible:ring-2 ' +
-  'focus-visible:ring-primary/40 focus-visible:ring-offset-0';
+  'focus-visible:ring-focus/50 focus-visible:ring-offset-0';
 const NAV_INACTIVE =
   'font-medium text-ink-dim hover:bg-surface-2 hover:text-ink';
 const NAV_ACTIVE =
@@ -57,11 +57,12 @@ function NavItem({ to, label, icon: Icon, end }) {
             />
           )}
           <Icon
-            size={19}
-            strokeWidth={isActive ? 2.1 : 1.75}
+            size={17}
+            strokeWidth={isActive ? 2.2 : 1.8}
             className={isActive ? 'text-primary shrink-0' : 'text-ink-faint group-hover:text-ink-dim shrink-0'}
+            aria-hidden="true"
           />
-          <span>{label}</span>
+          <span className="truncate">{label}</span>
         </>
       )}
     </NavLink>
@@ -86,32 +87,31 @@ export default function Sidebar() {
   const managementItems = navItems.filter(({ to }) => MANAGEMENT_PATHS.includes(to));
 
   return (
-    <aside className="hidden md:flex md:flex-col w-60 shrink-0
-      bg-surface border-r border-border">
+    <aside className="hidden md:flex md:flex-col w-56 shrink-0
+      bg-surface border-r border-border" aria-label="Main navigation">
 
-      {/* Brand header */}
-      <div className="h-16 flex items-center gap-3 px-5 border-b border-border shrink-0">
-        <div className="h-8 w-8 rounded-xl bg-brand flex items-center justify-center shrink-0">
-          <Radio size={15} className="text-white" />
+      {/* Brand header — aligned with the 56px Topbar */}
+      <div className="h-14 flex items-center gap-2.5 px-4 border-b border-border shrink-0">
+        <div className="h-8 w-8 rounded-md bg-navy flex items-center justify-center shrink-0">
+          <Radio size={15} className="text-white" aria-hidden="true" />
         </div>
-        <div className="leading-tight">
-          <p className="font-display font-bold text-[15px] tracking-wide text-ink">
+        <div className="leading-tight min-w-0">
+          <p className="font-semibold text-[14px] text-ink truncate">
             Switchboard
           </p>
-          <p className="text-[9px] text-primary uppercase tracking-[0.15em] font-bold">
-            CC Admin
+          <p className="text-[11px] text-ink-faint font-medium">
+            Contact Center
           </p>
         </div>
       </div>
 
-      {/* Nav — compact enough to fit without an internal scrollbar at normal
-          heights; overflow-y-auto only engages (with the thin, arrow-less
-          scrollbar from index.css) on very short viewports. */}
-      <nav className="flex-1 px-3 py-3 overflow-y-auto">
-        <p className="px-3 pb-1.5 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
+      {/* Nav — fits without an internal scrollbar at normal heights;
+          overflow-y-auto only engages on very short viewports. */}
+      <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
+        <p className="px-3 pb-1 text-[11px] font-semibold text-ink-faint">
           Operations
         </p>
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {operationsItems.map((item) => (
             <NavItem key={item.to} {...item} />
           ))}
@@ -119,10 +119,10 @@ export default function Sidebar() {
 
         {(canViewReports || canManageBreaks || isAdmin) && (
           <>
-            <p className="px-3 pt-4 pb-1.5 text-[11px] uppercase tracking-[0.14em] font-semibold text-ink-faint">
+            <p className="px-3 pt-4 pb-1 text-[11px] font-semibold text-ink-faint">
               Management
             </p>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {managementItems.map((item) => (
                 <NavItem key={item.to} {...item} />
               ))}
@@ -132,11 +132,11 @@ export default function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t border-border shrink-0">
-        <p className="text-[11px] font-semibold text-ink-dim tracking-wide">
+      <div className="px-4 py-3 border-t border-border shrink-0">
+        <p className="text-[11px] font-medium text-ink-dim">
           CC Version 1.0.0
         </p>
-        <p className="text-[10px] text-ink-faint mt-0.5">
+        <p className="text-[11px] text-ink-faint mt-0.5">
           © Naresh — All Rights Reserved
         </p>
       </div>

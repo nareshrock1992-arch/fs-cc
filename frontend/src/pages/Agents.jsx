@@ -176,7 +176,7 @@ export default function Agents() {
   }
 
   async function handleDelete(agentId) {
-    if (!window.confirm(`Remove agent ${agentId}? This also removes it from FreeSWITCH.`)) return;
+    if (!window.confirm(`Remove agent ${agentId}? This also removes it from SIPCommunication.`)) return;
     await AgentsApi.remove(agentId);
     await load();
   }
@@ -304,7 +304,7 @@ export default function Agents() {
             icon={Users}
             title={agents.length === 0 ? 'No agents yet' : 'No agents match your search'}
             body={agents.length === 0
-              ? 'Agents sync from FreeSWITCH automatically when the backend starts, or add one manually.'
+              ? 'Agents sync from SIPCommunication automatically when the backend starts, or add one manually.'
               : 'Try adjusting your search term.'}
             action={agents.length === 0 && isAdmin
               ? <button onClick={openCreate} className="btn-primary"><Plus size={14} /> Add Agent</button>
@@ -316,7 +316,7 @@ export default function Agents() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 dark:border-panel-border text-left">
-                <th className="th rounded-tl-xl">Agent</th>
+                <th className="th">Agent</th>
                 <th className="th">Extension</th>
                 <th className="th hidden md:table-cell">Contact</th>
                 <th className="th">Status</th>
@@ -452,7 +452,7 @@ export default function Agents() {
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-            <FormField label="Agent ID" hint="FreeSWITCH agent name, e.g. Agent_1001@default">
+            <FormField label="Agent ID" hint="SIPCommunication agent name, e.g. Agent_1001@default">
               <input
                 required
                 disabled={Boolean(editingId)}
@@ -480,7 +480,7 @@ export default function Agents() {
                 placeholder="5001"
               />
             </FormField>
-            <FormField label="Endpoint Type" hint="How FreeSWITCH dials this agent (SIP extension vs gateway)">
+            <FormField label="Endpoint Type" hint="How SIPCommunication dials this agent (SIP extension vs gateway)">
               <select
                 value={form.agentType}
                 onChange={(e) => setForm({ ...form, agentType: e.target.value, extension: '', gateway: '', destination: '' })}
@@ -490,7 +490,7 @@ export default function Agents() {
                 <option value="gateway">Gateway (SIP trunk)</option>
               </select>
             </FormField>
-            <FormField label="FreeSWITCH Agent Type" hint="mod_callcenter agent type — separate from Endpoint Type. Callback is the standard mode.">
+            <FormField label="SIPCommunication Agent Type" hint="Agent type — separate from Endpoint Type. Callback is the standard mode.">
               <select
                 value={form.fsAgentType}
                 onChange={(e) => setForm({ ...form, fsAgentType: e.target.value })}
@@ -514,7 +514,7 @@ export default function Agents() {
             )}
             {form.agentType === 'gateway' && (
               <>
-                <FormField label="Gateway Name" hint="FreeSWITCH gateway name (e.g. service-provider)">
+                <FormField label="Gateway Name" hint="SIPCommunication gateway name (e.g. service-provider)">
                   <input
                     required
                     value={form.gateway}

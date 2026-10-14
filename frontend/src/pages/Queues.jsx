@@ -126,7 +126,7 @@ export default function Queues() {
     try {
       const r = await QueuesApi.setTier(tierQueue.name, agentId, payload);
       if (r && r.fs_synced === false) {
-        setTierError(`Saved in DB, but FreeSWITCH did not sync: ${r.fs_error || 'unknown error'}`);
+        setTierError(`Saved in DB, but SIPCommunication did not sync: ${r.fs_error || 'unknown error'}`);
       } else {
         setTierError(null);
       }
@@ -142,7 +142,7 @@ export default function Queues() {
     ? allAgents.filter((a) => !tierQueue.agents.some((t) => t.agent_id === a.agent_id))
     : [];
 
-  const thClass = 'pb-2.5 font-display font-medium dark:text-ink-faint text-gray-400 text-[11px] uppercase tracking-widest';
+  const thClass = 'pb-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint whitespace-nowrap';
 
   return (
     <div className="space-y-4">
@@ -225,7 +225,7 @@ export default function Queues() {
       >
         <form id="queue-form" onSubmit={handleSave}>
           {formError && <p className="text-sm text-lamp-alert mb-4">{formError}</p>}
-          <FormField label="Queue Name" hint="FreeSWITCH queue identifier, e.g. support@default">
+          <FormField label="Queue Name" hint="SIPCommunication queue identifier, e.g. support@default">
             <input required disabled={Boolean(editingName)} value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={inputClass} placeholder="support@default" />
@@ -256,7 +256,7 @@ export default function Queues() {
                 className={inputClass} />
             </FormField>
           </div>
-          <FormField label="Action after Max No Answer" hint="Agent status set by FreeSWITCH when they miss max-no-answer calls (queue-level, mod_callcenter agent-no-answer-status).">
+          <FormField label="Action after Max No Answer" hint="Agent status set by SIPCommunication when they miss max-no-answer calls (queue-level setting).">
             <select value={form.agentNoAnswerStatus}
               onChange={(e) => setForm({ ...form, agentNoAnswerStatus: e.target.value })}
               className={inputClass}>
@@ -321,7 +321,7 @@ export default function Queues() {
                         className={`${inputClass} w-14 py-1`} title="Tie-break position within a level" />
                       <select defaultValue=""
                         onChange={(e) => { if (e.target.value) { handleSetTier(a.agent_id, { state: e.target.value }); e.target.value = ''; } }}
-                        className={`${inputClass} w-28 py-1`} title="Set tier state (FreeSWITCH runtime)">
+                        className={`${inputClass} w-28 py-1`} title="Set tier state (SIPCommunication runtime)">
                         <option value="">Set state…</option>
                         {TIER_STATES.map((s) => (
                           <option key={s} value={s} className="dark:bg-panel-surface bg-white">{s}</option>

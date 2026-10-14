@@ -46,7 +46,7 @@ export default function Login({ onLogin, theme }) {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-ink">Agent Desktop</h1>
-            <p className="text-ink-faint text-sm mt-1">FreeSWITCH Contact Center</p>
+            <p className="text-ink-faint text-sm mt-1">SIPCommunication Contact Center</p>
           </div>
 
           {/* Form card */}

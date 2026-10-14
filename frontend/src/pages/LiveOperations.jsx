@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PhoneIncoming, PhoneCall, Headphones, Coffee, PowerOff, UserCheck,
-  Timer, Search, Wifi, WifiOff, AlertTriangle, RefreshCw, Radio,
-  ChevronDown, ChevronRight, ListTree,
+  Timer, Search, WifiOff, AlertTriangle, RefreshCw, Radio,
+  ChevronDown, ChevronRight, ListTree, CheckCircle2,
 } from 'lucide-react';
 import { Calls, Stats, Agents as AgentsApi } from '../api/client.js';
 import { useSocketEvent } from '../api/socket.js';
 import { useAuth } from '../hooks/useAuth.js';
 import KpiCard from '../components/KpiCard.jsx';
-import Panel from '../components/Panel.jsx';
+import Panel, { LiveIndicator } from '../components/Panel.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import StatusBadge from '../components/StatusBadge.jsx';
+import { KpiSkeleton } from '../components/LoadingState.jsx';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live Operations — the primary real-time supervisor workspace. It does NOT own
@@ -23,21 +25,10 @@ import EmptyState from '../components/EmptyState.jsx';
 
 const STALE_MS = 15_000; // real-time feed considered STALE if no refresh in this window
 
-// Agent operational-state visuals (identical labels to the backend's derivation).
-const AGENT_META = {
-  'Idle':     { label: 'Available', dot: '#27C98A', pill: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' },
-  'Ringing':  { label: 'Ringing',   dot: '#F5A623', pill: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400' },
-  'On Call':  { label: 'On Call',   dot: '#2563EB', pill: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400' },
-  'On Break': { label: 'On Break',  dot: '#A78BFA', pill: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400' },
-  'Offline':  { label: 'Offline',   dot: '#4C5A78', pill: 'bg-gray-100 text-gray-500 dark:bg-panel-raised dark:text-ink-dim' },
-};
+// Agent / call state visuals come from the shared StatusBadge (one status
+// language app-wide). Backend states map 1:1: Idle → "Available",
+// Connected → "On Call". Labels are unchanged from the previous UI.
 const AGENT_STATE_ORDER = { 'On Call': 0, 'Ringing': 1, 'Idle': 2, 'On Break': 3, 'Offline': 4 };
-
-const CALL_META = {
-  Waiting:   { pill: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400 border border-amber-200 dark:border-amber-500/25', dot: '#F5A623' },
-  Ringing:   { pill: 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400 border border-orange-200 dark:border-orange-500/25', dot: '#FB923C' },
-  Connected: { pill: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/25', dot: '#27C98A' },
-};
 
 const QUICK = ['All', 'Attention', 'Waiting', 'Ringing', 'On Call', 'Available', 'Break', 'Offline'];
 
@@ -68,95 +59,155 @@ function fmtDur(sec) {
 }
 const qn = (name) => (name ? String(name).split('@')[0] : '');
 
-// ── Connection / data-health pill ────────────────────────────────────────────
-function HealthPill({ health }) {
-  const map = {
-    connected:    { cls: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400', Icon: Wifi,    text: 'Connected' },
-    stale:        { cls: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 animate-pulse', Icon: AlertTriangle, text: 'Stale — reconnecting' },
-    disconnected: { cls: 'border-red-200 bg-red-50 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400 animate-pulse', Icon: WifiOff, text: 'Disconnected' },
-  };
-  const { cls, Icon, text } = map[health] || map.disconnected;
+// ── Shared presentational helpers ────────────────────────────────────────────
+const DASH = <span className="text-ink-disabled" aria-label="none">—</span>;
+
+// Caller identity: name on top (when present), number underneath. The values
+// passed in are exactly what the backend authorized for this viewer — masking
+// and caller-ID permissions are decided upstream and never altered here.
+function Caller({ name, number }) {
+  if (!name) return <span className="tabular-nums text-ink">{number}</span>;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold border tracking-wide uppercase ${cls}`}>
-      <Icon size={12} /> {text}
+    <div className="min-w-0 leading-tight">
+      <div className="font-medium text-ink truncate max-w-[220px]" title={name}>{name}</div>
+      <div className="text-[12px] tabular-nums text-ink-dim">{number}</div>
+    </div>
+  );
+}
+
+function SortControl({ value, onChange, options, label }) {
+  return (
+    <label className="flex items-center gap-1.5 text-[12px] text-ink-faint">
+      <span className="hidden sm:inline">Sort</span>
+      <select value={value} onChange={e => onChange(e.target.value)} aria-label={label}
+        className="input-sm h-7 pr-6 text-[12px]">
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </label>
+  );
+}
+
+// ── Connection / data-health indicator ───────────────────────────────────────
+// Healthy is quiet (green dot + "Live"); stale and disconnected escalate.
+function HealthIndicator({ health, lastOk }) {
+  const ago = lastOk ? Math.max(0, Math.floor((Date.now() - lastOk) / 1000)) : null;
+  if (health === 'disconnected') {
+    return (
+      <span role="status" className="inline-flex items-center gap-1.5 rounded-md px-2 h-7 text-[12px] font-semibold
+        border border-status-error/35 bg-status-error/10 text-status-error whitespace-nowrap">
+        <WifiOff size={13} aria-hidden="true" /> Disconnected
+      </span>
+    );
+  }
+  if (health === 'stale') {
+    return (
+      <span role="status" className="inline-flex items-center gap-1.5 rounded-md px-2 h-7 text-[12px] font-semibold
+        border border-status-ringing/35 bg-status-ringing/10 text-status-ringing whitespace-nowrap">
+        <AlertTriangle size={13} aria-hidden="true" /> Stale — reconnecting
+        {ago != null && <span className="font-normal tabular-nums">· {fmtDur(ago)} ago</span>}
+      </span>
+    );
+  }
+  return (
+    <span role="status" className="inline-flex items-center gap-2 h-7 whitespace-nowrap">
+      <LiveIndicator state="live" />
+      {ago != null && <span className="text-[12px] text-ink-faint tabular-nums hidden lg:inline">updated {fmtDur(ago)} ago</span>}
     </span>
   );
 }
 
-// ── KPI command bar (reuses shared KpiCard + auto-fit reflow) ────────────────
-function KpiBar({ k }) {
-  // Fixed category tones so each tile keeps its colour identity (like the
-  // Dashboard KPIs) instead of all collapsing to grey when the floor is quiet.
-  // SLA Breached stays alert-conditional (red only when there IS a breach).
-  const tiles = [
-    { label: 'Waiting',      value: k.waiting,    tone: 'amber',  icon: PhoneIncoming },
-    { label: 'Ringing',      value: k.ringing,    tone: 'orange', icon: Radio },
-    { label: 'On Call',      value: k.onCall,     tone: 'blue',   icon: PhoneCall },
-    { label: 'Available',    value: k.available,  tone: 'green',  icon: UserCheck },
-    { label: 'On Break',     value: k.onBreak,    tone: 'purple', icon: Coffee },
-    { label: 'Offline',      value: k.offline,    tone: 'default',icon: PowerOff },
-    { label: 'SLA Breached', value: k.slaBreached,tone: k.slaBreached > 0 ? 'red' : 'default', icon: AlertTriangle,
-      sub: k.slaBreached > 0 ? 'Wait ≥ queue target' : 'Within target' },
-    { label: 'Longest Wait', value: fmtDur(k.longestWait), tone: 'amber', icon: Timer },
-  ];
+// ── KPI summary ──────────────────────────────────────────────────────────────
+// Two groups so queue health (wait / SLA) reads separately from agent-state
+// counts. One row each at ≥1280px; the groups sit side by side at that width.
+function KpiGroup({ label, className, children }) {
   return (
-    <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
-      {tiles.map(t => <KpiCard key={t.label} {...t} />)}
+    <section aria-label={label} className="min-w-0">
+      <h2 className="text-[12px] font-semibold text-ink-faint mb-1.5">{label}</h2>
+      <div className={`grid gap-2.5 ${className}`}>{children}</div>
+    </section>
+  );
+}
+
+function KpiBar({ k }) {
+  const breached = k.slaBreached > 0;
+  return (
+    <div className="grid gap-x-4 gap-y-3 xl:grid-cols-[3fr_5fr]">
+      <KpiGroup label="Queue" className="grid-cols-3">
+        <KpiCard label="Waiting" value={k.waiting} tone="amber" icon={PhoneIncoming}
+          sub={k.waiting > 0 ? 'Callers in queue' : 'No callers waiting'} />
+        <KpiCard label="Longest Wait" value={fmtDur(k.longestWait)} tone="amber" icon={Timer}
+          sub={k.waiting > 0 ? 'Oldest waiting caller' : '—'} />
+        <KpiCard label="SLA Breached" value={k.slaBreached} tone={breached ? 'red' : 'green'}
+          icon={breached ? AlertTriangle : CheckCircle2}
+          alert={breached ? 'critical' : null}
+          sub={breached ? 'Wait ≥ queue target' : 'All within target'} />
+      </KpiGroup>
+      <KpiGroup label="Agents" className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <KpiCard label="Available" value={k.available} tone="green"   icon={UserCheck} />
+        <KpiCard label="On Call"   value={k.onCall}    tone="blue"    icon={PhoneCall} />
+        <KpiCard label="Ringing"   value={k.ringing}   tone="amber"   icon={Radio} />
+        <KpiCard label="On Break"  value={k.onBreak}   tone="purple"  icon={Coffee} />
+        <KpiCard label="Offline"   value={k.offline}   tone="default" icon={PowerOff} />
+      </KpiGroup>
     </div>
   );
 }
 
 // ── Calls Requiring Attention ────────────────────────────────────────────────
-function CallsTable({ rows, allEmpty }) {
+const CALL_SORTS = [
+  ['attention', 'Attention'], ['wait', 'Longest waiting'], ['newest', 'Newest'],
+  ['sla', 'SLA breached'], ['queue', 'Queue'], ['agent', 'Agent'],
+];
+
+function CallsTable({ rows, allEmpty, sort, onSort }) {
   return (
-    <Panel eyebrow="Live" title="Calls Requiring Attention" noPad>
+    <Panel title="Calls Requiring Attention" count={rows.length} noPad
+      action={<SortControl value={sort} onChange={onSort} options={CALL_SORTS} label="Sort calls" />}>
       {rows.length === 0 ? (
-        /* Compact, content-driven empty state — collapses the Calls section to
-           ~one row so Agent Floor Status rises immediately when the floor is
-           quiet (no large blank panel). */
-        <div className="flex items-center gap-2.5 px-4 py-3 text-gray-400 dark:text-ink-faint">
-          <span className={`h-2 w-2 rounded-full shrink-0 ${allEmpty ? 'bg-emerald-400/70' : 'bg-gray-300 dark:bg-ink-faint/40'}`} />
-          <span className="text-xs font-semibold text-gray-500 dark:text-ink-dim">
-            {allEmpty ? 'No active calls' : 'No calls match the current filters'}
-          </span>
-          <span className="text-[11px] hidden sm:inline">
-            {allEmpty ? '— waiting, ringing and connected calls appear here in real time' : '— adjust the filters or search'}
-          </span>
-        </div>
+        /* Compact empty state — collapses to one row so the agent floor rises
+           immediately when the floor is quiet. */
+        <EmptyState compact tone={allEmpty ? 'ok' : 'neutral'}
+          title={allEmpty ? 'No active calls' : 'No calls match the current filters'}
+          body={allEmpty ? 'waiting, ringing and connected calls appear here in real time' : 'adjust the filters or search'} />
       ) : (
-        <div className="overflow-x-auto overflow-y-auto max-h-[46vh]">
-          <table className="w-full text-sm" style={{ minWidth: 720 }}>
+        <div className="overflow-auto max-h-[46vh]">
+          <table className="data-table" style={{ minWidth: 720 }}>
             <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-50 dark:bg-panel-raised border-b border-gray-200 dark:border-panel-border">
-                {['State', 'Customer', 'Queue', 'Agent', 'Ext', 'Duration', 'SLA'].map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint whitespace-nowrap">{h}</th>
+              <tr>
+                {['State', 'Caller', 'Queue', 'Agent', 'Duration', 'SLA'].map(h => (
+                  <th key={h} scope="col" className="th">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-panel-border/30">
+            <tbody>
               {rows.map(r => {
-                const m = CALL_META[r.state] || CALL_META.Waiting;
+                const breached = r.sla === 'breached';
                 return (
-                  <tr key={r.uuid} className={`transition-colors ${r.sla === 'breached' ? 'bg-red-50/60 dark:bg-red-500/5' : 'hover:bg-gray-50/60 dark:hover:bg-panel-raised/20'}`}>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${m.pill}`}>
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: m.dot }} />
-                        {r.state === 'Connected' ? 'On Call' : r.state}
-                      </span>
+                  <tr key={r.uuid}
+                    className={`tr-row ${breached ? 'bg-status-error/[0.05] shadow-[inset_3px_0_0_rgb(var(--status-error))]' : ''}`}>
+                    <td className="td w-[120px]"><StatusBadge status={r.state} /></td>
+                    <td className="td">
+                      <Caller name={r.caller_name} number={r.caller_name ? (r.ani || '—') : (r.ani || 'Unknown')} />
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">{r.caller_name ? `${r.caller_name} (${r.ani || '—'})` : (r.ani || 'Unknown')}</td>
-                    <td className="px-4 py-2.5 text-gray-600 dark:text-ink-dim truncate max-w-[160px]" title={r.queue}>{r.queue || '—'}</td>
-                    <td className="px-4 py-2.5 text-gray-700 dark:text-ink truncate max-w-[160px]" title={r.agent_name}>{r.agent_name || <span className="text-gray-300 dark:text-ink-faint/50">—</span>}</td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-500 dark:text-ink-dim">{r.agent_ext || '—'}</td>
-                    <td className={`px-4 py-2.5 font-mono tnum font-semibold ${r.sla === 'breached' ? 'text-red-600 dark:text-lamp-alert' : r.state === 'Connected' ? 'text-emerald-600 dark:text-lamp-available' : 'text-amber-600 dark:text-lamp-warn'}`}>
-                      {fmtDur(r.dur)}<span className="ml-1 text-[9px] font-normal text-gray-400 dark:text-ink-faint uppercase">{r.durLabel}</span>
+                    <td className="td-secondary truncate max-w-[180px]" title={r.queue}>{r.queue || DASH}</td>
+                    <td className="td">
+                      {r.agent_name || r.agent_ext ? (
+                        <div className="leading-tight min-w-0">
+                          <div className="truncate max-w-[180px]" title={r.agent_name}>{r.agent_name || DASH}</div>
+                          {r.agent_ext && <div className="text-[12px] tabular-nums text-ink-faint">Ext {r.agent_ext}</div>}
+                        </div>
+                      ) : DASH}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="td whitespace-nowrap">
+                      <span className={`tabular-nums font-semibold ${breached ? 'text-status-error' : 'text-ink'}`}>{fmtDur(r.dur)}</span>
+                      <span className="ml-1.5 text-[11px] text-ink-faint">{r.durLabel}</span>
+                    </td>
+                    <td className="td whitespace-nowrap">
                       {r.state === 'Waiting'
-                        ? (r.sla === 'breached'
-                            ? <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-lamp-alert"><AlertTriangle size={11} /> Breached</span>
-                            : <span className="text-[11px] text-emerald-600 dark:text-lamp-available">Within</span>)
-                        : <span className="text-gray-300 dark:text-ink-faint/50">—</span>}
+                        ? (breached
+                            ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-status-error"><AlertTriangle size={13} aria-hidden="true" /> Breached</span>
+                            : <span className="inline-flex items-center gap-1 text-[12px] text-ink-dim"><CheckCircle2 size={13} className="text-status-available" aria-hidden="true" /> Within</span>)
+                        : DASH}
                     </td>
                   </tr>
                 );
@@ -170,61 +221,69 @@ function CallsTable({ rows, allEmpty }) {
 }
 
 // ── Agent Floor Status ───────────────────────────────────────────────────────
-function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus }) {
-  const cols = ['Agent', 'Ext', 'State', 'State Dur', 'Queue(s)', 'Current Call', 'Call Dur', canChangeState ? 'Action' : ''].filter(Boolean);
+const AGENT_SORTS = [
+  ['state', 'State'], ['duration', 'Longest state duration'], ['agent', 'Agent'],
+  ['ext', 'Extension'], ['calldur', 'Current call duration'],
+];
+
+function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort }) {
+  const cols = ['Agent', 'State', 'In State', 'Queue(s)', 'Current Call', 'Call Dur', canChangeState ? 'Action' : ''].filter(Boolean);
   return (
-    <Panel eyebrow="Live" title="Agent Floor Status" noPad>
+    <Panel title="Agent Floor Status" count={rows.length} noPad
+      action={<SortControl value={sort} onChange={onSort} options={AGENT_SORTS} label="Sort agents" />}>
       {rows.length === 0 ? (
         <EmptyState icon={Headphones}
           title={allEmpty ? 'No agents configured' : 'No agents match the current filters'}
           body={allEmpty ? 'Agent states will appear here in real time.' : 'Adjust the filters or search to see agents.'} />
       ) : (
-        <div className="overflow-x-auto overflow-y-auto max-h-[46vh]">
-          <table className="w-full text-sm" style={{ minWidth: 760 }}>
+        <div className="overflow-auto max-h-[46vh]">
+          <table className="data-table" style={{ minWidth: 760 }}>
             <thead className="sticky top-0 z-10">
-              <tr className="bg-gray-50 dark:bg-panel-raised border-b border-gray-200 dark:border-panel-border">
+              <tr>
                 {cols.map(h => (
-                  <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint whitespace-nowrap">{h}</th>
+                  <th key={h} scope="col" className="th">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-panel-border/30">
+            <tbody>
               {rows.map(r => {
-                const meta = AGENT_META[r.operational_state] || AGENT_META.Offline;
                 const cc = r.current_call;
+                const queues = (r.queues || []).map(q => q.display_name || q.queue).join(', ');
                 return (
-                  <tr key={r.agent_id} className="hover:bg-gray-50/60 dark:hover:bg-panel-raised/20 transition-colors">
-                    <td className="px-4 py-2.5">
-                      <div className="font-medium text-gray-800 dark:text-ink truncate max-w-[170px]">{r.full_name || r.agent_id}</div>
-                      {r._loginDur != null && r.operational_state !== 'Offline' && (
-                        <div className="text-[10px] text-gray-400 dark:text-ink-faint">logged in {fmtDur(r._loginDur)}</div>
-                      )}
+                  <tr key={r.agent_id} className="tr-row">
+                    <td className="td">
+                      <div className="leading-tight min-w-0">
+                        <div className="font-medium truncate max-w-[200px]" title={r.full_name || r.agent_id}>{r.full_name || r.agent_id}</div>
+                        <div className="text-[12px] text-ink-faint tabular-nums whitespace-nowrap">
+                          {r.avaya_extension ? `Ext ${r.avaya_extension}` : 'No ext'}
+                          {r._loginDur != null && r.operational_state !== 'Offline' && ` · logged in ${fmtDur(r._loginDur)}`}
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-600 dark:text-ink-dim">{r.avaya_extension || '—'}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${meta.pill}`}>
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.dot }} />
-                        {meta.label}{r.operational_state === 'On Break' && r.break_name ? ` · ${r.break_name}` : ''}
-                      </span>
+                    <td className="td">
+                      <StatusBadge status={r.operational_state}
+                        label={r.operational_state === 'On Break' && r.break_name ? `On Break · ${r.break_name}` : undefined} />
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-700 dark:text-ink">{fmtDur(r._stateDur)}</td>
-                    <td className="px-4 py-2.5 text-gray-600 dark:text-ink-dim truncate max-w-[150px]" title={(r.queues || []).map(q => q.display_name || q.queue).join(', ')}>
-                      {(r.queues || []).map(q => q.display_name || q.queue).join(', ') || '—'}
-                    </td>
-                    <td className="px-4 py-2.5">
+                    <td className="td tabular-nums whitespace-nowrap">{fmtDur(r._stateDur)}</td>
+                    <td className="td-secondary truncate max-w-[170px]" title={queues}>{queues || DASH}</td>
+                    <td className="td">
                       {cc ? (
-                        <span className="font-mono tnum text-xs text-gray-700 dark:text-ink">
-                          {cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'unknown')}{cc.queue_name ? ` → ${qn(cc.queue_name)}` : ''}
-                        </span>
-                      ) : <span className="text-gray-300 dark:text-ink-faint/50">—</span>}
+                        <div className="leading-tight min-w-0">
+                          <div className="tabular-nums truncate max-w-[220px]">
+                            {cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'unknown')}
+                          </div>
+                          {cc.queue_name && <div className="text-[12px] text-ink-faint truncate">→ {qn(cc.queue_name)}</div>}
+                        </div>
+                      ) : DASH}
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-700 dark:text-ink">
-                      {r._callDur != null ? fmtDur(r._callDur) : <span className="text-gray-300 dark:text-ink-faint/50">—</span>}
+                    <td className="td tabular-nums whitespace-nowrap">
+                      {r._callDur != null ? fmtDur(r._callDur) : DASH}
                     </td>
                     {canChangeState && (
-                      <td className="px-4 py-2.5">
+                      <td className="td">
                         <select value="" onChange={e => { if (e.target.value) onSetStatus(r.agent_id, e.target.value); }}
-                          className="py-1 px-1.5 text-xs rounded border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-raised text-gray-600 dark:text-ink-dim">
+                          aria-label={`Set state for ${r.full_name || r.agent_id}`}
+                          className="input-sm h-7 text-[12px]">
                           <option value="">Set…</option>
                           <option value="Available">Available</option>
                           <option value="On Break">On Break</option>
@@ -245,82 +304,89 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus }) {
 
 // ── IVR & Pre-Queue Monitor ──────────────────────────────────────────────────
 // Live view of callers observed in the IVR BEFORE they enter a real queue.
-// Everything shown is directly observed; eligibility reason, target queue,
-// transfer success and human flow name are deliberately shown as "Unknown"
-// because FS-CC cannot reliably obtain them in this phase (see Phase-1A report).
-const UNK = <span className="text-gray-300 dark:text-ink-faint/50" title="Not reliably observable yet">Unknown</span>;
+// Everything shown is directly observed. Eligibility and target queue are shown
+// when the backend reports them; today it deliberately reports null (not yet
+// reliably observable — see the Phase-1A report), so they read "Not reported".
+const NOT_REPORTED = <span className="text-ink-faint" title="Not reported by the pre-queue feed yet">Not reported</span>;
 
-function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed }) {
+function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
   const Chevron = open ? ChevronDown : ChevronRight;
+  const hasCallers = rows.length > 0;
+
+  // Feed state, most severe first: feed error > event stream down > stale > live.
+  const feed = loadFailed ? { state: 'stale', label: 'Feed unavailable' }
+    : health === 'disconnected' ? { state: 'offline', label: 'Disconnected' }
+    : health === 'stale' ? { state: 'stale', label: 'Stale' }
+    : { state: 'live', label: 'Live' };
+
   return (
-    <Panel noPad>
-      <button onClick={onToggle}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left">
-        <Chevron size={16} className="text-gray-400 dark:text-ink-faint shrink-0" />
-        <ListTree size={15} className="text-primary shrink-0" />
-        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint">Live</span>
-        <span className="text-sm font-semibold text-gray-800 dark:text-ink">IVR &amp; Pre-Queue Monitor</span>
-        <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-gray-100 dark:bg-panel-raised text-gray-600 dark:text-ink-dim">
-          {rows.length}
-        </span>
+    <section className={`card ${hasCallers ? 'border-primary/40' : ''}`} aria-label="IVR and pre-queue monitor">
+      <div className="flex items-center gap-2 min-h-[44px] px-2 pr-4">
+        <button onClick={onToggle} aria-expanded={open} aria-controls="prequeue-body"
+          className="flex items-center gap-2 min-w-0 rounded-md px-2 py-1.5 hover:bg-surface-2 transition-colors">
+          <Chevron size={16} className="text-ink-faint shrink-0" aria-hidden="true" />
+          <ListTree size={16} className="text-primary shrink-0" aria-hidden="true" />
+          <h2 className="text-section-title truncate">IVR &amp; Pre-Queue Monitor</h2>
+          <span className={`count-pill ${hasCallers ? '!bg-primary/10 !text-primary' : ''}`}
+            aria-label={`${rows.length} caller${rows.length === 1 ? '' : 's'} in the IVR`}>{rows.length}</span>
+        </button>
+        <LiveIndicator state={feed.state} label={feed.label} />
         <span className="flex-1" />
-        <span className="text-[11px] text-gray-400 dark:text-ink-faint hidden sm:inline">
-          before queue entry
-        </span>
-      </button>
+        <span className="text-[12px] text-ink-faint hidden md:inline">Callers before queue entry</span>
+      </div>
 
       {open && (
-        loadFailed ? (
-          <div className="flex items-center gap-2.5 px-4 py-3 text-amber-600 dark:text-lamp-warn">
-            <AlertTriangle size={14} />
-            <span className="text-xs font-semibold">Pre-queue feed unavailable</span>
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="flex items-center gap-2.5 px-4 py-3 text-gray-400 dark:text-ink-faint border-t border-gray-100 dark:border-panel-border/40">
-            <span className="h-2 w-2 rounded-full shrink-0 bg-emerald-400/70" />
-            <span className="text-xs font-semibold text-gray-500 dark:text-ink-dim">No callers in the IVR</span>
-            <span className="text-[11px] hidden sm:inline">— callers appear here while in the IVR, then move to the queue on transfer</span>
-          </div>
-        ) : (
-          <div className="overflow-x-auto overflow-y-auto max-h-[40vh] border-t border-gray-100 dark:border-panel-border/40">
-            <table className="w-full text-sm" style={{ minWidth: 820 }}>
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-gray-50 dark:bg-panel-raised border-b border-gray-200 dark:border-panel-border">
-                  {['Caller', 'Channel', 'Stage', 'In Stage', 'Eligibility', 'Target Queue', 'Last Update'].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-panel-border/30">
-                {rows.map(r => (
-                  <tr key={r.chanUuid} className="hover:bg-gray-50/60 dark:hover:bg-panel-raised/20 transition-colors">
-                    {/* Caller name (r.callerName) and full number (r.caller) are present
-                        only for users the backend authorized via view_caller_id / admin;
-                        everyone else sees the masked number. Show "Name (Number)" when a
-                        name is available, otherwise the number alone. */}
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-800 dark:text-ink">
-                      {r.callerName
-                        ? `${r.callerName} (${r.caller || r.callerMasked})`
-                        : (r.caller || r.callerMasked || UNK)}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-400 dark:text-ink-faint" title={r.chanUuid}>{r.id}</td>
-                    <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
-                        {r.stage || 'in IVR'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-700 dark:text-ink">{fmtDur(secsSince(r.stageSince, nowMs))}</td>
-                    <td className="px-4 py-2.5">{UNK}</td>
-                    <td className="px-4 py-2.5">{UNK}</td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-500 dark:text-ink-dim">{fmtDur(secsSince(r.lastUpdate, nowMs))} ago</td>
+        <div id="prequeue-body" className="border-t border-border">
+          {loadFailed ? (
+            <EmptyState compact tone="warn" title="Pre-queue feed unavailable"
+              body="retrying automatically with the next refresh" />
+          ) : !hasCallers && health === 'disconnected' ? (
+            <EmptyState compact tone="warn" title="Event stream disconnected"
+              body="callers in the IVR may not be shown until the connection returns" />
+          ) : !hasCallers ? (
+            <EmptyState compact tone="ok" title="No callers in the IVR"
+              body="callers appear here while in the IVR, then move to the queue on transfer" />
+          ) : (
+            <div className="overflow-auto max-h-[40vh]">
+              <table className="data-table" style={{ minWidth: 820 }}>
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    {['Caller', 'Current Stage', 'In Stage', 'Eligibility', 'Target Queue', 'Last Update', 'Channel'].map(h => (
+                      <th key={h} scope="col" className="th">{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.chanUuid} className="tr-row">
+                      {/* Caller name (r.callerName) and full number (r.caller) are present
+                          only for users the backend authorized via view_caller_id / admin;
+                          everyone else sees the masked number. */}
+                      <td className="td">
+                        {(r.caller || r.callerMasked || r.callerName)
+                          ? <Caller name={r.callerName} number={r.caller || r.callerMasked} />
+                          : <span className="text-ink-faint" title="Not reliably observable yet">Unknown</span>}
+                      </td>
+                      <td className="td">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[12px] font-medium
+                          bg-status-oncall/10 text-status-oncall whitespace-nowrap">
+                          {r.stage || 'in IVR'}
+                        </span>
+                      </td>
+                      <td className="td tabular-nums font-semibold whitespace-nowrap">{fmtDur(secsSince(r.stageSince, nowMs))}</td>
+                      <td className="td">{r.eligibilityReason || NOT_REPORTED}</td>
+                      <td className="td">{r.targetQueue ? qn(r.targetQueue) : NOT_REPORTED}</td>
+                      <td className="td-secondary tabular-nums whitespace-nowrap">{fmtDur(secsSince(r.lastUpdate, nowMs))} ago</td>
+                      <td className="td-secondary tabular-nums text-[12px]" title={r.chanUuid}>{r.id}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
-    </Panel>
+    </section>
   );
 }
 
@@ -603,91 +669,71 @@ export default function LiveOperations() {
   }, [scheduleRefresh]);
 
   // ── Loading (never show misleading zeros before first load) ──────────────────
+  // Skeleton mirrors the real layout so nothing jumps when data arrives.
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
-          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}
+      <div className="space-y-4" aria-busy="true">
+        <div className="grid gap-x-4 gap-y-3 xl:grid-cols-[3fr_5fr]">
+          <KpiSkeleton count={3} className="grid gap-2.5 grid-cols-3 pt-5" />
+          <KpiSkeleton count={5} className="grid gap-2.5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 pt-5" />
         </div>
-        <div className="skeleton h-64 rounded-xl" />
-        <div className="skeleton h-64 rounded-xl" />
+        <div className="skeleton h-11 rounded-md" />
+        <div className="skeleton h-11 rounded-md" />
+        <div className="skeleton h-56 rounded-md" />
+        <div className="skeleton h-56 rounded-md" />
       </div>
     );
   }
 
-  const selectCls = 'py-1.5 px-2 text-xs rounded-lg border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-raised text-gray-600 dark:text-ink-dim';
-
   return (
     <div className="space-y-4">
 
-      {/* KPI command bar */}
+      {/* KPI summary — queue health + agent states */}
       <KpiBar k={kpi} />
 
       {/* IVR & Pre-Queue Monitor — callers observed before queue entry */}
       <PreQueuePanel rows={prequeueRows} nowMs={nowMs} open={pqOpen}
-        onToggle={() => setPqOpen(o => !o)} loadFailed={pqFailed} />
+        onToggle={() => setPqOpen(o => !o)} loadFailed={pqFailed} health={health} />
 
-      {/* Health + filters (stay stable while the tables scroll) */}
-      <Panel noPad>
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          <HealthPill health={health} />
-          {error && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-red-600 dark:text-lamp-alert">
-              <RefreshCw size={12} /> {error}
-            </span>
-          )}
-          <div className="flex-1 min-w-[160px]" />
-          <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-ink-faint" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search customer / agent / ext"
-              className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-raised text-gray-700 dark:text-ink w-56 max-w-full" />
-          </div>
-          <select value={queue} onChange={e => setQueue(e.target.value)} className={selectCls}>
-            {queueOptions.map(q => <option key={q} value={q}>{q === 'All' ? 'All queues' : q}</option>)}
-          </select>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 px-4 pb-3">
+      {/* Toolbar: feed health · quick filters · search · queue (one compact row) */}
+      <div className="card px-3 py-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <HealthIndicator health={health} lastOk={lastOk} />
+        <span className="hidden sm:block h-5 w-px bg-border" aria-hidden="true" />
+        <div role="group" aria-label="Quick filter" className="flex flex-wrap items-center gap-0.5">
           {QUICK.map(f => (
-            <button key={f} onClick={() => setQuick(f)}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors ${
-                quick === f
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 dark:bg-panel-raised text-gray-600 dark:text-ink-dim hover:bg-gray-200 dark:hover:bg-panel-border'
-              }`}>
+            <button key={f} type="button" onClick={() => setQuick(f)} aria-pressed={quick === f} className="chip">
               {f}
             </button>
           ))}
         </div>
-      </Panel>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" aria-hidden="true" />
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              type="search" aria-label="Search calls and agents"
+              placeholder="Search caller, agent or ext"
+              className="input-sm pl-8 w-60 max-w-full" />
+          </div>
+          <select value={queue} onChange={e => setQueue(e.target.value)} aria-label="Filter by queue"
+            className="input-sm pr-7 max-w-[200px]">
+            {queueOptions.map(q => <option key={q} value={q}>{q === 'All' ? 'All queues' : q}</option>)}
+          </select>
+        </div>
+        {error && (
+          <p role="alert" className="basis-full inline-flex items-center gap-1.5 text-[12px] text-status-error">
+            <RefreshCw size={13} aria-hidden="true" /> {error}
+          </p>
+        )}
+      </div>
 
       {/* Calls */}
-      <div className="flex items-center justify-end gap-2 -mb-1">
-        <span className="text-[11px] text-gray-400 dark:text-ink-faint">Sort calls</span>
-        <select value={callSort} onChange={e => setCallSort(e.target.value)} className={selectCls}>
-          <option value="attention">Attention</option>
-          <option value="wait">Longest waiting</option>
-          <option value="newest">Newest</option>
-          <option value="sla">SLA breached</option>
-          <option value="queue">Queue</option>
-          <option value="agent">Agent</option>
-        </select>
-      </div>
-      <CallsTable rows={callView} allEmpty={callRows.length === 0} />
+      <CallsTable rows={callView} allEmpty={callRows.length === 0}
+        sort={callSort} onSort={setCallSort} />
 
       {/* Agents */}
-      <div className="flex items-center justify-end gap-2 -mb-1">
-        <span className="text-[11px] text-gray-400 dark:text-ink-faint">Sort agents</span>
-        <select value={agentSort} onChange={e => setAgentSort(e.target.value)} className={selectCls}>
-          <option value="state">State</option>
-          <option value="duration">Longest state duration</option>
-          <option value="agent">Agent</option>
-          <option value="ext">Extension</option>
-          <option value="calldur">Current call duration</option>
-        </select>
-      </div>
       <AgentsTable rows={agentView} allEmpty={agentRows.length === 0}
-        canChangeState={canChangeState} onSetStatus={setStatus} />
+        canChangeState={canChangeState} onSetStatus={setStatus}
+        sort={agentSort} onSort={setAgentSort} />
 
     </div>
   );
