@@ -93,7 +93,7 @@ export default function CallHistoryReport() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[0.6875rem] uppercase tracking-wider text-gray-400 dark:text-ink-faint border-b border-gray-100 dark:border-panel-border">
+                <tr className="text-left text-[0.6875rem] text-gray-400 dark:text-ink-faint border-b border-gray-100 dark:border-panel-border">
                   <th className="th">Direction</th>
                   <th className="th">Agent</th>
                   <th className="th">Caller</th>

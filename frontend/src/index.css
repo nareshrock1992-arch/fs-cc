@@ -365,3 +365,7 @@ html {
 .skeleton {
   @apply animate-pulse rounded-lg bg-surface-2;
 }
+
+/* font-mono — single typeface: numeric cells keep column alignment through
+   tabular figures rather than a separate monospace font. */
+.font-mono { font-variant-numeric: tabular-nums; letter-spacing: -0.005em; }

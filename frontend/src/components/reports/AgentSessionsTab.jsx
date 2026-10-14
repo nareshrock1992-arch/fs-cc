@@ -48,7 +48,7 @@ function TH({ children, right = false }) {
 function MetricCard({ label, value }) {
   return (
     <div className="px-4 py-3 rounded-lg bg-gray-50 dark:bg-panel-raised border border-gray-200 dark:border-panel-border">
-      <p className="text-[0.6875rem] uppercase tracking-widest font-bold text-gray-400 dark:text-ink-faint">
+      <p className="text-[0.6875rem] font-bold text-gray-400 dark:text-ink-faint">
         {label}
       </p>
       <p className="text-lg font-mono font-semibold text-gray-800 dark:text-ink mt-0.5 tabular-nums">

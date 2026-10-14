@@ -25,7 +25,7 @@ function SlaBar({ pct }) {
 function Stat({ label, value, colorClass, title }) {
   return (
     <div title={title} className="min-w-0">
-      <p className="text-[0.6875rem] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
+      <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
         {label}
       </p>
       <p className={`text-sm font-semibold font-mono tnum min-w-0 [overflow-wrap:anywhere] ${colorClass ?? 'dark:text-ink text-gray-800'}`}>
@@ -72,10 +72,10 @@ function QueueCard({ q }) {
 
       {/* Card header — compact py-2.5 vs Panel's py-3.5 */}
       <div className="px-4 py-2.5 border-b dark:border-panel-border border-gray-100">
-        <p className="text-[0.6875rem] uppercase tracking-[0.12em] font-bold dark:text-brand-light text-blue-500 font-display mb-0.5">
+        <p className="text-[0.6875rem] tracking-[0.12em] font-bold dark:text-brand-light text-blue-500 font-display mb-0.5">
           {q.strategy}
         </p>
-        <h2 className="font-display font-semibold text-sm tracking-wide dark:text-ink text-gray-900">
+        <h2 className="font-display font-semibold text-sm dark:text-ink text-gray-900">
           {q.display_name || q.queue_name}
         </h2>
       </div>
@@ -96,7 +96,7 @@ function QueueCard({ q }) {
               : 'dark:text-ink text-gray-900';
             return (
               <div key={label} className="min-w-0">
-                <p className="text-[0.6875rem] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
+                <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
                   {label}
                 </p>
                 <p className={`text-metric ${color}`}>{value}</p>
@@ -107,7 +107,7 @@ function QueueCard({ q }) {
 
         {/* ── TODAY — 4×2 compact stat grid ───────────────────────────── */}
         <div className="border-t dark:border-panel-border border-gray-100 pt-3">
-          <p className="text-[0.6875rem] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 mb-2">
+          <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 mb-2">
             Today
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2.5">
@@ -135,7 +135,7 @@ function QueueCard({ q }) {
 
             {/* SLA — keeps the bar visualization */}
             <div>
-              <p className="text-[0.6875rem] uppercase tracking-widest font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
+              <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
                 SLA ({q.max_wait_time}s)
               </p>
               <SlaBar pct={slaVal} />

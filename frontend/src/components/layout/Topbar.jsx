@@ -44,8 +44,8 @@ function AdminMenu({ user }) {
           hover:bg-surface-2 border border-transparent
           ${open ? 'border-border bg-surface-2' : ''}`}
       >
-        <div className="h-7 w-7 rounded-full bg-navy flex items-center justify-center
-          text-white text-[0.6875rem] font-semibold shrink-0">
+        <div className="h-8 w-8 rounded-full bg-brand/10 text-brand ring-1 ring-brand/20 flex items-center justify-center
+          text-xs font-semibold shrink-0">
           {initials}
         </div>
         <div className="hidden lg:block text-left leading-tight">

@@ -33,7 +33,7 @@ export default function BreakHistory({ breakCodes }) {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <h2 className="text-sm font-semibold text-ink-dim uppercase tracking-wider">Break History</h2>
+        <h2 className="text-sm font-semibold text-ink-dim">Break History</h2>
         <select
           value={code}
           onChange={e => { setPage(1); setCode(e.target.value); }}
@@ -58,7 +58,7 @@ export default function BreakHistory({ breakCodes }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[0.6875rem] uppercase tracking-wider text-ink-faint border-b border-panel-border">
+              <tr className="text-left text-[0.6875rem] text-ink-faint border-b border-panel-border">
                 <th className="py-2 pr-3 font-semibold">Reason</th>
                 <th className="py-2 pr-3 font-semibold">Started</th>
                 <th className="py-2 pr-3 font-semibold">Ended</th>

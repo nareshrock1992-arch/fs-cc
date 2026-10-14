@@ -40,7 +40,7 @@ const DISP = {
 function DispositionBadge({ value }) {
   const d = DISP[value] ?? { label: (value ?? 'UNKNOWN').toUpperCase(), cls: 'bg-gray-100 text-gray-500 ring-1 ring-gray-200' };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.6875rem] font-bold tracking-wide ${d.cls}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.6875rem] font-bold ${d.cls}`}>
       {d.label}
     </span>
   );

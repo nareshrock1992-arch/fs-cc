@@ -48,14 +48,19 @@ function timeAgo(ts) {
 
 // ─── Service Level Gauge (compact) ───────────────────────────────────────────
 
-function ServiceLevelGauge({ pct }) {
+function ServiceLevelGauge({ pct, noData = false }) {
   const r = 40;
   const cx = 50, cy = 50;
   const circumference = 2 * Math.PI * r;
   const safe   = Math.min(100, Math.max(0, pct || 0));
-  const offset = circumference - (safe / 100) * circumference;
-  const stroke = safe >= 80 ? '#27C98A' : safe >= 60 ? '#F5A623' : '#EF4444';
-  const status = safe >= 80 ? 'Excellent' : safe >= 60 ? 'Warning' : 'Critical';
+  const offset = noData ? circumference : circumference - (safe / 100) * circumference;
+  // Token colours (theme-aware). With no calls today there is nothing to
+  // measure, so show a neutral state instead of a red "0% Critical".
+  const stroke = noData ? 'rgb(var(--text-muted))'
+    : safe >= 80 ? 'rgb(var(--status-available))'
+    : safe >= 60 ? 'rgb(var(--status-ringing))'
+    : 'rgb(var(--status-error))';
+  const status = noData ? 'No calls yet' : safe >= 80 ? 'Excellent' : safe >= 60 ? 'Warning' : 'Critical';
 
   return (
     <div className="flex items-center gap-3">
@@ -71,14 +76,15 @@ function ServiceLevelGauge({ pct }) {
           transform={`rotate(-90 ${cx} ${cy})`}
           style={{ transition: 'stroke-dashoffset 0.7s ease, stroke 0.4s ease' }}
         />
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="18" fontWeight="700"
-          fill={stroke} fontFamily="IBM Plex Mono, monospace">{safe}%</text>
-        <text x={cx} y={cy + 13} textAnchor="middle" fontSize="8"
-          fill="#8B99B8" fontFamily="Inter, sans-serif">SLA</text>
+        <text x={cx} y={cy - 2} textAnchor="middle" fontSize="19" fontWeight="600"
+          fill={stroke} fontFamily="Inter, system-ui, sans-serif"
+          style={{ fontVariantNumeric: 'tabular-nums' }}>{noData ? '—' : `${safe}%`}</text>
+        <text x={cx} y={cy + 15} textAnchor="middle" fontSize="10"
+          fill="rgb(var(--text-muted))" fontFamily="Inter, system-ui, sans-serif">SLA</text>
       </svg>
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-gray-700 dark:text-ink">Service Level</p>
-        <p className="text-[0.6875rem] font-bold uppercase tracking-wider mt-0.5" style={{ color: stroke }}>
+        <p className="text-sm font-semibold text-ink">Service Level</p>
+        <p className="text-xs font-semibold mt-0.5" style={{ color: stroke }}>
           {status}
         </p>
         <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
@@ -161,10 +167,10 @@ function QueueHealthSection({ distribution, liveByName }) {
                   <CartesianGrid strokeDasharray="3 3"
                     stroke="rgba(139,153,184,0.10)" vertical={false} />
                   <XAxis dataKey="name"
-                    tick={{ fontSize: 9, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
+                    tick={{ fontSize: 11, fill: 'rgb(var(--text-secondary))', fontFamily: 'Inter, system-ui, sans-serif' }}
                     axisLine={false} tickLine={false} interval={0} />
                   <YAxis
-                    tick={{ fontSize: 9, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
+                    tick={{ fontSize: 11, fill: 'rgb(var(--text-secondary))', fontFamily: 'Inter, system-ui, sans-serif' }}
                     axisLine={false} tickLine={false} allowDecimals={false} width={28} />
                   <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(139,153,184,0.06)' }} />
                   <Bar dataKey="Offered"   name="Offered"   fill="#3B82F6" radius={[2,2,0,0]} />
@@ -214,14 +220,14 @@ function QueueHealthSection({ distribution, liveByName }) {
                     ['Ans%',    'text-right', 'today'],
                     ['SLA',     'text-right', 'today'],
                   ].map(([h, align, basis]) => (
-                    <th key={h} className={`pb-2 px-1.5 text-[0.6875rem] font-semibold uppercase
-                      tracking-wider text-gray-400 dark:text-ink-faint ${align}`}>
+                    <th key={h} className={`pb-2 px-1.5 text-xs font-semibold
+                      text-ink-dim ${align}`}>
                       {h}
                       {basis && (
-                        <span className={`block text-[0.6875rem] font-medium tracking-normal normal-case ${
+                        <span className={`block text-[0.6875rem] font-normal ${
                           basis === 'live'
-                            ? 'text-amber-500 dark:text-amber-400'
-                            : 'text-gray-300 dark:text-ink-faint/60'
+                            ? 'text-status-ringing'
+                            : 'text-ink-faint'
                         }`}>
                           {basis}
                         </span>
@@ -240,7 +246,8 @@ function QueueHealthSection({ distribution, liveByName }) {
                   const waiting   = live.waiting || 0;
                   const longest   = fmtSeconds(live.longest_wait_seconds);
                   const avail     = live.available_agents ?? null;
-                  const sla       = live.sla_pct_today == null ? null : Number(live.sla_pct_today);
+                  // No calls offered today → nothing to measure: show "—", not a red 0%.
+                  const sla       = (live.sla_pct_today == null || offered === 0) ? null : Number(live.sla_pct_today);
                   const color     = queueColor(q.queue_name, distribution);
                   const ansColor  = ansRate === null
                     ? 'text-gray-300 dark:text-ink-faint/40'
@@ -283,15 +290,15 @@ function QueueHealthSection({ distribution, liveByName }) {
                             {waiting}
                           </span>
                         ) : (
-                          <span className="font-mono tnum text-gray-300 dark:text-ink-faint/50">0</span>
+                          <span className="tnum text-ink-faint">0</span>
                         )}
                       </td>
                       <td className="py-2 px-1.5 font-mono tnum text-right text-gray-500 dark:text-ink-dim">
                         {waiting > 0 ? longest : '—'}
                       </td>
-                      <td className="py-2 px-1.5 font-mono tnum text-gray-600 dark:text-ink text-right">{offered}</td>
-                      <td className="py-2 px-1.5 font-mono tnum text-emerald-600 dark:text-lamp-ok text-right font-semibold">{answered}</td>
-                      <td className="py-2 px-1.5 font-mono tnum text-red-400 dark:text-lamp-alert text-right">{abandoned}</td>
+                      <td className={`py-2 px-1.5 tnum text-right ${offered > 0 ? 'text-ink' : 'text-ink-faint'}`}>{offered}</td>
+                      <td className={`py-2 px-1.5 tnum text-right ${answered > 0 ? 'text-status-available font-semibold' : 'text-ink-faint'}`}>{answered}</td>
+                      <td className={`py-2 px-1.5 tnum text-right ${abandoned > 0 ? 'text-status-error font-semibold' : 'text-ink-faint'}`}>{abandoned}</td>
                       <td className={`py-2 px-1.5 font-mono tnum text-right font-semibold ${ansColor}`}>
                         {ansRate !== null ? `${ansRate}%` : '—'}
                       </td>
@@ -349,7 +356,7 @@ function ServiceHealth({ stats }) {
     <Panel eyebrow="Live" title="Service Health">
       <div className="space-y-4">
         <div className="pt-0.5">
-          <ServiceLevelGauge pct={slaPct} />
+          <ServiceLevelGauge pct={slaPct} noData={total === 0} />
         </div>
 
         <div>
@@ -496,7 +503,7 @@ function AgentStatusCard({ agents }) {
           </div>
           {/* Available capacity */}
           <div className="pt-2 border-t border-gray-100 dark:border-panel-border/40">
-            <p className="text-[0.6875rem] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
+            <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint">
               Available Capacity
             </p>
             <p className="text-metric text-emerald-600 dark:text-emerald-400 mt-0.5">
@@ -559,9 +566,9 @@ function CallsTrendCard({ data, ready }) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(139,153,184,0.10)" vertical={false} />
-                <XAxis dataKey="hour" tick={{ fontSize: 10, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
+                <XAxis dataKey="hour" tick={{ fontSize: 11, fill: 'rgb(var(--text-secondary))', fontFamily: 'Inter, system-ui, sans-serif' }}
                   axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={16} />
-                <YAxis tick={{ fontSize: 10, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' }}
+                <YAxis tick={{ fontSize: 11, fill: 'rgb(var(--text-secondary))', fontFamily: 'Inter, system-ui, sans-serif' }}
                   axisLine={false} tickLine={false} allowDecimals={false} width={32} />
                 <Tooltip content={<TrendTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11 }} iconType="plainline" />
@@ -600,7 +607,7 @@ function UtilizationCard({ util, agents }) {
     <Panel eyebrow="Today" title="Agent Utilization">
       <div className="space-y-3">
         <div>
-          <p className="text-[0.6875rem] uppercase tracking-widest font-semibold text-gray-400 dark:text-ink-faint">
+          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint">
             Today
           </p>
           <p className="text-metric mt-0.5" style={{ color: tone }}>

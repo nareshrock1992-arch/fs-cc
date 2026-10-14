@@ -214,15 +214,15 @@ export default function AgentPerformanceDashboard() {
       {/* ── Filters ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-ink-faint">From</span>
+          <span className="text-[0.6875rem] font-semibold text-ink-faint">From</span>
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="field-input w-auto" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-ink-faint">To</span>
+          <span className="text-[0.6875rem] font-semibold text-ink-faint">To</span>
           <input type="date" value={to} onChange={e => setTo(e.target.value)} className="field-input w-auto" />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[0.6875rem] font-semibold uppercase tracking-wider text-ink-faint">Agent</span>
+          <span className="text-[0.6875rem] font-semibold text-ink-faint">Agent</span>
           <select value={agent} onChange={e => setAgent(e.target.value)} className="field-input w-auto">
             <option value="">All agents</option>
             {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.full_name} ({a.agent_id})</option>)}
@@ -341,7 +341,7 @@ function RecognitionHero({ recognition }) {
                 <Ico size={22} />
               </span>
               <div className="min-w-0">
-                <p className="text-[0.6875rem] uppercase tracking-wider font-semibold text-ink-faint">{c.label}</p>
+                <p className="text-[0.6875rem] font-semibold text-ink-faint">{c.label}</p>
                 <p className="text-lg font-semibold text-ink truncate leading-tight">{c.who}</p>
                 <p className="text-base font-mono font-semibold text-primary tabular-nums mt-0.5">{c.value}</p>
                 {c.sub && <p className="text-[0.6875rem] text-ink-dim mt-0.5">{c.sub}</p>}
@@ -364,7 +364,7 @@ function TrendChart({ data, kind }) {
   if (!data || data.length === 0) {
     return <p className="text-xs text-ink-faint py-8 text-center">No daily data for the selected period.</p>;
   }
-  const axisTick = { fontSize: 10, fill: '#8B99B8', fontFamily: 'Inter, sans-serif' };
+  const axisTick = { fontSize: 11, fill: 'rgb(var(--text-secondary))', fontFamily: 'Inter, system-ui, sans-serif' };
   // Per-metric Y-axis unit formatter + tooltip value formatter, so every chart
   // shows correct units (calls / % / duration) rather than bare numbers.
   const isDuration = kind === 'talk' || kind === 'ring';

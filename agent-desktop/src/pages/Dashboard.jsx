@@ -289,7 +289,7 @@ export default function Dashboard({ auth, theme }) {
           <Phone size={16} className="text-white" strokeWidth={2} />
         </div>
 
-        <span className="text-xs font-bold text-brand-light tracking-wide uppercase hidden sm:block">
+        <span className="text-xs font-bold text-brand-light hidden sm:block">
           Agent Desktop
         </span>
 
@@ -385,7 +385,7 @@ export default function Dashboard({ auth, theme }) {
 
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-ink-dim uppercase tracking-wider">
+                <h2 className="text-sm font-semibold text-ink-dim">
                   My Queues
                 </h2>
                 <span className="text-[0.6875rem] text-ink-faint">Live · 3s refresh</span>

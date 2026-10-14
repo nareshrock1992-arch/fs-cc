@@ -7,7 +7,7 @@ export default function Modal({ open, title, onClose, children, footer }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-xl border dark:border-panel-border border-gray-200 dark:bg-panel-surface bg-white shadow-card-hover">
         <div className="flex items-center justify-between px-5 py-4 border-b dark:border-panel-border border-gray-100">
-          <h3 className="font-display font-semibold text-sm tracking-wide dark:text-ink text-gray-800">
+          <h3 className="font-display font-semibold text-sm dark:text-ink text-gray-800">
             {title}
           </h3>
           <button

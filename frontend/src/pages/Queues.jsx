@@ -311,11 +311,11 @@ export default function Queues() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <label className="text-[0.6875rem] uppercase tracking-wide dark:text-ink-faint text-gray-400">Lvl</label>
+                      <label className="text-[0.6875rem] dark:text-ink-faint text-gray-400">Lvl</label>
                       <input type="number" min="1" max="10" defaultValue={a.level}
                         onBlur={(e) => { const v = Number(e.target.value); if (v !== a.level) handleSetTier(a.agent_id, { level: v }); }}
                         className={`${inputClass} w-14 py-1`} title="Tier level (lower tried first)" />
-                      <label className="text-[0.6875rem] uppercase tracking-wide dark:text-ink-faint text-gray-400">Pos</label>
+                      <label className="text-[0.6875rem] dark:text-ink-faint text-gray-400">Pos</label>
                       <input type="number" min="1" max="100" defaultValue={a.position}
                         onBlur={(e) => { const v = Number(e.target.value); if (v !== a.position) handleSetTier(a.agent_id, { position: v }); }}
                         className={`${inputClass} w-14 py-1`} title="Tie-break position within a level" />

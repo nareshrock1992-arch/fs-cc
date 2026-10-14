@@ -1,13 +1,12 @@
 export function FormField({ label, hint, children, required }) {
   return (
     <label className="block mb-4">
-      <span className="block text-[0.6875rem] font-semibold text-gray-500 dark:text-ink-faint
-                       uppercase tracking-wider mb-1.5">
-        {label}{required && <span className="text-lamp-alert ml-0.5">*</span>}
+      <span className="block text-[0.8125rem] font-medium text-ink mb-1.5">
+        {label}{required && <span className="text-status-error ml-0.5" aria-hidden="true">*</span>}
       </span>
       {children}
       {hint && (
-        <span className="block text-[0.6875rem] text-gray-400 dark:text-ink-faint mt-1">{hint}</span>
+        <span className="block text-xs text-ink-dim mt-1 leading-snug">{hint}</span>
       )}
     </label>
   );

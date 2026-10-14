@@ -38,7 +38,7 @@ function IvrSection({ title, subtitle, rows, labelKey, labelHeader, color }) {
   const total = rows.reduce((s, r) => s + Number(r.calls), 0);
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-wider dark:text-ink text-gray-800 mb-0.5">
+      <p className="text-xs font-bold dark:text-ink text-gray-800 mb-0.5">
         {title}
       </p>
       <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 mb-2">{subtitle}</p>
@@ -127,8 +127,8 @@ export default function Reports() {
   const isDark = useIsDark();
   const grid   = isDark ? { stroke: '#1C2A42' } : { stroke: '#e5e7eb' };
   const axis   = isDark
-    ? { stroke: '#4C5A78', fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', fill: '#4C5A78' }
-    : { stroke: '#9ca3af', fontSize: 11, fontFamily: 'IBM Plex Mono, monospace', fill: '#6b7280' };
+    ? { stroke: '#2A3A56', fontSize: 11, fontFamily: 'Inter, system-ui, sans-serif', fill: 'rgb(var(--text-secondary))' }
+    : { stroke: '#C5D0DD', fontSize: 11, fontFamily: 'Inter, system-ui, sans-serif', fill: 'rgb(var(--text-secondary))' };
   const ttip   = isDark
     ? { background: '#0B1220', border: '1px solid #1C2A42', borderRadius: 6, fontSize: 12, color: '#E8ECF6' }
     : { background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 6, fontSize: 12, color: '#111827' };
@@ -263,7 +263,7 @@ export default function Reports() {
                       'Abandoned Queue', 'Missed by Agent',
                       'ASA', 'Avg Talk', 'Abandon %', 'SLA %'
                     ].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider
+                      <th key={h} className="px-4 py-3 text-left text-[0.6875rem] font-bold
                         text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap">
                         {h}
                       </th>
@@ -316,7 +316,7 @@ export default function Reports() {
                     ].map(h => (
                       <th
                         key={h}
-                        className="px-4 py-3 text-left text-[0.6875rem] font-bold uppercase tracking-wider
+                        className="px-4 py-3 text-left text-[0.6875rem] font-bold
                           text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap"
                       >
                         {h}

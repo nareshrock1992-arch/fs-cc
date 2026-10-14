@@ -38,12 +38,12 @@ const ALL_PERMISSIONS = [
 
 function RoleBadge({ role }) {
   return role === 'admin'
-    ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.6875rem] font-bold uppercase tracking-wide
+    ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.6875rem] font-bold
                        bg-brand/10 dark:bg-brand/15 text-brand dark:text-brand-light
                        border border-brand/20 dark:border-brand/25">
         <ShieldCheck size={9} /> Admin
       </span>
-    : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.6875rem] font-bold uppercase tracking-wide
+    : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.6875rem] font-bold
                        bg-gray-100 dark:bg-panel-raised text-gray-500 dark:text-ink-dim
                        border border-gray-200 dark:border-panel-border">
         <User size={9} /> Supervisor
@@ -524,7 +524,7 @@ export default function UserManagement() {
           {/* Group permissions by their group label */}
           {[...new Set(ALL_PERMISSIONS.map(p => p.group))].map(group => (
             <div key={group}>
-              <p className="text-[0.6875rem] font-bold uppercase tracking-wider text-gray-400
+              <p className="text-[0.6875rem] font-bold text-gray-400
                 dark:text-ink-faint mb-2">{group}</p>
               <div className="space-y-2">
                 {ALL_PERMISSIONS.filter(p => p.group === group).map(({ key, label, description }) => (

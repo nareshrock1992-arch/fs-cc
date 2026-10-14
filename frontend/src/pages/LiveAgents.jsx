@@ -247,7 +247,7 @@ export default function LiveAgents() {
             <thead>
               <tr className="border-b border-gray-200 dark:border-panel-border">
                 {['Agent', 'Ext', 'State', 'State Duration', 'Idle', 'Queue(s)', 'Current Call', 'Since', canChangeState ? 'Actions' : ''].map((h, i) => (
-                  <th key={i} className="px-4 py-2.5 text-left text-[0.6875rem] font-bold uppercase tracking-wider text-gray-400 dark:text-ink-faint bg-gray-50 dark:bg-panel-raised whitespace-nowrap">{h}</th>
+                  <th key={i} className="px-4 py-2.5 text-left text-[0.6875rem] font-bold text-gray-400 dark:text-ink-faint bg-gray-50 dark:bg-panel-raised whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>

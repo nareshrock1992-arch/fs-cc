@@ -44,7 +44,7 @@ export default function Login() {
           <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-brand mb-5">
             <Radio size={24} className="text-white" />
           </div>
-          <h1 className="font-display font-bold text-2xl tracking-wide text-ink">Switchboard</h1>
+          <h1 className="font-display font-bold text-2xl text-ink">Switchboard</h1>
           <p className="text-sm text-ink-faint mt-1">SIPCommunication Contact Center</p>
         </div>
 
@@ -63,7 +63,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {/* Username */}
             <div>
-              <label className="block text-[0.6875rem] font-semibold text-ink-faint mb-1.5 uppercase tracking-widest">
+              <label className="block text-[0.6875rem] font-semibold text-ink-faint mb-1.5">
                 Username
               </label>
               <input
@@ -79,7 +79,7 @@ export default function Login() {
 
             {/* Password */}
             <div>
-              <label className="block text-[0.6875rem] font-semibold text-ink-faint mb-1.5 uppercase tracking-widest">
+              <label className="block text-[0.6875rem] font-semibold text-ink-faint mb-1.5">
                 Password
               </label>
               <div className="relative">

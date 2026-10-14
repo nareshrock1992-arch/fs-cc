@@ -127,7 +127,7 @@ function SidebarContent({ onNavigate }) {
     <>
       {/* Brand header — aligned with the 56px Topbar */}
       <div className="h-14 flex items-center gap-2.5 px-4 border-b border-border shrink-0">
-        <div className="h-8 w-8 rounded-md bg-navy flex items-center justify-center shrink-0">
+        <div className="h-9 w-9 rounded-lg bg-brand flex items-center justify-center shrink-0">
           <Radio size={15} className="text-white" aria-hidden="true" />
         </div>
         <div className="leading-tight min-w-0">

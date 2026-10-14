@@ -84,7 +84,7 @@ export default {
       fontFamily: {
         display: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
         sans:    ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
-        mono:    ['"IBM Plex Mono"', 'ui-monospace', 'Consolas', 'monospace'],
+        mono:    ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'], // one typeface; digits via tabular-nums (index.css)
       },
       boxShadow: {
         card:          '0 1px 2px rgba(20,38,61,0.05)',

@@ -116,7 +116,7 @@ export default function CallHistory() {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
-        <h2 className="text-sm font-semibold text-ink-dim uppercase tracking-wider">Call History</h2>
+        <h2 className="text-sm font-semibold text-ink-dim">Call History</h2>
         <div className="flex items-center gap-2 flex-wrap">
           <select
             value={direction}
@@ -156,7 +156,7 @@ export default function CallHistory() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-[0.6875rem] uppercase tracking-wider text-ink-faint border-b border-panel-border">
+              <tr className="text-left text-[0.6875rem] text-ink-faint border-b border-panel-border">
                 <th className="py-2 pr-3 font-semibold">Direction</th>
                 <th className="py-2 pr-3 font-semibold">Caller</th>
                 <th className="py-2 pr-3 font-semibold">Queue</th>

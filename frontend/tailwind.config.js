@@ -116,7 +116,7 @@ export default {
         // condensed face (which read as cramped at small sizes).
         display: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
         sans:    ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
-        mono:    ['"IBM Plex Mono"', 'ui-monospace', 'Consolas', 'monospace'],
+        mono:    ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'], // one typeface; digits via tabular-nums (index.css)
       },
       boxShadow: {
         // Restrained enterprise elevation: cards are near-flat and rely on a
