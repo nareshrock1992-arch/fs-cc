@@ -1,16 +1,17 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { Phone, LogOut, LayoutDashboard, PhoneCall, Coffee, X } from 'lucide-react';
+import { LayoutDashboard, PhoneCall, Coffee, X, ListOrdered } from 'lucide-react';
 import { api }            from '../api/client.js';
 import { socket }         from '../api/socket.js';
-import StatusControls     from '../components/StatusControls.jsx';
 import CurrentBreakPanel  from '../components/CurrentBreakPanel.jsx';
 import CallHistory        from '../components/CallHistory.jsx';
 import BreakHistory       from '../components/BreakHistory.jsx';
 import QueueCard          from '../components/QueueCard.jsx';
 import LiveCallPanel      from '../components/LiveCallPanel.jsx';
-import EslBadge           from '../components/EslBadge.jsx';
 import PerformanceCard    from '../components/PerformanceCard.jsx';
-import ThemeToggle        from '../components/ThemeToggle.jsx';
+import AppShell           from '../shell/AppShell.jsx';
+import StatusSelector     from '../shell/StatusSelector.jsx';
+import { buildLamps }     from '../shell/ConnectionLamps.jsx';
+import { Section, EmptyState } from '../ui/primitives.jsx';
 
 // ── Browser phone (WebRTC, Phase 2) ─────────────────────────────────────────
 // Off unless the build sets VITE_WEBRTC_ENABLED=true. Vite replaces the env value at
@@ -19,6 +20,16 @@ const WEBRTC_ENABLED = import.meta.env.VITE_WEBRTC_ENABLED === 'true';
 const SoftphonePanel = WEBRTC_ENABLED
   ? lazy(() => import('../features/softphone/ui/SoftphonePanel.jsx'))
   : null;
+const PhoneStatusProbe = WEBRTC_ENABLED
+  ? lazy(() => import('../features/softphone/ui/PhoneStatusProbe.jsx'))
+  : null;
+
+const NAV = [
+  { key: 'dashboard', label: 'Workspace', Icon: LayoutDashboard },
+  { key: 'queues',    label: 'Queues',    Icon: ListOrdered },
+  { key: 'calls',     label: 'Calls',     Icon: PhoneCall },
+  { key: 'breaks',    label: 'Breaks',    Icon: Coffee },
+];
 async function stopSoftphone() {
   if (!WEBRTC_ENABLED) return;
   try { await (await import('../features/softphone/index.js')).stopSoftphoneIfActive(); } catch {}
@@ -26,21 +37,6 @@ async function stopSoftphone() {
 
 const QUEUE_INTERVAL = 3_000;
 const PERF_INTERVAL  = 30_000;
-
-function statusDotClass(status) {
-  switch (status) {
-    case 'Available': return 'bg-lamp-available';
-    case 'On Break':  return 'bg-lamp-break';
-    default:          return 'bg-ink-faint';
-  }
-}
-function statusTextClass(status) {
-  switch (status) {
-    case 'Available': return 'text-lamp-available';
-    case 'On Break':  return 'text-lamp-break';
-    default:          return 'text-ink-faint';
-  }
-}
 
 export default function Dashboard({ auth, theme }) {
   const { agent, logout, updateAgent } = auth;
@@ -53,6 +49,11 @@ export default function Dashboard({ auth, theme }) {
   const [breakCodes,  setBreakCodes]  = useState([]);
   const [view,        setView]        = useState('dashboard'); // dashboard | calls | breaks
   const [toast,       setToast]       = useState(null);
+  // Connectivity (display only): API reachability comes from the existing 3-s queue
+  // poll; socket state from socket.io events; phone from the softphone probe.
+  const [apiOk,       setApiOk]       = useState(null);
+  const [socketUp,    setSocketUp]    = useState(socket.connected);
+  const [phoneLamp,   setPhoneLamp]   = useState(null);
 
   const agentId     = agent?.agent_id;
   const agentStatus = agent?.status || 'Logged Out';
@@ -69,7 +70,18 @@ export default function Dashboard({ auth, theme }) {
 
   // ── Queue stats polling ───────────────────────────────────────────────────
   const fetchQueues = useCallback(async () => {
-    try { setQueues(await api.queues()); } catch {}
+    try { setQueues(await api.queues()); setApiOk(true); } catch { setApiOk(false); }
+  }, []);
+
+  // Socket connectivity for the "Live" lamp (separate listeners; the business
+  // event handlers below are unchanged).
+  useEffect(() => {
+    const up = () => setSocketUp(true);
+    const down = () => setSocketUp(false);
+    socket.on('connect', up);
+    socket.on('disconnect', down);
+    setSocketUp(socket.connected);
+    return () => { socket.off('connect', up); socket.off('disconnect', down); };
   }, []);
 
   useEffect(() => {
@@ -291,153 +303,101 @@ export default function Dashboard({ auth, theme }) {
     }
   }
 
+  const lamps = buildLamps({ apiOk, socketConnected: socketUp, eslConnected: eslConn, phone: phoneLamp });
+
+  const queueSection = (
+    <Section
+      title="My queues"
+      actions={<span className="text-[0.6875rem] text-ink-faint">Live · 3s refresh</span>}
+    >
+      {queues.length === 0 ? (
+        <EmptyState title="No queues assigned">
+          Ask your supervisor to add you to a queue in the Admin UI.
+        </EmptyState>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {queues.map(q => <QueueCard key={q.name} q={q} />)}
+        </div>
+      )}
+    </Section>
+  );
+
   return (
-    <div className="min-h-screen bg-panel-bg flex flex-col">
+    <AppShell
+      agent={agent}
+      queueNames={queues.map(q => q.name)}
+      lamps={lamps}
+      theme={theme}
+      onLogout={handleLogout}
+      nav={NAV}
+      activeView={view}
+      onNavigate={setView}
+      statusSelector={
+        <StatusSelector
+          currentStatus={agentStatus}
+          breakName={agent?.break_name}
+          breakCodes={breakCodes}
+          onStatusChange={handleStatusChange}
+          onError={setToast}
+        />
+      }
+    >
+      {PhoneStatusProbe && (
+        <Suspense fallback={null}>
+          <PhoneStatusProbe agent={agent} onChange={setPhoneLamp} />
+        </Suspense>
+      )}
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="bg-panel-surface border-b border-panel-border px-4 py-3
-                         flex items-center gap-3 sticky top-0 z-10">
-        {/* Logo */}
-        <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center shrink-0">
-          <Phone size={16} className="text-white" strokeWidth={2} />
+      {toast && (
+        <div role="alert" className="rounded-lg p-3 border border-status-error/40 bg-status-error/10
+                        flex items-center justify-between gap-3">
+          <span className="text-sm text-status-error">{toast}</span>
+          <button onClick={() => setToast(null)} aria-label="Dismiss" className="text-status-error/70 hover:text-status-error">
+            <X size={15} />
+          </button>
         </div>
+      )}
 
-        <span className="text-xs font-bold text-brand-light hidden sm:block">
-          Agent Desktop
-        </span>
-
-        <div className="flex-1" />
-
-        <EslBadge connected={eslConn} />
-
-        {/* Agent pill */}
-        <div className="flex items-center gap-2 pl-2 border-l border-panel-border">
-          <span className={`w-2 h-2 rounded-full ${statusDotClass(agentStatus)}`} />
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-semibold text-ink leading-tight">{agent?.full_name}</p>
-            <p className={`text-[0.6875rem] font-medium ${statusTextClass(agentStatus)}`}>{agentStatus}</p>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-brand/20 border border-brand/30
-                          flex items-center justify-center text-brand-light font-bold text-sm">
-            {(agent?.full_name?.[0] || 'A').toUpperCase()}
-          </div>
-        </div>
-
-        {/* Theme toggle */}
-        <ThemeToggle isDark={theme.isDark} onToggle={theme.toggle} />
-
-        {/* Logout */}
-        <button
-          onClick={handleLogout}
-          title="Logout"
-          className="p-2 rounded-lg text-ink-faint hover:text-ink-dim
-                     hover:bg-panel-raised transition-colors"
-        >
-          <LogOut size={16} strokeWidth={1.75} />
-        </button>
-      </header>
-
-      {/* ── Main ───────────────────────────────────────────────────────────── */}
-      <main className="flex-1 p-4 space-y-4 max-w-5xl w-full mx-auto">
-
-        {toast && (
-          <div role="alert" className="card p-3 border border-lamp-alert/40 bg-lamp-alert/10
-                          flex items-center justify-between gap-3">
-            <span className="text-sm text-lamp-alert">{toast}</span>
-            <button onClick={() => setToast(null)} aria-label="Dismiss" className="text-lamp-alert/70 hover:text-lamp-alert">
-              <X size={15} />
-            </button>
-          </div>
-        )}
-
-        {callState && <LiveCallPanel callState={callState} />}
-
-        {/* View tabs */}
-        <div className="flex gap-1 border-b border-panel-border" role="tablist" aria-label="Agent views">
-          {[
-            { key: 'dashboard', label: 'Dashboard',     Icon: LayoutDashboard },
-            { key: 'calls',     label: 'Call History',  Icon: PhoneCall },
-            { key: 'breaks',    label: 'Break History', Icon: Coffee },
-          ].map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={view === key}
-              onClick={() => setView(key)}
-              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors
-                ${view === key
-                  ? 'border-brand text-brand-light'
-                  : 'border-transparent text-ink-faint hover:text-ink-dim'}`}
-            >
-              <Icon size={15} /> {label}
-            </button>
-          ))}
-        </div>
-
-        {view === 'dashboard' && (
-          <>
-            {agentStatus === 'On Break' && agent?.break_started_at && (
-              <CurrentBreakPanel
-                breakName={agent.break_name}
-                breakCode={agent.break_code}
-                breakStartedAt={agent.break_started_at}
-                maxDurationSeconds={currentBreakCfg?.max_duration_seconds}
-                warnThresholdSeconds={currentBreakCfg?.warn_threshold_seconds}
-                onReturn={handleReturnFromBreak}
-              />
-            )}
-
-            <StatusControls
-              currentStatus={agentStatus}
-              breakCodes={breakCodes}
-              onStatusChange={handleStatusChange}
-              onError={setToast}
+      {view === 'dashboard' && (
+        <>
+          {agentStatus === 'On Break' && agent?.break_started_at && (
+            <CurrentBreakPanel
+              breakName={agent.break_name}
+              breakCode={agent.break_code}
+              breakStartedAt={agent.break_started_at}
+              maxDurationSeconds={currentBreakCfg?.max_duration_seconds}
+              warnThresholdSeconds={currentBreakCfg?.warn_threshold_seconds}
+              onReturn={handleReturnFromBreak}
             />
+          )}
 
-            {SoftphonePanel && (
-              <Suspense fallback={null}>
-                <SoftphonePanel agent={agent} />
-              </Suspense>
-            )}
+          {callState && <LiveCallPanel callState={callState} />}
 
-            <PerformanceCard perf={perf} loading={perfLoading} />
+          {SoftphonePanel && (
+            <Suspense fallback={null}>
+              <SoftphonePanel agent={agent} />
+            </Suspense>
+          )}
 
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-ink-dim">
-                  My Queues
-                </h2>
-                <span className="text-[0.6875rem] text-ink-faint">Live · 3s refresh</span>
-              </div>
+          <PerformanceCard perf={perf} loading={perfLoading} />
 
-              {queues.length === 0 ? (
-                <div className="card p-8 text-center text-ink-faint text-sm">
-                  No queues assigned — ask your supervisor to add you to a queue in the Admin UI.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {queues.map(q => <QueueCard key={q.name} q={q} />)}
-                </div>
-              )}
-            </div>
+          {queueSection}
+        </>
+      )}
 
-            <div className="text-[0.6875rem] text-ink-faint flex flex-wrap gap-4
-                            border-t border-panel-border pt-3">
-              <span>Agent: <code className="text-ink-dim">{agent?.agent_id}</code></span>
-              <span>Extension: <code className="text-ink-dim">{agent?.avaya_extension}</code></span>
-            </div>
-          </>
-        )}
+      {view === 'queues' && (
+        <>
+          {callState && <LiveCallPanel callState={callState} />}
+          {queueSection}
+        </>
+      )}
 
-        {view === 'calls'  && <CallHistory />}
-        {view === 'breaks' && <BreakHistory breakCodes={breakCodes} />}
-      </main>
+      {view === 'calls'  && <CallHistory />}
+      {view === 'breaks' && <BreakHistory breakCodes={breakCodes} />}
 
-      <footer className="border-t border-panel-border px-4 py-2 text-center">
-        <p className="text-[0.6875rem] text-ink-faint">
-          CC Version 1.0.0 · © Naresh — All Rights Reserved
-        </p>
-      </footer>
-    </div>
+      <p className="text-[0.6875rem] text-ink-faint text-center pt-2">
+        CC Version 1.0.0 · © Naresh — All Rights Reserved
+      </p>
+    </AppShell>
   );
 }
