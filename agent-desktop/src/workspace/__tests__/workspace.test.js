@@ -205,7 +205,7 @@ describe('context panels', () => {
   it('customer panel shows real fields and this agent\'s previous calls', async () => {
     callHistory.mockResolvedValue({ data: [{ call_uuid: 'a', start_time: '2026-11-01T10:00:00Z', queue_name: 'Sales', agent_talk_seconds: 75 }] });
     await act(async () => render(createElement(CustomerPanel, { interaction: { number: '0501234567', name: 'John', direction: 'inbound', queue: 'Sales' } })));
-    expect(callHistory).toHaveBeenCalledWith({ search: '501234567', limit: 5 });
+    expect(callHistory).toHaveBeenCalledWith({ search: '501234567', limit: 6 });
     expect(host.textContent).toContain('John');
     expect(host.textContent).toContain('01:15');
     expect(host.textContent).toContain('No CRM is connected');

@@ -22,7 +22,7 @@ export function CustomerPanel({ interaction }) {
     if (!key || key.length < 3) { setHistory({ key: null, rows: [], loading: false, error: null }); return undefined; }
     let live = true;
     setHistory({ key, rows: [], loading: true, error: null });
-    api.callHistory({ search: key, limit: 5 })
+    api.callHistory({ search: key, limit: 6 }) // +1: the current call is filtered out below
       .then((r) => live && setHistory({ key, rows: r?.data || [], loading: false, error: null }))
       .catch((e) => live && setHistory({ key, rows: [], loading: false, error: e.message }));
     return () => { live = false; };
@@ -52,11 +52,11 @@ export function CustomerPanel({ interaction }) {
             </p>
             {history.loading && <p className="text-xs text-ink-dim">Loading…</p>}
             {history.error && <p className="text-xs text-status-error">Could not load history: {history.error}</p>}
-            {!history.loading && !history.error && history.rows.length === 0 && (
+            {!history.loading && !history.error && history.rows.every((c) => c.call_uuid === interaction.callUuid) && (
               <p className="text-xs text-ink-dim">{key && key.length >= 3 ? 'No previous queue calls with this number.' : 'Number not available.'}</p>
             )}
             <ul className="space-y-1">
-              {history.rows.map((c) => (
+              {history.rows.filter((c) => c.call_uuid !== interaction.callUuid).map((c) => (
                 <li key={c.call_uuid} className="flex items-center justify-between gap-2 text-xs">
                   <span className="text-ink-dim">{formatClock(c.start_time || c.agent_answer_time)}</span>
                   <span className="text-ink-dim truncate">{c.queue_name || ''}</span>
