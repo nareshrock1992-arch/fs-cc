@@ -6,6 +6,7 @@ import {
 import { Badge, Button } from '../ui/primitives.jsx';
 import Keypad from './Keypad.jsx';
 import Dialer from './Dialer.jsx';
+import RecentCalls from './RecentCalls.jsx';
 import { formatDuration, useElapsed, useSince } from './format.js';
 
 /**
@@ -35,7 +36,7 @@ const KIND = { queue: 'Queue call', direct: 'Direct call', outbound: 'Outbound c
  * in-call controls, so this view shows details only — idle shows recent numbers that load
  * into the console (`onPickNumber`), active shows the call header without controls.
  */
-export default function InteractionWorkspace({ result, phone, agentStatus, recentNumbers, summary = false, onPickNumber }) {
+export default function InteractionWorkspace({ result, phone, agentStatus, recentNumbers, recentCalls = [], recentLoading = false, summary = false, onPickNumber }) {
   const { interaction, warning, queueCall } = result;
   return (
     <div className="space-y-3">
@@ -46,7 +47,7 @@ export default function InteractionWorkspace({ result, phone, agentStatus, recen
       )}
       {queueCall && <QueueCallStrip call={queueCall} />}
 
-      {!interaction && <IdleView phone={phone} agentStatus={agentStatus} recentNumbers={recentNumbers} summary={summary} onPickNumber={onPickNumber} />}
+      {!interaction && <IdleView phone={phone} agentStatus={agentStatus} recentNumbers={recentNumbers} recentCalls={recentCalls} recentLoading={recentLoading} summary={summary} onPickNumber={onPickNumber} />}
       {interaction && (interaction.status === 'ringing' || interaction.status === 'offering') && (
         <IncomingView interaction={interaction} phone={phone} />
       )}
@@ -60,7 +61,7 @@ export default function InteractionWorkspace({ result, phone, agentStatus, recen
 
 // ── Idle ────────────────────────────────────────────────────────────────────
 
-function IdleView({ phone, agentStatus, recentNumbers, summary, onPickNumber }) {
+function IdleView({ phone, agentStatus, recentNumbers, recentCalls, recentLoading, summary, onPickNumber }) {
   const ready = agentStatus === 'Available';
   return (
     <section aria-label="Workspace idle" className="rounded-lg border border-panel-border bg-panel-surface">
@@ -77,22 +78,7 @@ function IdleView({ phone, agentStatus, recentNumbers, summary, onPickNumber }) 
       </div>
       {summary ? (
         <div className="p-4">
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint mb-2">Recent numbers</p>
-          {recentNumbers.length === 0 ? (
-            <p className="text-xs text-ink-dim">No recent calls yet.</p>
-          ) : (
-            <ul className="divide-y divide-panel-border" aria-label="Recent numbers">
-              {recentNumbers.map((n) => (
-                <li key={n}>
-                  <button type="button" onClick={() => onPickNumber?.(n)}
-                    className="w-full flex items-center justify-between gap-2 py-2 text-left text-sm hover:bg-panel-raised rounded px-1">
-                    <span className="font-mono text-ink">{n}</span>
-                    <span className="text-[0.6875rem] text-primary">Load into phone</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <RecentCalls calls={recentCalls} loading={recentLoading} onPick={onPickNumber} />
         </div>
       ) : (
         <div className="p-4">

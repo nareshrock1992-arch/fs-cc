@@ -14,6 +14,7 @@ import { Section, EmptyState } from '../ui/primitives.jsx';
 import { correlate }      from '../interactions/correlate.js';
 import InteractionWorkspace from '../workspace/InteractionWorkspace.jsx';
 import PhoneConsole       from '../workspace/phone/PhoneConsole.jsx';
+import CallStrip          from '../workspace/CallStrip.jsx';
 import {
   CustomerPanel, QueueSummary, ActivityStrip, NotReachableBanner, shouldWarnNotReachable,
 } from '../workspace/ContextPanels.jsx';
@@ -58,22 +59,27 @@ export default function Dashboard({ auth, theme }) {
   // poll; socket state from socket.io events; phone from PhoneBridge.
   const [apiOk,       setApiOk]       = useState(null);
   const [socketUp,    setSocketUp]    = useState(socket.connected);
-  // Quick-dial chips: distinct numbers from this agent's real call history.
+  // This agent's recent calls (existing call-history API): list rows + distinct numbers.
   const [recentNumbers, setRecentNumbers] = useState([]);
+  const [recentCalls,   setRecentCalls]   = useState([]);
+  const [recentLoading, setRecentLoading] = useState(true);
   // A number chosen from recent calls, loaded into the phone console display.
   const [dialRequest, setDialRequest] = useState(null);
   const fetchRecent = useCallback(async () => {
     try {
       const r = await api.callHistory({ limit: 15 });
+      const rows = r?.data || [];
       const seen = [];
-      for (const c of r?.data || []) {
+      for (const c of rows) {
         const n = c.direction === 'outbound' ? c.dnis : c.ani;
         // skip the agent's own extension (it can appear as dnis/ani of its own calls)
         if (n && n !== agent?.avaya_extension && !seen.includes(n)) seen.push(n);
         if (seen.length === 5) break;
       }
       setRecentNumbers(seen);
+      setRecentCalls(rows.slice(0, 8));
     } catch { /* optional */ }
+    finally { setRecentLoading(false); }
   }, []);
   useEffect(() => { fetchRecent(); }, [fetchRecent]);
   useEffect(() => { if (!callState) fetchRecent(); }, [callState, fetchRecent]);
@@ -422,9 +428,9 @@ export default function Dashboard({ auth, theme }) {
 
         {notReachable && <NotReachableBanner extension={phone?.eligibility?.extension || agent?.avaya_extension} />}
 
-        {/* Other pages: an active/incoming call stays visible (full card until Stage B's call strip). */}
+        {/* Other pages: a compact call bar keeps the call visible and controllable. */}
         {view !== 'dashboard' && result.interaction && (
-          <InteractionWorkspace result={result} phone={phone} agentStatus={agentStatus} recentNumbers={recentNumbers} />
+          <CallStrip interaction={result.interaction} phone={phone} onOpenPhone={() => setView('dashboard')} />
         )}
 
         {view === 'dashboard' && (
@@ -438,6 +444,8 @@ export default function Dashboard({ auth, theme }) {
                 phone={phone}
                 agentStatus={agentStatus}
                 recentNumbers={recentNumbers}
+                recentCalls={recentCalls}
+                recentLoading={recentLoading}
                 summary
                 onPickNumber={(n) => setDialRequest({ number: n, at: Date.now() })}
               />
