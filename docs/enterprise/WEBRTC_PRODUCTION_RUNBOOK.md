@@ -132,6 +132,16 @@ pm2 restart fs-agent --update-env && pm2 save
 ```
 Only non-secret values go here. The SIP password is typed by the agent and kept in memory only.
 
+**Make it survive reboots and start scripts (recommended).** Exported variables are lost when a start script (for example `fs-dev-all.sh --start-all`, which uses `ecosystem.config.js` and also launches a second Vite copy) starts the app again. Put the same five lines in `agent-desktop/.env.local` instead. It is git-ignored, and `vite.config.js` reads it on every start, however the server is launched:
+```
+DEV_HTTPS_CERT=/root/certs/agent-desktop.pem
+DEV_HTTPS_KEY=/root/certs/agent-desktop-key.pem
+VITE_WEBRTC_ENABLED=true
+VITE_SIP_DOMAIN=<SIP_DOMAIN>
+VITE_SIP_WSS_URL=wss://<SERVER_IP>:7443
+```
+Lab, 2026-11-08: after an Ubuntu restart, `fs-dev-all.sh --start-all` brought port 8080 back on plain HTTP. Fixed by creating `/opt/freeswitch-ui/fs-cc/agent-desktop/.env.local` as above (`fs-dev-all.sh` itself was not changed) and `pm2 restart fs-agent`.
+
 ## 8. Go-live checklist (tick every line on the production server)
 
 - [ ] `FS_SIP_DOMAIN`, `vars.xml` domain and `VITE_SIP_DOMAIN` are identical (§2)
