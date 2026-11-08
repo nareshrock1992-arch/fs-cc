@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Phone, LogOut, LayoutDashboard, PhoneCall, Coffee, X } from 'lucide-react';
 import { api }            from '../api/client.js';
 import { socket }         from '../api/socket.js';
@@ -11,6 +11,18 @@ import LiveCallPanel      from '../components/LiveCallPanel.jsx';
 import EslBadge           from '../components/EslBadge.jsx';
 import PerformanceCard    from '../components/PerformanceCard.jsx';
 import ThemeToggle        from '../components/ThemeToggle.jsx';
+
+// ── Browser phone (WebRTC, Phase 2) ─────────────────────────────────────────
+// Off unless the build sets VITE_WEBRTC_ENABLED=true. Vite replaces the env value at
+// build time, so when off the softphone code (and sip.js) is not part of the build.
+const WEBRTC_ENABLED = import.meta.env.VITE_WEBRTC_ENABLED === 'true';
+const SoftphonePanel = WEBRTC_ENABLED
+  ? lazy(() => import('../features/softphone/ui/SoftphonePanel.jsx'))
+  : null;
+async function stopSoftphone() {
+  if (!WEBRTC_ENABLED) return;
+  try { await (await import('../features/softphone/index.js')).stopSoftphoneIfActive(); } catch {}
+}
 
 const QUEUE_INTERVAL = 3_000;
 const PERF_INTERVAL  = 30_000;
@@ -258,13 +270,14 @@ export default function Dashboard({ auth, theme }) {
   }, [updateAgent]);
 
   async function handleLogout() {
+    await stopSoftphone();
     try { await api.setStatus('Logged Out'); } catch {}
     logout();
   }
 
   async function handleStatusChange(newStatus) {
     updateAgent({ status: newStatus });
-    if (newStatus === 'Logged Out') { setTimeout(logout, 500); return; }
+    if (newStatus === 'Logged Out') { stopSoftphone(); setTimeout(logout, 500); return; }
     await syncMe();          // reconcile break_code/break_name/break_started_at
   }
 
@@ -380,6 +393,12 @@ export default function Dashboard({ auth, theme }) {
               onStatusChange={handleStatusChange}
               onError={setToast}
             />
+
+            {SoftphonePanel && (
+              <Suspense fallback={null}>
+                <SoftphonePanel agent={agent} />
+              </Suspense>
+            )}
 
             <PerformanceCard perf={perf} loading={perfLoading} />
 

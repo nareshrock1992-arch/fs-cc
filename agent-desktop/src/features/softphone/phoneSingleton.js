@@ -23,6 +23,11 @@ export function getPhoneService(config) {
   return instance;
 }
 
+/** The existing instance, or null. Never constructs one. */
+export function peekPhoneService() {
+  return instance;
+}
+
 /** The config the singleton was created with (null before first use). */
 export function getPhoneServiceConfig() {
   return instanceConfig;
