@@ -52,6 +52,10 @@
   --status-abandoned: 196 43 43;
   --status-noanswer:  194 65 12;
   --status-error:     196 43 43;
+
+  /* Solid call-action buttons with white text (≥4.5:1 in both themes) */
+  --btn-call:         18 128 92;    /* #12805C */
+  --btn-danger:      196 43 43;     /* #C42B2B */
 }
 
 .dark {
@@ -99,6 +103,10 @@
   --status-abandoned: 240 106 106;
   --status-noanswer:  242 138 74;
   --status-error:     240 106 106;
+
+  /* Dark theme keeps the darker solids: the bright status tints are too light for white text */
+  --btn-call:         18 128 92;
+  --btn-danger:      196 43 43;
 }
 
 /* ─── Base ─────────────────────────────────────────────────────────────────── */

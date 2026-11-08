@@ -17,8 +17,8 @@ const BUTTON_VARIANTS = {
   primary:   'bg-primary text-white hover:bg-primary-hover',
   secondary: 'border border-panel-border bg-panel-surface text-ink hover:bg-panel-raised',
   ghost:     'text-ink-dim hover:bg-panel-raised hover:text-ink',
-  danger:    'bg-danger text-white hover:opacity-90',
-  call:      'bg-success text-white hover:opacity-90',
+  danger:    'bg-[rgb(var(--btn-danger))] text-white hover:opacity-90',
+  call:      'bg-[rgb(var(--btn-call))] text-white hover:opacity-90',
   toggled:   'border border-primary bg-primary/10 text-primary',
 };
 

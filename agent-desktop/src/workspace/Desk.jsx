@@ -90,7 +90,9 @@ export default function Desk({ phone, data, actions, theme, nav }) {
 
       {view === 'dashboard' && (
         <div className="grid gap-4 lg:grid-cols-[26rem_minmax(0,1fr)] items-start">
-          <PhoneConsole phone={phone} interaction={result.interaction} dialRequest={dialRequest} />
+          <div className="w-full max-w-[28rem] mx-auto lg:max-w-none lg:mx-0">
+            <PhoneConsole phone={phone} interaction={result.interaction} dialRequest={dialRequest} />
+          </div>
           <div className="space-y-4 min-w-0">
             <InteractionWorkspace
               result={result}
