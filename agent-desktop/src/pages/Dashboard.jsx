@@ -6,22 +6,25 @@ import CurrentBreakPanel  from '../components/CurrentBreakPanel.jsx';
 import CallHistory        from '../components/CallHistory.jsx';
 import BreakHistory       from '../components/BreakHistory.jsx';
 import QueueCard          from '../components/QueueCard.jsx';
-import LiveCallPanel      from '../components/LiveCallPanel.jsx';
 import PerformanceCard    from '../components/PerformanceCard.jsx';
 import AppShell           from '../shell/AppShell.jsx';
 import StatusSelector     from '../shell/StatusSelector.jsx';
 import { buildLamps }     from '../shell/ConnectionLamps.jsx';
 import { Section, EmptyState } from '../ui/primitives.jsx';
+import { correlate }      from '../interactions/correlate.js';
+import InteractionWorkspace from '../workspace/InteractionWorkspace.jsx';
+import PhoneCard          from '../workspace/PhoneCard.jsx';
+import {
+  CustomerPanel, QueueSummary, ActivityStrip, NotReachableBanner, shouldWarnNotReachable,
+} from '../workspace/ContextPanels.jsx';
 
-// ── Browser phone (WebRTC, Phase 2) ─────────────────────────────────────────
+// ── Browser phone (WebRTC) ──────────────────────────────────────────────────
 // Off unless the build sets VITE_WEBRTC_ENABLED=true. Vite replaces the env value at
 // build time, so when off the softphone code (and sip.js) is not part of the build.
+// PhoneBridge hands the live phone object (usePhone) to the whole desk.
 const WEBRTC_ENABLED = import.meta.env.VITE_WEBRTC_ENABLED === 'true';
-const SoftphonePanel = WEBRTC_ENABLED
-  ? lazy(() => import('../features/softphone/ui/SoftphonePanel.jsx'))
-  : null;
-const PhoneStatusProbe = WEBRTC_ENABLED
-  ? lazy(() => import('../features/softphone/ui/PhoneStatusProbe.jsx'))
+const PhoneBridge = WEBRTC_ENABLED
+  ? lazy(() => import('../features/softphone/ui/PhoneBridge.jsx'))
   : null;
 
 const NAV = [
@@ -50,10 +53,25 @@ export default function Dashboard({ auth, theme }) {
   const [view,        setView]        = useState('dashboard'); // dashboard | calls | breaks
   const [toast,       setToast]       = useState(null);
   // Connectivity (display only): API reachability comes from the existing 3-s queue
-  // poll; socket state from socket.io events; phone from the softphone probe.
+  // poll; socket state from socket.io events; phone from PhoneBridge.
   const [apiOk,       setApiOk]       = useState(null);
   const [socketUp,    setSocketUp]    = useState(socket.connected);
-  const [phoneLamp,   setPhoneLamp]   = useState(null);
+  // Quick-dial chips: distinct numbers from this agent's real call history.
+  const [recentNumbers, setRecentNumbers] = useState([]);
+  const fetchRecent = useCallback(async () => {
+    try {
+      const r = await api.callHistory({ limit: 15 });
+      const seen = [];
+      for (const c of r?.data || []) {
+        const n = c.direction === 'outbound' ? c.dnis : c.ani;
+        if (n && !seen.includes(n)) seen.push(n);
+        if (seen.length === 5) break;
+      }
+      setRecentNumbers(seen);
+    } catch { /* optional */ }
+  }, []);
+  useEffect(() => { fetchRecent(); }, [fetchRecent]);
+  useEffect(() => { if (!callState) fetchRecent(); }, [callState, fetchRecent]);
 
   const agentId     = agent?.agent_id;
   const agentStatus = agent?.status || 'Logged Out';
@@ -303,8 +321,6 @@ export default function Dashboard({ auth, theme }) {
     }
   }
 
-  const lamps = buildLamps({ apiOk, socketConnected: socketUp, eslConnected: eslConn, phone: phoneLamp });
-
   const queueSection = (
     <Section
       title="My queues"
@@ -322,82 +338,113 @@ export default function Dashboard({ auth, theme }) {
     </Section>
   );
 
+  // Everything below is presentation. `phone` is the live usePhone() object, or null
+  // when the browser phone is not built in.
+  function renderDesk(phone) {
+    const sipCall = phone?.state?.call || null;
+    const result = correlate({
+      esl: callState,
+      sip: sipCall,
+      phoneSignedIn: phone?.state?.registration === 'registered',
+    });
+    const phoneLamp = phone
+      ? (phone.configError ? { level: 'off', label: 'Browser phone not configured' }
+        : !phone.eligibility?.eligible ? { level: 'off', label: 'Browser phone not available for this agent' }
+        : phone.indicator)
+      : null;
+    const lamps = buildLamps({ apiOk, socketConnected: socketUp, eslConnected: eslConn, phone: phoneLamp });
+    const notReachable = shouldWarnNotReachable({ agentStatus, phone });
+
+    const context = (
+      <>
+        <PhoneCard phone={phone} />
+        <CustomerPanel interaction={result.interaction} />
+        <QueueSummary queues={queues} />
+      </>
+    );
+
+    return (
+      <AppShell
+        agent={agent}
+        queueNames={queues.map(q => q.name)}
+        lamps={lamps}
+        theme={theme}
+        onLogout={handleLogout}
+        nav={NAV}
+        activeView={view}
+        onNavigate={setView}
+        aside={context}
+        statusSelector={
+          <StatusSelector
+            currentStatus={agentStatus}
+            breakName={agent?.break_name}
+            breakCodes={breakCodes}
+            onStatusChange={handleStatusChange}
+            onError={setToast}
+          />
+        }
+      >
+        {toast && (
+          <div role="alert" className="rounded-lg p-3 border border-status-error/40 bg-status-error/10
+                          flex items-center justify-between gap-3">
+            <span className="text-sm text-status-error">{toast}</span>
+            <button onClick={() => setToast(null)} aria-label="Dismiss" className="text-status-error/70 hover:text-status-error">
+              <X size={15} />
+            </button>
+          </div>
+        )}
+
+        {notReachable && <NotReachableBanner extension={phone?.eligibility?.extension || agent?.avaya_extension} />}
+
+        {/* Incoming / active calls are shown on every page so they are never missed. */}
+        {(view === 'dashboard' || result.interaction) && (
+          <InteractionWorkspace
+            result={result}
+            phone={phone}
+            agentStatus={agentStatus}
+            recentNumbers={recentNumbers}
+          />
+        )}
+
+        {view === 'dashboard' && (
+          <>
+            {agentStatus === 'On Break' && agent?.break_started_at && (
+              <CurrentBreakPanel
+                breakName={agent.break_name}
+                breakCode={agent.break_code}
+                breakStartedAt={agent.break_started_at}
+                maxDurationSeconds={currentBreakCfg?.max_duration_seconds}
+                warnThresholdSeconds={currentBreakCfg?.warn_threshold_seconds}
+                onReturn={handleReturnFromBreak}
+              />
+            )}
+            <ActivityStrip perf={perf} />
+            {/* Context panel moves under the workspace below 1280 px. */}
+            <div className="xl:hidden rounded-lg border border-panel-border bg-panel-surface">{context}</div>
+          </>
+        )}
+
+        {view === 'queues' && (
+          <>
+            {queueSection}
+            <PerformanceCard perf={perf} loading={perfLoading} />
+          </>
+        )}
+
+        {view === 'calls'  && <CallHistory />}
+        {view === 'breaks' && <BreakHistory breakCodes={breakCodes} />}
+
+        <p className="text-[0.6875rem] text-ink-faint text-center pt-2">
+          CC Version 1.0.0 · © Naresh — All Rights Reserved
+        </p>
+      </AppShell>
+    );
+  }
+
+  if (!PhoneBridge) return renderDesk(null);
   return (
-    <AppShell
-      agent={agent}
-      queueNames={queues.map(q => q.name)}
-      lamps={lamps}
-      theme={theme}
-      onLogout={handleLogout}
-      nav={NAV}
-      activeView={view}
-      onNavigate={setView}
-      statusSelector={
-        <StatusSelector
-          currentStatus={agentStatus}
-          breakName={agent?.break_name}
-          breakCodes={breakCodes}
-          onStatusChange={handleStatusChange}
-          onError={setToast}
-        />
-      }
-    >
-      {PhoneStatusProbe && (
-        <Suspense fallback={null}>
-          <PhoneStatusProbe agent={agent} onChange={setPhoneLamp} />
-        </Suspense>
-      )}
-
-      {toast && (
-        <div role="alert" className="rounded-lg p-3 border border-status-error/40 bg-status-error/10
-                        flex items-center justify-between gap-3">
-          <span className="text-sm text-status-error">{toast}</span>
-          <button onClick={() => setToast(null)} aria-label="Dismiss" className="text-status-error/70 hover:text-status-error">
-            <X size={15} />
-          </button>
-        </div>
-      )}
-
-      {view === 'dashboard' && (
-        <>
-          {agentStatus === 'On Break' && agent?.break_started_at && (
-            <CurrentBreakPanel
-              breakName={agent.break_name}
-              breakCode={agent.break_code}
-              breakStartedAt={agent.break_started_at}
-              maxDurationSeconds={currentBreakCfg?.max_duration_seconds}
-              warnThresholdSeconds={currentBreakCfg?.warn_threshold_seconds}
-              onReturn={handleReturnFromBreak}
-            />
-          )}
-
-          {callState && <LiveCallPanel callState={callState} />}
-
-          {SoftphonePanel && (
-            <Suspense fallback={null}>
-              <SoftphonePanel agent={agent} />
-            </Suspense>
-          )}
-
-          <PerformanceCard perf={perf} loading={perfLoading} />
-
-          {queueSection}
-        </>
-      )}
-
-      {view === 'queues' && (
-        <>
-          {callState && <LiveCallPanel callState={callState} />}
-          {queueSection}
-        </>
-      )}
-
-      {view === 'calls'  && <CallHistory />}
-      {view === 'breaks' && <BreakHistory breakCodes={breakCodes} />}
-
-      <p className="text-[0.6875rem] text-ink-faint text-center pt-2">
-        CC Version 1.0.0 · © Naresh — All Rights Reserved
-      </p>
-    </AppShell>
+    <Suspense fallback={renderDesk(null)}>
+      <PhoneBridge agent={agent}>{renderDesk}</PhoneBridge>
+    </Suspense>
   );
 }

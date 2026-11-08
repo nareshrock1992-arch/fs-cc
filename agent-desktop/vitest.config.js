@@ -7,7 +7,7 @@ export default defineConfig({
   esbuild: { jsx: 'automatic' },
   test: {
     environment: 'jsdom',
-    include: ['src/features/softphone/**/*.test.{ts,js,jsx}', 'src/shell/**/*.test.{js,jsx}', 'src/ui/**/*.test.{js,jsx}'],
+    include: ['src/features/softphone/**/*.test.{ts,js,jsx}', 'src/shell/**/*.test.{js,jsx}', 'src/ui/**/*.test.{js,jsx}', 'src/interactions/**/*.test.{js,jsx}', 'src/workspace/**/*.test.{js,jsx}'],
     pool: 'vmThreads',
     passWithNoTests: true,
   },
