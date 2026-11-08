@@ -91,6 +91,7 @@ export function correlate({ esl, sip, phoneSignedIn }) {
     number: liveEsl.ani || undefined,
     name: liveEsl.caller_name || undefined,
     queue: liveEsl.queueName || undefined,
+    dnis: liveEsl.dnis || undefined,
     startedAt: liveEsl.startedAt,
   };
 
@@ -125,6 +126,7 @@ export function correlate({ esl, sip, phoneSignedIn }) {
           number: fromEsl.number || base.number,
           name: fromEsl.name || base.name,
           queue: fromEsl.queue,
+          dnis: fromEsl.dnis,
         },
         link: LINK.LINKED,
         warning: null,
@@ -152,6 +154,7 @@ export function correlate({ esl, sip, phoneSignedIn }) {
       number: fromEsl.number,
       name: fromEsl.name,
       queue: fromEsl.queue,
+      dnis: fromEsl.dnis,
       startedAt: fromEsl.startedAt,
       status: ringing ? 'offering' : 'connected-elsewhere',
       controllable: false,

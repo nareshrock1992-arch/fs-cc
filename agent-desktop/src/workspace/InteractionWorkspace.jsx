@@ -1,20 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Phone, PhoneIncoming, PhoneOutgoing, PhoneOff, PhoneMissed, Mic, MicOff, Pause, Play, Grid3x3,
-  ArrowRightLeft, Users, AlertTriangle, Headset, CheckCircle2,
+  Phone, PhoneIncoming, PhoneOutgoing, PhoneOff, PhoneMissed, AlertTriangle, Headset, CheckCircle2,
 } from 'lucide-react';
 import { Badge, Button } from '../ui/primitives.jsx';
-import Keypad from './Keypad.jsx';
-import Dialer from './Dialer.jsx';
 import RecentCalls from './RecentCalls.jsx';
 import { formatDuration, useElapsed, useSince } from './format.js';
 
 /**
- * InteractionWorkspace — the centre of the Agent Desktop.
- * Exactly one interaction view (from interactions/correlate.js), never two cards for one call.
- *   idle → dialer + readiness;  ringing/offering → incoming;  dialing…connected/held → active;
- *   ended → termination summary (kept by the engine for a few seconds).
- * Every control calls a real usePhone() action; Transfer/Conference are visibly unavailable.
+ * InteractionWorkspace — call details beside the PhoneConsole on the Workspace page.
+ * Exactly one interaction view (interactions/correlate.js), never two cards for one call.
+ *   idle      → readiness + this agent's recent calls (click loads the number into the phone)
+ *   incoming  → prominent card: number, name, queue, ringing timer, Answer / Reject
+ *   active    → call summary (state, type, queue, duration); controls live in the console
+ *   ended     → result + reason
+ * Plus a correlation warning and an unlinked queue-call strip when they apply.
  */
 
 const STATUS = {
@@ -28,16 +27,11 @@ const STATUS = {
   'connected-elsewhere': { label: 'Connected (other device)', tone: 'busy' },
   ended:                 { label: 'Call ended', tone: 'neutral' },
 };
-
 const KIND = { queue: 'Queue call', direct: 'Direct call', outbound: 'Outbound call' };
 
-/**
- * `summary` (Workspace page next to the PhoneConsole): the console owns dialing and the
- * in-call controls, so this view shows details only — idle shows recent numbers that load
- * into the console (`onPickNumber`), active shows the call header without controls.
- */
-export default function InteractionWorkspace({ result, phone, agentStatus, recentNumbers, recentCalls = [], recentLoading = false, summary = false, onPickNumber }) {
+export default function InteractionWorkspace({ result, phone, agentStatus, recentCalls = [], recentLoading = false, onPickNumber }) {
   const { interaction, warning, queueCall } = result;
+  const s = interaction?.status;
   return (
     <div className="space-y-3">
       {warning && (
@@ -47,21 +41,15 @@ export default function InteractionWorkspace({ result, phone, agentStatus, recen
       )}
       {queueCall && <QueueCallStrip call={queueCall} />}
 
-      {!interaction && <IdleView phone={phone} agentStatus={agentStatus} recentNumbers={recentNumbers} recentCalls={recentCalls} recentLoading={recentLoading} summary={summary} onPickNumber={onPickNumber} />}
-      {interaction && (interaction.status === 'ringing' || interaction.status === 'offering') && (
-        <IncomingView interaction={interaction} phone={phone} />
-      )}
-      {interaction && interaction.status === 'ended' && <EndedView interaction={interaction} />}
-      {interaction && !['ringing', 'offering', 'ended'].includes(interaction.status) && (
-        <ActiveView interaction={interaction} phone={phone} summary={summary} />
-      )}
+      {!interaction && <IdleView agentStatus={agentStatus} recentCalls={recentCalls} recentLoading={recentLoading} onPickNumber={onPickNumber} />}
+      {interaction && (s === 'ringing' || s === 'offering') && <IncomingView interaction={interaction} phone={phone} />}
+      {interaction && s === 'ended' && <EndedView interaction={interaction} />}
+      {interaction && !['ringing', 'offering', 'ended'].includes(s) && <ActiveView interaction={interaction} />}
     </div>
   );
 }
 
-// ── Idle ────────────────────────────────────────────────────────────────────
-
-function IdleView({ phone, agentStatus, recentNumbers, recentCalls, recentLoading, summary, onPickNumber }) {
+function IdleView({ agentStatus, recentCalls, recentLoading, onPickNumber }) {
   const ready = agentStatus === 'Available';
   return (
     <section aria-label="Workspace idle" className="rounded-lg border border-panel-border bg-panel-surface">
@@ -76,21 +64,12 @@ function IdleView({ phone, agentStatus, recentNumbers, recentCalls, recentLoadin
           </p>
         </div>
       </div>
-      {summary ? (
-        <div className="p-4">
-          <RecentCalls calls={recentCalls} loading={recentLoading} onPick={onPickNumber} />
-        </div>
-      ) : (
-        <div className="p-4">
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint mb-2">Make a call</p>
-          <Dialer phone={phone} recentNumbers={recentNumbers} />
-        </div>
-      )}
+      <div className="p-4">
+        <RecentCalls calls={recentCalls} loading={recentLoading} onPick={onPickNumber} />
+      </div>
     </section>
   );
 }
-
-// ── Header shared by incoming/active/ended ─────────────────────────────────
 
 function CallHeader({ interaction, timer, timerLabel }) {
   const st = STATUS[interaction.status] || { label: interaction.status, tone: 'neutral' };
@@ -102,9 +81,7 @@ function CallHeader({ interaction, timer, timerLabel }) {
           <Icon size={18} />
         </span>
         <div className="min-w-0">
-          <p className="text-lg font-semibold text-ink font-mono truncate" aria-label="Remote number">
-            {interaction.number || 'Unknown number'}
-          </p>
+          <p className="text-lg font-semibold text-ink font-mono truncate" aria-label="Call number">{interaction.number || 'Unknown number'}</p>
           <p className="text-sm text-ink-dim truncate">{interaction.name || 'Caller name not available'}</p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <Badge tone={st.tone}>{st.label}</Badge>
@@ -124,107 +101,41 @@ function CallHeader({ interaction, timer, timerLabel }) {
   );
 }
 
-// ── Incoming ───────────────────────────────────────────────────────────────
-
 function IncomingView({ interaction, phone }) {
   const since = useSince(true, interaction.id);
   const ringing = useElapsed(interaction.startedAt || since);
   const canAnswer = interaction.controllable && interaction.status === 'ringing' && phone;
   return (
-    <section
-      aria-label="Incoming call"
-      className="rounded-lg border-2 border-status-ringing bg-panel-surface p-4 space-y-4"
-    >
+    <section aria-label="Incoming call" className="rounded-lg border-2 border-status-ringing bg-panel-surface p-4 space-y-4">
       <CallHeader interaction={interaction} timer={ringing} timerLabel="Ringing for" />
       {canAnswer ? (
         <div className="flex flex-wrap gap-2">
-          <Button variant="call" size="lg" onClick={() => phone.answer()} className="min-w-[8rem]">
-            <Phone size={16} /> Answer
-          </Button>
-          <Button variant="danger" size="lg" onClick={() => phone.reject()} className="min-w-[8rem]">
-            <PhoneOff size={16} /> Reject
-          </Button>
+          <Button variant="call" size="lg" onClick={() => phone.answer()} className="min-w-[8rem]"><Phone size={16} /> Answer</Button>
+          <Button variant="danger" size="lg" onClick={() => phone.reject()} className="min-w-[8rem]"><PhoneOff size={16} /> Reject</Button>
         </div>
       ) : (
-        <p className="text-xs text-ink-dim">Answer on the device that is ringing.</p>
+        <p className="text-xs text-ink-dim">
+          {interaction.status === 'offering' ? 'Waiting for the call to ring in the browser phone…' : 'Answer on the device that is ringing.'}
+        </p>
       )}
     </section>
   );
 }
 
-// ── Active (dialing → connected / held) ────────────────────────────────────
-
-function ActiveView({ interaction, phone, summary }) {
-  const [keypad, setKeypad] = useState(false);
-  const [sent, setSent] = useState('');
+function ActiveView({ interaction }) {
   const connected = interaction.status === 'connected' || interaction.status === 'held';
-  const progressing = ['dialing', 'ringing-out', 'connecting'].includes(interaction.status);
   const talk = useElapsed(connected ? interaction.answeredAt || interaction.startedAt : null);
-  const controls = interaction.controllable && phone && !summary;
-
-  function tone(k) {
-    phone.sendDtmf(k);
-    setSent((s) => (s + k).slice(-24));
-  }
-
   return (
-    <section aria-label="Active call" className="rounded-lg border border-panel-border bg-panel-surface">
-      <div className="p-4 border-b border-panel-border">
-        <CallHeader interaction={interaction} timer={connected ? talk : null} timerLabel="Call duration" />
-      </div>
-
-      {controls && progressing && (
-        <div className="p-4 flex items-center justify-between gap-3">
-          <p className="text-sm text-ink-dim">
-            {interaction.status === 'connecting' ? 'Connecting audio…' : `Calling ${interaction.number}…`}
-          </p>
-          <Button variant="danger" onClick={() => phone.hangup()}><PhoneOff size={15} /> Cancel</Button>
-        </div>
-      )}
-
-      {controls && connected && (
-        <div className="p-4 space-y-3">
-          <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Call controls">
-            <Button variant={interaction.muted ? 'toggled' : 'secondary'} aria-pressed={!!interaction.muted} onClick={() => phone.toggleMute()}>
-              {interaction.muted ? <MicOff size={15} /> : <Mic size={15} />} {interaction.muted ? 'Unmute' : 'Mute'}
-            </Button>
-            <Button variant={interaction.held ? 'toggled' : 'secondary'} aria-pressed={!!interaction.held} onClick={() => phone.toggleHold()}>
-              {interaction.held ? <Play size={15} /> : <Pause size={15} />} {interaction.held ? 'Resume' : 'Hold'}
-            </Button>
-            <Button variant={keypad ? 'toggled' : 'secondary'} aria-pressed={keypad} onClick={() => setKeypad((v) => !v)}>
-              <Grid3x3 size={15} /> Keypad
-            </Button>
-            <Button disabled title="Transfer is not available yet" aria-label="Transfer (not available yet)">
-              <ArrowRightLeft size={15} /> Transfer
-            </Button>
-            <Button disabled title="Conference is not available yet" aria-label="Conference (not available yet)">
-              <Users size={15} /> Conference
-            </Button>
-            <div className="flex-1" />
-            <Button variant="danger" onClick={() => phone.hangup()} className="min-w-[7rem]">
-              <PhoneOff size={15} /> End call
-            </Button>
-          </div>
-          {keypad && (
-            <div className="flex items-start gap-4">
-              <Keypad label="In-call keypad" onKey={tone} />
-              <div className="text-xs text-ink-dim">
-                <p className="font-semibold text-ink-faint uppercase tracking-wide text-[0.6875rem]">Tones sent</p>
-                <p className="font-mono text-sm text-ink min-h-[1.25rem]" aria-label="Tones sent">{sent}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!controls && !summary && (
-        <p className="p-4 text-xs text-ink-dim">Call controls are available on the device handling this call.</p>
-      )}
+    <section aria-label="Active call" className="rounded-lg border border-panel-border bg-panel-surface p-4 space-y-2">
+      <CallHeader interaction={interaction} timer={connected ? talk : null} timerLabel="Call duration" />
+      <p className="text-xs text-ink-dim">
+        {interaction.controllable
+          ? 'Use the phone on the left for mute, hold, keypad tones and ending the call.'
+          : 'Call controls are available on the device handling this call.'}
+      </p>
     </section>
   );
 }
-
-// ── Ended ──────────────────────────────────────────────────────────────────
 
 function EndedView({ interaction }) {
   const talked = interaction.answeredAt ? (Date.now() - interaction.answeredAt) / 1000 : null;
@@ -245,8 +156,6 @@ function EndedView({ interaction }) {
     </section>
   );
 }
-
-// ── Unlinked queue call (shown next to a browser call) ─────────────────────
 
 function QueueCallStrip({ call }) {
   return (

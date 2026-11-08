@@ -3,7 +3,7 @@ import { UserRound, ListOrdered, History, AlertOctagon } from 'lucide-react';
 import { api } from '../api/client.js';
 import { Badge } from '../ui/primitives.jsx';
 import { digits } from '../interactions/correlate.js';
-import { formatClock, formatDuration } from './format.js';
+import { formatClock, formatDuration, useElapsed } from './format.js';
 
 const H2 = 'flex items-center gap-2 text-[0.8125rem] font-semibold text-ink';
 const ROW = 'flex items-baseline justify-between gap-3 text-xs';
@@ -15,6 +15,10 @@ const ROW = 'flex items-baseline justify-between gap-3 text-xs';
  */
 export function CustomerPanel({ interaction }) {
   const number = interaction?.number;
+  // dialled number: what the caller dialled (queue calls, from FreeSWITCH) or what the agent dialled (outbound)
+  const dialled = interaction?.dnis || (interaction?.direction === 'outbound' ? interaction?.number : undefined);
+  const live = interaction?.status === 'connected' || interaction?.status === 'held';
+  const talk = useElapsed(live ? (interaction?.answeredAt || interaction?.startedAt) : null);
   const key = digits(number);
   const [history, setHistory] = useState({ key: null, rows: [], loading: false, error: null });
 
@@ -39,7 +43,9 @@ export function CustomerPanel({ interaction }) {
             <div className={ROW}><dt className="text-ink-dim">Number</dt><dd className="font-mono text-ink">{number || '—'}</dd></div>
             <div className={ROW}><dt className="text-ink-dim">Caller name</dt><dd className="text-ink truncate">{interaction.name || '—'}</dd></div>
             <div className={ROW}><dt className="text-ink-dim">Direction</dt><dd className="text-ink capitalize">{interaction.direction || '—'}</dd></div>
+            <div className={ROW}><dt className="text-ink-dim">Dialled number</dt><dd className="font-mono text-ink">{dialled || '—'}</dd></div>
             <div className={ROW}><dt className="text-ink-dim">Queue</dt><dd className="text-ink">{interaction.queue || '—'}</dd></div>
+            <div className={ROW}><dt className="text-ink-dim">Duration</dt><dd className="font-mono text-ink" aria-label="Customer call duration">{live ? formatDuration(talk) : '—'}</dd></div>
             {interaction.callUuid && (
               <div className={ROW}><dt className="text-ink-dim">Interaction ID</dt><dd className="font-mono text-[0.625rem] text-ink-dim truncate max-w-[10rem]" title={interaction.callUuid}>{interaction.callUuid}</dd></div>
             )}

@@ -1,23 +1,8 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { LayoutDashboard, PhoneCall, Coffee, X, ListOrdered } from 'lucide-react';
+import { LayoutDashboard, PhoneCall, Coffee, ListOrdered } from 'lucide-react';
 import { api }            from '../api/client.js';
 import { socket }         from '../api/socket.js';
-import CurrentBreakPanel  from '../components/CurrentBreakPanel.jsx';
-import CallHistory        from '../components/CallHistory.jsx';
-import BreakHistory       from '../components/BreakHistory.jsx';
-import QueueCard          from '../components/QueueCard.jsx';
-import PerformanceCard    from '../components/PerformanceCard.jsx';
-import AppShell           from '../shell/AppShell.jsx';
-import StatusSelector     from '../shell/StatusSelector.jsx';
-import { buildLamps }     from '../shell/ConnectionLamps.jsx';
-import { Section, EmptyState } from '../ui/primitives.jsx';
-import { correlate }      from '../interactions/correlate.js';
-import InteractionWorkspace from '../workspace/InteractionWorkspace.jsx';
-import PhoneConsole       from '../workspace/phone/PhoneConsole.jsx';
-import CallStrip          from '../workspace/CallStrip.jsx';
-import {
-  CustomerPanel, QueueSummary, ActivityStrip, NotReachableBanner, shouldWarnNotReachable,
-} from '../workspace/ContextPanels.jsx';
+import Desk               from '../workspace/Desk.jsx';
 
 // ── Browser phone (WebRTC) ──────────────────────────────────────────────────
 // Off unless the build sets VITE_WEBRTC_ENABLED=true. Vite replaces the env value at
@@ -59,24 +44,16 @@ export default function Dashboard({ auth, theme }) {
   // poll; socket state from socket.io events; phone from PhoneBridge.
   const [apiOk,       setApiOk]       = useState(null);
   const [socketUp,    setSocketUp]    = useState(socket.connected);
-  // This agent's recent calls (existing call-history API): list rows + distinct numbers.
-  const [recentNumbers, setRecentNumbers] = useState([]);
+  // This agent's recent calls (existing call-history API) for the Workspace list.
   const [recentCalls,   setRecentCalls]   = useState([]);
   const [recentLoading, setRecentLoading] = useState(true);
   // A number chosen from recent calls, loaded into the phone console display.
   const [dialRequest, setDialRequest] = useState(null);
   const fetchRecent = useCallback(async () => {
     try {
-      const r = await api.callHistory({ limit: 15 });
-      const rows = r?.data || [];
-      const seen = [];
-      for (const c of rows) {
-        const n = c.direction === 'outbound' ? c.dnis : c.ani;
-        // skip the agent's own extension (it can appear as dnis/ani of its own calls)
-        if (n && n !== agent?.avaya_extension && !seen.includes(n)) seen.push(n);
-        if (seen.length === 5) break;
-      }
-      setRecentNumbers(seen);
+      const r = await api.callHistory({ limit: 12 });
+      // leave out rows whose call-back number is the agent's own extension
+      const rows = (r?.data || []).filter(c => (c.direction === 'outbound' ? c.dnis : c.ani) !== agent?.avaya_extension);
       setRecentCalls(rows.slice(0, 8));
     } catch { /* optional */ }
     finally { setRecentLoading(false); }
@@ -146,6 +123,7 @@ export default function Dashboard({ auth, theme }) {
             ani:       active.ani,
             caller_name: active.caller_name,
             queueName: active.queue_name,
+            dnis:      active.dnis,
             startedAt: active.agent_answer_time || active.queue_enter_time || active.start_time,
           };
         });
@@ -166,7 +144,7 @@ export default function Dashboard({ auth, theme }) {
     try {
       const d = await api.callDetail(callUuid);
       setCallState(prev => prev?.callUuid === callUuid
-        ? { ...prev, ani: prev.ani || d.ani, caller_name: prev.caller_name || d.caller_name, queueName: prev.queueName || d.queue_name }
+        ? { ...prev, ani: prev.ani || d.ani, caller_name: prev.caller_name || d.caller_name, queueName: prev.queueName || d.queue_name, dnis: prev.dnis || d.dnis }
         : prev);
     } catch { /* optional enrichment */ }
   }, []);
@@ -354,134 +332,16 @@ export default function Dashboard({ auth, theme }) {
     }
   }
 
-  const queueSection = (
-    <Section
-      title="My queues"
-      actions={<span className="text-[0.6875rem] text-ink-faint">Live · 3s refresh</span>}
-    >
-      {queues.length === 0 ? (
-        <EmptyState title="No queues assigned">
-          Ask your supervisor to add you to a queue in the Admin UI.
-        </EmptyState>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {queues.map(q => <QueueCard key={q.name} q={q} />)}
-        </div>
-      )}
-    </Section>
-  );
-
-  // Everything below is presentation. `phone` is the live usePhone() object, or null
-  // when the browser phone is not built in.
-  function renderDesk(phone) {
-    const sipCall = phone?.state?.call || null;
-    const result = correlate({
-      esl: callState,
-      sip: sipCall,
-      phoneSignedIn: phone?.state?.registration === 'registered',
-    });
-    const phoneLamp = phone
-      ? (phone.configError ? { level: 'off', label: 'Browser phone not configured' }
-        : !phone.eligibility?.eligible ? { level: 'off', label: 'Browser phone not available for this agent' }
-        : phone.indicator)
-      : null;
-    const lamps = buildLamps({ apiOk, socketConnected: socketUp, eslConnected: eslConn, phone: phoneLamp });
-    const notReachable = shouldWarnNotReachable({ agentStatus, phone });
-
-    const context = (
-      <>
-        <CustomerPanel interaction={result.interaction} />
-        <QueueSummary queues={queues} />
-      </>
-    );
-
-    return (
-      <AppShell
-        agent={agent}
-        queueNames={queues.map(q => q.name)}
-        lamps={lamps}
-        theme={theme}
-        onLogout={handleLogout}
-        nav={NAV}
-        activeView={view}
-        onNavigate={setView}
-        aside={context}
-        statusSelector={
-          <StatusSelector
-            currentStatus={agentStatus}
-            breakName={agent?.break_name}
-            breakCodes={breakCodes}
-            onStatusChange={handleStatusChange}
-            onError={setToast}
-          />
-        }
-      >
-        {toast && (
-          <div role="alert" className="rounded-lg p-3 border border-status-error/40 bg-status-error/10
-                          flex items-center justify-between gap-3">
-            <span className="text-sm text-status-error">{toast}</span>
-            <button onClick={() => setToast(null)} aria-label="Dismiss" className="text-status-error/70 hover:text-status-error">
-              <X size={15} />
-            </button>
-          </div>
-        )}
-
-        {notReachable && <NotReachableBanner extension={phone?.eligibility?.extension || agent?.avaya_extension} />}
-
-        {/* Other pages: a compact call bar keeps the call visible and controllable. */}
-        {view !== 'dashboard' && result.interaction && (
-          <CallStrip interaction={result.interaction} phone={phone} onOpenPhone={() => setView('dashboard')} />
-        )}
-
-        {view === 'dashboard' && (
-          <div className="grid gap-4 lg:grid-cols-[26rem_minmax(0,1fr)] items-start">
-            {/* Telephony console: keypad always visible, all call actions */}
-            <PhoneConsole phone={phone} interaction={result.interaction} dialRequest={dialRequest} />
-
-            <div className="space-y-4 min-w-0">
-              <InteractionWorkspace
-                result={result}
-                phone={phone}
-                agentStatus={agentStatus}
-                recentNumbers={recentNumbers}
-                recentCalls={recentCalls}
-                recentLoading={recentLoading}
-                summary
-                onPickNumber={(n) => setDialRequest({ number: n, at: Date.now() })}
-              />
-              {agentStatus === 'On Break' && agent?.break_started_at && (
-                <CurrentBreakPanel
-                  breakName={agent.break_name}
-                  breakCode={agent.break_code}
-                  breakStartedAt={agent.break_started_at}
-                  maxDurationSeconds={currentBreakCfg?.max_duration_seconds}
-                  warnThresholdSeconds={currentBreakCfg?.warn_threshold_seconds}
-                  onReturn={handleReturnFromBreak}
-                />
-              )}
-              <ActivityStrip perf={perf} />
-              {/* Context panel moves here below 1280 px. */}
-              <div className="xl:hidden rounded-lg border border-panel-border bg-panel-surface">{context}</div>
-            </div>
-          </div>
-        )}
-
-        {view === 'queues' && (
-          <>
-            {queueSection}
-            <PerformanceCard perf={perf} loading={perfLoading} />
-          </>
-        )}
-
-        {view === 'calls'  && <CallHistory />}
-        {view === 'breaks' && <BreakHistory breakCodes={breakCodes} />}
-
-        <p className="text-[0.6875rem] text-ink-faint text-center pt-2">
-          CC Version 1.0.0 · © Naresh — All Rights Reserved
-        </p>
-      </AppShell>
-    );
-  }
+  // Presentation lives in workspace/Desk.jsx; this component keeps data and behaviour.
+  const deskData = {
+    agent, agentStatus, view, queues, perf, perfLoading, callState, apiOk, socketUp, eslConn,
+    breakCodes, currentBreakCfg, toast, recentCalls, recentLoading, dialRequest,
+  };
+  const deskActions = {
+    setView, setToast, setDialRequest,
+    onLogout: handleLogout, onStatusChange: handleStatusChange, onReturnFromBreak: handleReturnFromBreak,
+  };
+  const renderDesk = (phone) => <Desk phone={phone} data={deskData} actions={deskActions} theme={theme} nav={NAV} />;
 
   if (!PhoneBridge) return renderDesk(null);
   return (
