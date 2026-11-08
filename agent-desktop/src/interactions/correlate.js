@@ -56,10 +56,21 @@ function sipStatus(call) {
   }
 }
 
-function sipNumber(identity) {
-  if (!identity) return undefined;
-  const m = String(identity).match(/sips?:([^@;>]+)/i);
-  return m ? m[1] : String(identity);
+/**
+ * Engine remote identity formats: "Name <1001>", "1001", "sip:1001@domain".
+ * Returns { number, name } — name only when it differs from the number.
+ */
+export function sipParty(identity) {
+  if (!identity) return { number: undefined, name: undefined };
+  const s = String(identity).trim();
+  const angle = s.match(/^(.*?)\s*<\s*(?:sips?:)?([^@;>]*)[^>]*>\s*$/i);
+  if (angle) {
+    const name = angle[1].replace(/^"|"$/g, '').trim();
+    const number = angle[2].trim() || undefined;
+    return { number, name: name && name !== number ? name : undefined };
+  }
+  const uri = s.match(/sips?:([^@;>]+)/i);
+  return { number: uri ? uri[1] : s, name: undefined };
 }
 
 /**
@@ -84,6 +95,7 @@ export function correlate({ esl, sip, phoneSignedIn }) {
   };
 
   if (liveSip) {
+    const party = sipParty(liveSip.remoteIdentity);
     const base = {
       id: liveSip.id,
       channel: 'voice',
@@ -93,7 +105,8 @@ export function correlate({ esl, sip, phoneSignedIn }) {
       held: liveSip.held,
       answeredAt: liveSip.answeredAt,
       endReason: liveSip.endReason,
-      number: sipNumber(liveSip.remoteIdentity),
+      number: party.number,
+      name: party.name,
       controllable: true,
       sources: { sip: liveSip, esl: liveEsl },
     };
@@ -110,7 +123,7 @@ export function correlate({ esl, sip, phoneSignedIn }) {
           kind: 'queue',
           callUuid: fromEsl.callUuid,
           number: fromEsl.number || base.number,
-          name: fromEsl.name,
+          name: fromEsl.name || base.name,
           queue: fromEsl.queue,
         },
         link: LINK.LINKED,

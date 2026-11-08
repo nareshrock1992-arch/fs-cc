@@ -111,3 +111,13 @@ Not changed: softphone engine, PhoneProvider, usePhone, adapters, backend, DB, F
 - "Not reachable" cannot know about a desk phone on the same extension (planned per-agent phone type, admin setting).
 - Keyboard shortcuts for answer/hold/end: not yet (Phase 5 candidate).
 - Context panel shows at ≥ 1280 px; below that it is placed under the workspace.
+
+## 10. Fixes from the owner's preview test (2026-11-08, port 8095)
+
+| Seen | Cause | Fix (frontend only) |
+|---|---|---|
+| Own extension `1000` offered as a recent number | history rows include the agent's own extension | excluded from quick-dial chips |
+| Incoming shown as `1001 <1001>` | engine identity format `Name <number>` was not parsed | `sipParty()` extracts number and (different) display name |
+| Queue call while ringing shown as "Direct call", no queue | **pre-existing**: `/agent-desk/calls` filters `calls.agent_id`, set only after answer, so the 3-s poll cleared the `agent:offering` state at once | ringing state from `agent:offering` is kept (max 120 s) until answer, `agent:no-answer`, `call:abandoned` or `channel:hangup` for that uuid; number, caller name and queue are filled from the existing agent-scoped `GET /agent-desk/call-history/:uuid` (row written before the event) |
+
+Tests: 154 / 154.

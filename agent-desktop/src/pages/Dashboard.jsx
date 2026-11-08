@@ -40,6 +40,8 @@ async function stopSoftphone() {
 
 const QUEUE_INTERVAL = 3_000;
 const PERF_INTERVAL  = 30_000;
+// How long an offered (ringing) queue call is kept when /calls does not list it yet.
+const OFFER_HOLD_MS  = 120_000;
 
 export default function Dashboard({ auth, theme }) {
   const { agent, logout, updateAgent } = auth;
@@ -64,7 +66,8 @@ export default function Dashboard({ auth, theme }) {
       const seen = [];
       for (const c of r?.data || []) {
         const n = c.direction === 'outbound' ? c.dnis : c.ani;
-        if (n && !seen.includes(n)) seen.push(n);
+        // skip the agent's own extension (it can appear as dnis/ani of its own calls)
+        if (n && n !== agent?.avaya_extension && !seen.includes(n)) seen.push(n);
         if (seen.length === 5) break;
       }
       setRecentNumbers(seen);
@@ -139,9 +142,25 @@ export default function Dashboard({ auth, theme }) {
           };
         });
       } else {
-        setCallState(null);
+        // calls.agent_id is only set once a call is answered, so a call that is still
+        // RINGING for this agent is not in /calls. Keep a ringing state that came from the
+        // agent:offering event (for up to OFFER_HOLD_MS); end events below clear it.
+        setCallState(prev =>
+          prev?.phase === 'ringing' && prev.offeredAt && Date.now() - prev.offeredAt < OFFER_HOLD_MS
+            ? prev : null);
       }
     } catch {}
+  }, []);
+
+  // Fill in number / caller name / queue for an offered call from the existing
+  // agent-scoped call-detail API (the agent_history row is written before the event).
+  const enrichOffer = useCallback(async (callUuid) => {
+    try {
+      const d = await api.callDetail(callUuid);
+      setCallState(prev => prev?.callUuid === callUuid
+        ? { ...prev, ani: prev.ani || d.ani, caller_name: prev.caller_name || d.caller_name, queueName: prev.queueName || d.queue_name }
+        : prev);
+    } catch { /* optional enrichment */ }
   }, []);
 
   useEffect(() => {
@@ -197,14 +216,20 @@ export default function Dashboard({ auth, theme }) {
 
     const onEslStatus   = ({ connected }) => setEslConn(connected);
     const onQueueUpdate = () => fetchQueues();
-    const onHangup      = () => fetchCalls();
+    // Display-only: an offered (ringing) call is cleared when its channel hangs up or
+    // the caller abandons; then the existing poll re-syncs.
+    const clearOffer = (uuid) =>
+      setCallState(prev => (uuid && prev?.phase === 'ringing' && prev.callUuid === uuid ? null : prev));
+    const onHangup      = ({ uuid } = {}) => { clearOffer(uuid); fetchCalls(); };
+    const onAbandoned   = ({ callUuid } = {}) => { clearOffer(callUuid); fetchQueues(); };
 
     const onAgentOffering = ({ callUuid, agentId: evtAgent }) => {
       if (evtAgent !== agentId) return;
       setCallState(prev =>
         prev?.callUuid === callUuid ? prev
-          : { phase: 'ringing', callUuid, ani: null, queueName: null, startedAt: new Date().toISOString() }
+          : { phase: 'ringing', callUuid, ani: null, queueName: null, startedAt: new Date().toISOString(), offeredAt: Date.now() }
       );
+      enrichOffer(callUuid);
       fetchCalls();
     };
 
@@ -268,7 +293,7 @@ export default function Dashboard({ auth, theme }) {
     socket.on('agent:status',    onAgentStatus);
     socket.on('agent:state',     onAgentState);
     socket.on('call:enqueued',   onQueueUpdate);
-    socket.on('call:abandoned',  onQueueUpdate);
+    socket.on('call:abandoned',  onAbandoned);
 
     return () => {
       socket.off('connect',         onConnect);
@@ -281,9 +306,9 @@ export default function Dashboard({ auth, theme }) {
       socket.off('agent:status',    onAgentStatus);
       socket.off('agent:state',     onAgentState);
       socket.off('call:enqueued',   onQueueUpdate);
-      socket.off('call:abandoned',  onQueueUpdate);
+      socket.off('call:abandoned',  onAbandoned);
     };
-  }, [agentId, fetchQueues, fetchCalls, fetchPerf, updateAgent]);
+  }, [agentId, fetchQueues, fetchCalls, fetchPerf, updateAgent, enrichOffer]);
 
   // Pull authoritative status + break fields from the backend (single source of
   // truth for the break timer — never trusts a client clock).

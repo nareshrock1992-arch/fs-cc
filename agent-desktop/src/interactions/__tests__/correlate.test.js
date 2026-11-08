@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { correlate, numbersCompatible, LINK } from '../correlate.js';
+import { correlate, numbersCompatible, sipParty, LINK } from '../correlate.js';
 
 const esl = (extra = {}) => ({
   phase: 'ringing', callUuid: 'uuid-1', ani: '0501234567', caller_name: 'John', queueName: 'Sales',
@@ -89,5 +89,22 @@ describe('correlate', () => {
     expect(correlate({ esl: null, sip: sip({ status: 'active', held: true }), phoneSignedIn: true }).interaction.status).toBe('held');
     const ended = correlate({ esl: null, sip: sip({ status: 'ended', endReason: 'Busy' }), phoneSignedIn: true });
     expect(ended.interaction).toMatchObject({ status: 'ended', endReason: 'Busy' });
+  });
+});
+
+describe('sipParty (engine remote identity formats)', () => {
+  it('parses "Name <number>", bare numbers and SIP URIs', () => {
+    expect(sipParty('1001 <1001>')).toEqual({ number: '1001', name: undefined });
+    expect(sipParty('"John Smith" <0501234567>')).toEqual({ number: '0501234567', name: 'John Smith' });
+    expect(sipParty('Agent <sip:2000@d;transport=ws>')).toEqual({ number: '2000', name: 'Agent' });
+    expect(sipParty('1001')).toEqual({ number: '1001', name: undefined });
+    expect(sipParty('sip:1001@192.168.1.124')).toEqual({ number: '1001', name: undefined });
+    expect(sipParty(undefined)).toEqual({ number: undefined, name: undefined });
+  });
+
+  it('an offered queue call with no number yet links to the "1001 <1001>" browser call', () => {
+    const r = correlate({ esl: esl({ ani: null, caller_name: null, queueName: null }), sip: sip({ remoteIdentity: '1001 <1001>' }), phoneSignedIn: true });
+    expect(r.link).toBe(LINK.LINKED);
+    expect(r.interaction).toMatchObject({ number: '1001', kind: 'queue' });
   });
 });
