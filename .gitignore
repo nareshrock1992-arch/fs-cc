@@ -20,3 +20,12 @@ pids/
 .DS_Store
 Thumbs.db
 *.swp
+*.swo
+
+# Machine-specific files (certificates, backups)
+*.pem
+*.key
+*.bak
+*.bak.*
+*.bak-*
+backups/
