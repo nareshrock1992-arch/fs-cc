@@ -13,7 +13,7 @@ import { buildLamps }     from '../shell/ConnectionLamps.jsx';
 import { Section, EmptyState } from '../ui/primitives.jsx';
 import { correlate }      from '../interactions/correlate.js';
 import InteractionWorkspace from '../workspace/InteractionWorkspace.jsx';
-import PhoneCard          from '../workspace/PhoneCard.jsx';
+import PhoneConsole       from '../workspace/phone/PhoneConsole.jsx';
 import {
   CustomerPanel, QueueSummary, ActivityStrip, NotReachableBanner, shouldWarnNotReachable,
 } from '../workspace/ContextPanels.jsx';
@@ -60,6 +60,8 @@ export default function Dashboard({ auth, theme }) {
   const [socketUp,    setSocketUp]    = useState(socket.connected);
   // Quick-dial chips: distinct numbers from this agent's real call history.
   const [recentNumbers, setRecentNumbers] = useState([]);
+  // A number chosen from recent calls, loaded into the phone console display.
+  const [dialRequest, setDialRequest] = useState(null);
   const fetchRecent = useCallback(async () => {
     try {
       const r = await api.callHistory({ limit: 15 });
@@ -382,7 +384,6 @@ export default function Dashboard({ auth, theme }) {
 
     const context = (
       <>
-        <PhoneCard phone={phone} />
         <CustomerPanel interaction={result.interaction} />
         <QueueSummary queues={queues} />
       </>
@@ -421,32 +422,40 @@ export default function Dashboard({ auth, theme }) {
 
         {notReachable && <NotReachableBanner extension={phone?.eligibility?.extension || agent?.avaya_extension} />}
 
-        {/* Incoming / active calls are shown on every page so they are never missed. */}
-        {(view === 'dashboard' || result.interaction) && (
-          <InteractionWorkspace
-            result={result}
-            phone={phone}
-            agentStatus={agentStatus}
-            recentNumbers={recentNumbers}
-          />
+        {/* Other pages: an active/incoming call stays visible (full card until Stage B's call strip). */}
+        {view !== 'dashboard' && result.interaction && (
+          <InteractionWorkspace result={result} phone={phone} agentStatus={agentStatus} recentNumbers={recentNumbers} />
         )}
 
         {view === 'dashboard' && (
-          <>
-            {agentStatus === 'On Break' && agent?.break_started_at && (
-              <CurrentBreakPanel
-                breakName={agent.break_name}
-                breakCode={agent.break_code}
-                breakStartedAt={agent.break_started_at}
-                maxDurationSeconds={currentBreakCfg?.max_duration_seconds}
-                warnThresholdSeconds={currentBreakCfg?.warn_threshold_seconds}
-                onReturn={handleReturnFromBreak}
+          <div className="grid gap-4 lg:grid-cols-[26rem_minmax(0,1fr)] items-start">
+            {/* Telephony console: keypad always visible, all call actions */}
+            <PhoneConsole phone={phone} interaction={result.interaction} dialRequest={dialRequest} />
+
+            <div className="space-y-4 min-w-0">
+              <InteractionWorkspace
+                result={result}
+                phone={phone}
+                agentStatus={agentStatus}
+                recentNumbers={recentNumbers}
+                summary
+                onPickNumber={(n) => setDialRequest({ number: n, at: Date.now() })}
               />
-            )}
-            <ActivityStrip perf={perf} />
-            {/* Context panel moves under the workspace below 1280 px. */}
-            <div className="xl:hidden rounded-lg border border-panel-border bg-panel-surface">{context}</div>
-          </>
+              {agentStatus === 'On Break' && agent?.break_started_at && (
+                <CurrentBreakPanel
+                  breakName={agent.break_name}
+                  breakCode={agent.break_code}
+                  breakStartedAt={agent.break_started_at}
+                  maxDurationSeconds={currentBreakCfg?.max_duration_seconds}
+                  warnThresholdSeconds={currentBreakCfg?.warn_threshold_seconds}
+                  onReturn={handleReturnFromBreak}
+                />
+              )}
+              <ActivityStrip perf={perf} />
+              {/* Context panel moves here below 1280 px. */}
+              <div className="xl:hidden rounded-lg border border-panel-border bg-panel-surface">{context}</div>
+            </div>
+          </div>
         )}
 
         {view === 'queues' && (

@@ -30,7 +30,12 @@ const STATUS = {
 
 const KIND = { queue: 'Queue call', direct: 'Direct call', outbound: 'Outbound call' };
 
-export default function InteractionWorkspace({ result, phone, agentStatus, recentNumbers }) {
+/**
+ * `summary` (Workspace page next to the PhoneConsole): the console owns dialing and the
+ * in-call controls, so this view shows details only — idle shows recent numbers that load
+ * into the console (`onPickNumber`), active shows the call header without controls.
+ */
+export default function InteractionWorkspace({ result, phone, agentStatus, recentNumbers, summary = false, onPickNumber }) {
   const { interaction, warning, queueCall } = result;
   return (
     <div className="space-y-3">
@@ -41,13 +46,13 @@ export default function InteractionWorkspace({ result, phone, agentStatus, recen
       )}
       {queueCall && <QueueCallStrip call={queueCall} />}
 
-      {!interaction && <IdleView phone={phone} agentStatus={agentStatus} recentNumbers={recentNumbers} />}
+      {!interaction && <IdleView phone={phone} agentStatus={agentStatus} recentNumbers={recentNumbers} summary={summary} onPickNumber={onPickNumber} />}
       {interaction && (interaction.status === 'ringing' || interaction.status === 'offering') && (
         <IncomingView interaction={interaction} phone={phone} />
       )}
       {interaction && interaction.status === 'ended' && <EndedView interaction={interaction} />}
       {interaction && !['ringing', 'offering', 'ended'].includes(interaction.status) && (
-        <ActiveView interaction={interaction} phone={phone} />
+        <ActiveView interaction={interaction} phone={phone} summary={summary} />
       )}
     </div>
   );
@@ -55,7 +60,7 @@ export default function InteractionWorkspace({ result, phone, agentStatus, recen
 
 // ── Idle ────────────────────────────────────────────────────────────────────
 
-function IdleView({ phone, agentStatus, recentNumbers }) {
+function IdleView({ phone, agentStatus, recentNumbers, summary, onPickNumber }) {
   const ready = agentStatus === 'Available';
   return (
     <section aria-label="Workspace idle" className="rounded-lg border border-panel-border bg-panel-surface">
@@ -70,10 +75,31 @@ function IdleView({ phone, agentStatus, recentNumbers }) {
           </p>
         </div>
       </div>
-      <div className="p-4">
-        <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint mb-2">Make a call</p>
-        <Dialer phone={phone} recentNumbers={recentNumbers} />
-      </div>
+      {summary ? (
+        <div className="p-4">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint mb-2">Recent numbers</p>
+          {recentNumbers.length === 0 ? (
+            <p className="text-xs text-ink-dim">No recent calls yet.</p>
+          ) : (
+            <ul className="divide-y divide-panel-border" aria-label="Recent numbers">
+              {recentNumbers.map((n) => (
+                <li key={n}>
+                  <button type="button" onClick={() => onPickNumber?.(n)}
+                    className="w-full flex items-center justify-between gap-2 py-2 text-left text-sm hover:bg-panel-raised rounded px-1">
+                    <span className="font-mono text-ink">{n}</span>
+                    <span className="text-[0.6875rem] text-primary">Load into phone</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <div className="p-4">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint mb-2">Make a call</p>
+          <Dialer phone={phone} recentNumbers={recentNumbers} />
+        </div>
+      )}
     </section>
   );
 }
@@ -142,13 +168,13 @@ function IncomingView({ interaction, phone }) {
 
 // ── Active (dialing → connected / held) ────────────────────────────────────
 
-function ActiveView({ interaction, phone }) {
+function ActiveView({ interaction, phone, summary }) {
   const [keypad, setKeypad] = useState(false);
   const [sent, setSent] = useState('');
   const connected = interaction.status === 'connected' || interaction.status === 'held';
   const progressing = ['dialing', 'ringing-out', 'connecting'].includes(interaction.status);
   const talk = useElapsed(connected ? interaction.answeredAt || interaction.startedAt : null);
-  const controls = interaction.controllable && phone;
+  const controls = interaction.controllable && phone && !summary;
 
   function tone(k) {
     phone.sendDtmf(k);
@@ -205,7 +231,7 @@ function ActiveView({ interaction, phone }) {
         </div>
       )}
 
-      {!controls && (
+      {!controls && !summary && (
         <p className="p-4 text-xs text-ink-dim">Call controls are available on the device handling this call.</p>
       )}
     </section>
