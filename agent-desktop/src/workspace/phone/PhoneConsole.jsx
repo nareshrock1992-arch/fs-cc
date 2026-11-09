@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Phone, PhoneOutgoing, PhoneOff, Mic, MicOff, Pause, Play, ArrowRightLeft, Users, Delete, X, Volume2, LogOut,
+  Phone, PhoneOutgoing, PhoneOff, Mic, MicOff, Pause, Play, ArrowRightLeft, Users, Delete, X, Volume2, LogOut, AlertTriangle,
 } from 'lucide-react';
 import { Button, IconButton } from '../../ui/primitives.jsx';
 import { useElapsed, useSince } from '../format.js';
@@ -101,8 +101,12 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   }
 
   const { state, indicator, eligibility, configError } = phone;
-  const level = configError || !eligibility.eligible ? 'off' : indicator.level;
-  const label = configError ? 'Not configured' : !eligibility.eligible ? 'Not available' : indicator.label;
+  // A failed sign-in (microphone missing/denied, WSS refused, wrong password) leaves no
+  // account; show it as a failure instead of a neutral "Phone off".
+  const signInFailed = !signedIn && Boolean(state?.error);
+  const level = configError || !eligibility.eligible ? 'off' : signInFailed ? 'error' : indicator.level;
+  const label = configError ? 'Not configured' : !eligibility.eligible ? 'Not available'
+    : signInFailed ? 'Sign-in failed' : indicator.label;
 
   return (
     <section aria-label="Phone" onKeyDown={onKeyDown}
@@ -116,6 +120,20 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
         )}
       />
 
+      {/* Phone errors at the TOP so they are always visible (e.g. "No microphone was found"). */}
+      {state?.error && (
+        <div role="alert" className="flex items-start gap-2 px-4 py-2.5 border-b border-status-error/30 bg-status-error/10 text-sm text-status-error">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span className="flex-1">{state.error}</span>
+          <button type="button" className="text-xs underline shrink-0" onClick={() => phone.clearError()}>Dismiss</button>
+        </div>
+      )}
+      {state?.notice && (
+        <div role="status" className="flex items-center justify-between gap-2 px-4 py-2 border-b border-status-ringing/30 bg-status-ringing/10 text-xs text-ink">
+          <span>{state.notice}</span>
+          <Button size="sm" onClick={() => phone.unlockAudio()}><Volume2 size={13} /> Enable audio</Button>
+        </div>
+      )}
       {configError && <p className="px-4 py-2 text-xs text-status-error">{configError}</p>}
       {!configError && !eligibility.eligible && <p className="px-4 py-2 text-xs text-ink-dim">{eligibility.reason}</p>}
       {!configError && eligibility.eligible && !signedIn && (
@@ -199,18 +217,6 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
         <AudioDevices devices={state.devices} onSelectInput={(id) => phone.selectInput(id)} onSelectOutput={(id) => phone.selectOutput(id)} />
       )}
 
-      {state?.notice && (
-        <div className="mx-4 mb-3 flex items-center justify-between gap-2 rounded-md bg-status-ringing/10 px-2.5 py-2 text-xs text-ink">
-          <span>{state.notice}</span>
-          <Button size="sm" onClick={() => phone.unlockAudio()}><Volume2 size={13} /> Enable audio</Button>
-        </div>
-      )}
-      {state?.error && (
-        <div role="alert" className="mx-4 mb-3 flex items-start justify-between gap-2 text-xs text-status-error">
-          <span>{state.error}</span>
-          <button type="button" className="underline shrink-0" onClick={() => phone.clearError()}>Dismiss</button>
-        </div>
-      )}
     </section>
   );
 }

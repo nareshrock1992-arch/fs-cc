@@ -182,3 +182,25 @@ describe('PhoneConsole — calls', () => {
     expect(host.textContent).toContain('Use the device handling this call');
   });
 });
+
+describe('PhoneConsole — errors are visible', () => {
+  it('microphone missing at sign-in: error at the top, status "Sign-in failed", dismissable', () => {
+    const phone = makePhone({ account: undefined, registration: 'unregistered', error: 'No microphone was found. Connect a microphone or headset.' });
+    phone.indicator = { level: 'off', label: 'Phone off' };
+    render(console_(phone));
+    const alert = q('[role="alert"]');
+    expect(alert.textContent).toContain('No microphone was found');
+    // the alert comes before the keypad in the document (top of the console)
+    expect(alert.compareDocumentPosition(q('[aria-label="Dial keypad"]')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(q('[aria-label="Phone status"]').textContent).toContain('Sign-in failed');
+    act(() => btn('Dismiss').click());
+    expect(phone.clearError).toHaveBeenCalled();
+  });
+
+  it('audio notice with Enable audio is shown at the top', () => {
+    const phone = makePhone({ notice: 'Click to enable audio' });
+    render(console_(phone));
+    act(() => btn('Enable audio').click());
+    expect(phone.unlockAudio).toHaveBeenCalled();
+  });
+});
