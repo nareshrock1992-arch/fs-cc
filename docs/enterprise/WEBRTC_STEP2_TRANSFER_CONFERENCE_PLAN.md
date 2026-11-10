@@ -91,7 +91,7 @@ Approved 2026-11-10. Frontend only; no server, FreeSWITCH, backend or database c
 |---|---|
 | Automated tests | **177 / 177** (8 new: 3 engine, 5 console) |
 | Typecheck, build with phone on / off | clean ✓ / ✓ (sip.js only in the "on" build) |
-| Real call (owner) | **pending**: queue call → transfer to an online extension; transfer to a busy / non-existent number; check the queue report afterwards |
+| Real call (owner, 2026-11-10) | ✓ transfer to an internal extension; ✓ transfer to an IVR flow number. Not yet tried: busy / non-existent target, queue report check |
 
 ### Known limitations
 - Blind only: if the target does not answer, FreeSWITCH decides what happens (voicemail / hang up). Consult transfer is T2.
