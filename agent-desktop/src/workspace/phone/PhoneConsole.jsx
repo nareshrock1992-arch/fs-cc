@@ -40,6 +40,8 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   const [number, setNumber] = useState('');
   const [placing, setPlacing] = useState(false);
   const [tones, setTones] = useState('');
+  const [xferOpen, setXferOpen] = useState(false);
+  const [xferNumber, setXferNumber] = useState('');
 
   const status = interaction?.status;
   const controllable = Boolean(interaction?.controllable && phone);
@@ -52,7 +54,7 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   const clean = number.replace(DIAL_CHARS, '');
   const signedIn = Boolean(phone?.state?.account);
 
-  useEffect(() => { setTones(''); }, [interaction?.id]);
+  useEffect(() => { setTones(''); setXferOpen(false); setXferNumber(''); }, [interaction?.id]);
   // a number picked elsewhere (recent calls) is loaded into the display
   useEffect(() => { if (dialRequest?.number) setNumber(dialRequest.number.replace(DIAL_CHARS, '')); }, [dialRequest]);
   // device list (labels) once signed in; the engine also refreshes on device changes
@@ -67,8 +69,20 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
     phone.sendDtmf(k);
     setTones((s) => (s + k).slice(-24));
   }
+  // Blind transfer (SIP REFER). Progress comes from the engine: phone.state.call.transfer
+  const xfer = inCall ? phone?.state?.call?.transfer : undefined;
+  const xferBusy = xfer?.status === 'requesting' || xfer?.status === 'accepted' || xfer?.status === 'done';
+  const showXfer = inCall && (xferOpen || xferBusy);
+  async function transferNow(e) {
+    e?.preventDefault();
+    const target = xferNumber.replace(DIAL_CHARS, '');
+    if (!target || xferBusy) return;
+    phone.clearError();
+    await phone.transfer(target);
+  }
   function onKey(k) {
-    if (inCall) sendTone(k);
+    if (showXfer) { if (!xferBusy) setXferNumber((n) => n + k); }
+    else if (inCall) sendTone(k);
     else if (canDial) setNumber((n) => n + k);
   }
   async function call(e) {
@@ -85,7 +99,7 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   }
   // Physical keyboard: digits send DTMF during a call while focus is in the console.
   function onKeyDown(e) {
-    if (inCall && TONE.test(e.key) && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+    if (inCall && !showXfer && TONE.test(e.key) && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
       e.preventDefault();
       sendTone(e.key);
     }
@@ -167,13 +181,35 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
         ) : (
           <CallDisplay interaction={interaction} timer={inCall ? talkFor : ringFor} />
         )}
+        {showXfer && (
+          <form onSubmit={transferNow} aria-label="Transfer" className="mt-3 rounded-md border border-primary/40 bg-primary/5 p-2">
+            <label className="block text-[0.6875rem] font-medium text-ink-dim mb-1" htmlFor="xfer-number">Transfer call to</label>
+            <div className="flex items-center gap-1">
+              <input id="xfer-number" type="tel" inputMode="tel" autoComplete="off" aria-label="Transfer to number"
+                placeholder="Extension or number" value={xferNumber} disabled={xferBusy} autoFocus
+                onChange={(e) => setXferNumber(e.target.value.replace(DIAL_CHARS, ''))}
+                className="flex-1 min-w-0 h-9 px-2 rounded border border-panel-border bg-panel-surface font-mono text-base text-ink focus:outline-none focus:border-primary disabled:opacity-60" />
+              <IconButton label="Delete last transfer digit" className="h-9 w-9" disabled={!xferNumber || xferBusy} onClick={() => setXferNumber((n) => n.slice(0, -1))}>
+                <Delete size={16} />
+              </IconButton>
+            </div>
+            <p className="mt-1 min-h-[1rem] text-xs" role="status" aria-label="Transfer status">
+              {xfer?.status === 'requesting' && <span className="text-ink-dim">Transferring to {xfer.target}…</span>}
+              {xfer?.status === 'accepted' && <span className="text-ink-dim">Connecting customer to {xfer.target}…</span>}
+              {xfer?.status === 'done' && <span className="text-status-ok">Transferred to {xfer.target}</span>}
+              {xfer?.status === 'failed' && <span className="text-status-error">Transfer failed: {xfer.reason}. Customer is still with you.</span>}
+            </p>
+            <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+          </form>
+        )}
       </div>
 
       {/* keypad — always visible */}
       <div className="px-4">
-        <PhoneKeypad label={inCall ? 'In-call keypad' : 'Dial keypad'} onKey={onKey} disabled={!(inCall || canDial)} />
+        <PhoneKeypad label={showXfer ? 'Transfer keypad' : inCall ? 'In-call keypad' : 'Dial keypad'} onKey={onKey}
+          disabled={!(inCall || canDial) || (showXfer && xferBusy)} />
         <p className="mt-1.5 h-4 text-center text-[0.6875rem] font-mono text-ink-dim" aria-label="Tones sent">
-          {inCall ? (tones ? `Tones sent: ${tones}` : 'Keypad sends tones (DTMF)') : ''}
+          {showXfer ? 'Keypad enters the transfer number' : inCall ? (tones ? `Tones sent: ${tones}` : 'Keypad sends tones (DTMF)') : ''}
         </p>
       </div>
 
@@ -193,6 +229,14 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
         {progressing && (
           <Button variant="danger" size="lg" className="w-full h-12 text-base" onClick={() => phone.hangup()}><PhoneOff size={18} /> Cancel call</Button>
         )}
+        {showXfer && (
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <Button variant="primary" size="lg" className="h-12 text-base" onClick={transferNow}
+              disabled={!xferNumber.replace(DIAL_CHARS, '') || xferBusy}><ArrowRightLeft size={18} /> Transfer now</Button>
+            <Button size="lg" className="h-12 text-base" disabled={xferBusy}
+              onClick={() => { setXferOpen(false); setXferNumber(''); }}>Back to call</Button>
+          </div>
+        )}
         {inCall && (
           <Button variant="danger" size="lg" className="w-full h-12 text-base" onClick={() => phone.hangup()}><PhoneOff size={18} /> End call</Button>
         )}
@@ -209,7 +253,8 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
           pressed={!!interaction?.muted} disabled={!inCall} onClick={() => phone.toggleMute()} />
         <ControlTile label={interaction?.held ? 'Resume' : 'Hold'} icon={interaction?.held ? Play : Pause}
           pressed={!!interaction?.held} disabled={!inCall} onClick={() => phone.toggleHold()} />
-        <ControlTile label="Transfer" icon={ArrowRightLeft} unavailable />
+        <ControlTile label="Transfer" icon={ArrowRightLeft} pressed={showXfer} disabled={!inCall || xferBusy}
+          onClick={() => setXferOpen((o) => !o)} />
         <ControlTile label="Conference" icon={Users} unavailable />
       </div>
 

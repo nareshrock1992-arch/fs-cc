@@ -44,6 +44,7 @@ export function usePhone() {
       hangup: call('hangup'),
       toggleMute: call('toggleMute'),
       toggleHold: call('toggleHold'),
+      transfer: call('transfer'),
       sendDtmf: call('sendDtmf'),
       refreshDevices: call('refreshDevices'),
       selectInput: call('selectInput'),

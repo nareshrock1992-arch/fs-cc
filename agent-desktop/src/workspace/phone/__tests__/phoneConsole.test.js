@@ -23,7 +23,7 @@ const DEVICES = {
 };
 function makePhone(state = {}) {
   const fns = {};
-  for (const m of ['login', 'logout', 'dial', 'answer', 'reject', 'hangup', 'toggleMute', 'toggleHold', 'sendDtmf', 'refreshDevices', 'selectInput', 'selectOutput', 'unlockAudio', 'clearError']) {
+  for (const m of ['login', 'logout', 'dial', 'answer', 'reject', 'hangup', 'toggleMute', 'toggleHold', 'sendDtmf', 'transfer', 'refreshDevices', 'selectInput', 'selectOutput', 'unlockAudio', 'clearError']) {
     fns[m] = vi.fn(async () => (m === 'login' ? { ok: true } : undefined));
   }
   return {
@@ -94,11 +94,11 @@ describe('PhoneConsole — idle', () => {
     expect(q('input[type="password"]').value).toBe('');
   });
 
-  it('call controls are present but disabled when idle; transfer/conference say why', () => {
+  it('call controls are present but disabled when idle; conference says why', () => {
     render(console_(makePhone()));
     expect(btn('Mute').disabled).toBe(true);
     expect(btn('Hold').disabled).toBe(true);
-    expect(q('button[aria-label="Transfer (not available yet)"]').disabled).toBe(true);
+    expect(btn('Transfer').disabled).toBe(true);
     expect(q('button[aria-label="Conference (not available yet)"]').disabled).toBe(true);
     expect(btn('End call')).toBeUndefined();
   });
@@ -202,5 +202,54 @@ describe('PhoneConsole — errors are visible', () => {
     render(console_(phone));
     act(() => btn('Enable audio').click());
     expect(phone.unlockAudio).toHaveBeenCalled();
+  });
+});
+
+describe('PhoneConsole — blind transfer', () => {
+  const activeCall = (transfer) => sip({ status: 'active', answeredAt: Date.now(), ...(transfer ? { transfer } : {}) });
+
+  it('Transfer opens the panel; keypad enters the number (no DTMF); Transfer now calls the engine', async () => {
+    const phone = makePhone({ call: activeCall() });
+    render(console_(phone));
+    expect(q('form[aria-label="Transfer"]')).toBeNull();
+    act(() => btn('Transfer').click());
+    expect(q('form[aria-label="Transfer"]')).not.toBeNull();
+    expect(btn('Transfer now').disabled).toBe(true);
+    for (const k of ['1', '0', '0', '2']) act(() => q('[aria-label="Transfer keypad"] button[aria-label="' + k + '"]').click());
+    expect(q('input[aria-label="Transfer to number"]').value).toBe('1002');
+    expect(phone.sendDtmf).not.toHaveBeenCalled();
+    await act(async () => btn('Transfer now').click());
+    expect(phone.transfer).toHaveBeenCalledWith('1002');
+  });
+
+  it('Back to call closes the panel and the keypad sends tones again', () => {
+    const phone = makePhone({ call: activeCall() });
+    render(console_(phone));
+    act(() => btn('Transfer').click());
+    act(() => btn('Back to call').click());
+    expect(q('form[aria-label="Transfer"]')).toBeNull();
+    act(() => q('[aria-label="In-call keypad"] button[aria-label="5"]').click());
+    expect(phone.sendDtmf).toHaveBeenCalledWith('5');
+  });
+
+  it('shows progress and locks the panel while transferring', () => {
+    render(console_(makePhone({ call: activeCall({ target: '1002', status: 'accepted' }) })));
+    expect(q('[aria-label="Transfer status"]').textContent).toContain('Connecting customer to 1002');
+    expect(btn('Transfer now').disabled).toBe(true);
+    expect(btn('Back to call').disabled).toBe(true);
+    expect(btn('Transfer').disabled).toBe(true);
+  });
+
+  it('a failed transfer says the customer is still on the call', () => {
+    const phone = makePhone({ call: activeCall({ target: '1002', status: 'failed', reason: 'Busy' }) });
+    render(console_(phone));
+    act(() => btn('Transfer').click());
+    expect(q('[aria-label="Transfer status"]').textContent).toContain('Transfer failed: Busy. Customer is still with you.');
+    expect(btn('End call')).toBeDefined();
+  });
+
+  it('not offered while ringing', () => {
+    render(console_(makePhone({ call: sip() })));
+    expect(btn('Transfer').disabled).toBe(true);
   });
 });

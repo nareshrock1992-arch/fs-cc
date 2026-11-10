@@ -1,4 +1,4 @@
-import type { CallDirection, CallInfo } from '../types/phone';
+import type { CallDirection, CallInfo, TransferStatus } from '../types/phone';
 
 /**
  * Pure call-state transitions. Kept free of SIP.js so it can be unit tested and reused.
@@ -11,6 +11,7 @@ export type CallEvent =
   | { type: 'established'; at: number }
   | { type: 'mute'; muted: boolean }
   | { type: 'hold'; held: boolean }
+  | { type: 'transfer'; target: string; status: TransferStatus; reason?: string }
   | { type: 'ended'; reason: string };
 
 export function reduceCall(call: CallInfo | undefined, event: CallEvent): CallInfo | undefined {
@@ -37,9 +38,19 @@ export function reduceCall(call: CallInfo | undefined, event: CallEvent): CallIn
       return call.status === 'active' ? { ...call, muted: event.muted } : call;
     case 'hold':
       return call.status === 'active' ? { ...call, held: event.held } : call;
+    case 'transfer':
+      return call.status === 'active'
+        ? { ...call, transfer: { target: event.target, status: event.status, reason: event.reason } }
+        : call;
     case 'ended':
       return { ...call, status: 'ended', endReason: event.reason };
   }
+}
+
+/** Status code from a REFER progress NOTIFY body (message/sipfrag, e.g. "SIP/2.0 200 OK"). */
+export function sipfragStatus(body: string | undefined): number | undefined {
+  const m = /^SIP\/2\.0\s+(\d{3})/i.exec((body || '').trim());
+  return m ? Number(m[1]) : undefined;
 }
 
 /** Human-readable reason for a SIP final response code. */

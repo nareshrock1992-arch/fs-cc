@@ -4,6 +4,7 @@ import {
   RegistererState,
   UserAgent,
   type Invitation,
+  type URI,
   type UserAgentOptions,
 } from 'sip.js';
 import type { AppConfig } from '../config/config';
@@ -102,6 +103,13 @@ export class SipClient {
           ),
       },
     });
+  }
+
+  /** SIP URI for a dial target on the account's domain (used as a transfer target). */
+  makeTarget(target: string, domain: string): URI {
+    const uri = UserAgent.makeURI(`sip:${target}@${domain}`);
+    if (!uri) throw new Error('Invalid destination.');
+    return uri;
   }
 
   createInviter(target: string, domain: string, constraints: MediaStreamConstraints): Inviter {

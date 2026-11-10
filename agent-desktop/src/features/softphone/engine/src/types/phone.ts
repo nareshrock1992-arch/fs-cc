@@ -24,6 +24,20 @@ export interface CallInfo {
   /** epoch ms when the call was answered (status became active) */
   answeredAt?: number;
   endReason?: string;
+  /** blind transfer progress (SIP REFER) for this call */
+  transfer?: TransferInfo;
+}
+
+/**
+ * Blind transfer: requesting (REFER sent) -> accepted (202, server is transferring)
+ * -> done (target reached; this call ends) | failed (reason; this call continues).
+ */
+export type TransferStatus = 'requesting' | 'accepted' | 'done' | 'failed';
+
+export interface TransferInfo {
+  target: string;
+  status: TransferStatus;
+  reason?: string;
 }
 
 export interface Credentials {

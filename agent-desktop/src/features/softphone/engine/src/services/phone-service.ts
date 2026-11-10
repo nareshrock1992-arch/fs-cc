@@ -29,7 +29,7 @@ import {
   validatePassword,
   validateWssUrl,
 } from '../utils/validation';
-import { describeSipStatus, reduceCall, type CallEvent } from './call-state';
+import { describeSipStatus, reduceCall, sipfragStatus, type CallEvent } from './call-state';
 import { ReconnectScheduler } from './reconnect';
 import { Store } from './store';
 
@@ -343,6 +343,74 @@ export class PhoneService {
       this.callEvent({ type: 'hold', held });
     } catch (err) {
       this.store.update({ error: String(err instanceof Error ? err.message : err) });
+    }
+  }
+
+  /**
+   * Blind transfer of the active call (SIP REFER, the same as a desk phone's transfer key).
+   * FreeSWITCH accepts (202), calls the target and reports progress with NOTIFY (sipfrag).
+   * Success ends this call ("Transferred to …"); a failure keeps the customer on this call.
+   */
+  async transfer(input: string): Promise<void> {
+    const target = normaliseDialString(input);
+    const session = this.session;
+    const call = this.store.get().call;
+    if (!target) {
+      this.store.update({ error: 'Enter a valid transfer number (digits, *, #, + only).' });
+      return;
+    }
+    if (!this.client || !this.creds || !session || session.state !== SessionState.Established || call?.status !== 'active') {
+      this.store.update({ error: 'Transfer is only possible during an answered call.' });
+      return;
+    }
+    if (call.transfer && (call.transfer.status === 'requesting' || call.transfer.status === 'accepted')) return;
+
+    const fail = (reason: string) => {
+      if (this.session !== session) return;
+      this.callEvent({ type: 'transfer', target, status: 'failed', reason });
+      this.store.update({ error: `Transfer to ${target} failed: ${reason}` });
+    };
+    let uri;
+    try {
+      uri = this.client.makeTarget(target, this.creds.domain);
+    } catch (err) {
+      fail(String(err instanceof Error ? err.message : err));
+      return;
+    }
+    this.callEvent({ type: 'transfer', target, status: 'requesting' });
+    try {
+      await session.refer(uri, {
+        requestDelegate: {
+          onAccept: () => {
+            this.pendingEndReason = `Transferred to ${target}`;
+            this.callEvent({ type: 'transfer', target, status: 'accepted' });
+          },
+          onReject: (response) => {
+            this.pendingEndReason = undefined;
+            fail(describeSipStatus(response.message.statusCode));
+          },
+        },
+        onNotify: (notification) => {
+          notification.accept().catch(() => undefined);
+          const code = sipfragStatus(notification.request.body);
+          if (code === undefined || code < 200) return;
+          if (code < 300) {
+            this.callEvent({ type: 'transfer', target, status: 'done' });
+            // FreeSWITCH normally hangs up this leg itself; make sure the agent is released.
+            setTimeout(() => {
+              if (this.session === session && session.state === SessionState.Established) {
+                session.bye().catch(() => undefined);
+              }
+            }, 2000);
+          } else {
+            this.pendingEndReason = undefined;
+            fail(describeSipStatus(code));
+          }
+        },
+      });
+    } catch (err) {
+      this.pendingEndReason = undefined;
+      fail(String(err instanceof Error ? err.message : err));
     }
   }
 
