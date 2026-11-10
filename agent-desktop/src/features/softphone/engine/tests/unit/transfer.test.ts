@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reduceCall, sipfragStatus } from '../../src/services/call-state';
+import { promoteConsult, reduceCall, sipfragStatus } from '../../src/services/call-state';
 
 const active = () => {
   let c = reduceCall(undefined, { type: 'start', id: 'c1', direction: 'inbound', remoteIdentity: '1001' });
@@ -27,5 +27,15 @@ describe('blind transfer state', () => {
     expect(sipfragStatus('SIP/2.0 486 Busy Here')).toBe(486);
     expect(sipfragStatus('')).toBeUndefined();
     expect(sipfragStatus(undefined)).toBeUndefined();
+  });
+});
+
+describe('consult transfer state', () => {
+  it('the colleague call becomes the main call when the customer leaves', () => {
+    const call = promoteConsult({ id: 'k1', target: '1002', status: 'active', held: false, completing: false, answeredAt: 5 });
+    expect(call).toEqual({ id: 'k1', direction: 'outbound', remoteIdentity: '1002', status: 'active', muted: false, held: false, answeredAt: 5 });
+  });
+  it('a ringing consult stays ringing after promotion', () => {
+    expect(promoteConsult({ id: 'k1', target: '1002', status: 'ringing-out', held: false, completing: false }).status).toBe('ringing-out');
   });
 });

@@ -96,3 +96,37 @@ Approved 2026-11-10. Frontend only; no server, FreeSWITCH, backend or database c
 ### Known limitations
 - Blind only: if the target does not answer, FreeSWITCH decides what happens (voicemail / hang up). Consult transfer is T2.
 - Transfer while the customer is on hold works (FreeSWITCH takes the held leg).
+
+---
+
+## 8. Stage T2: Consult (attended) transfer — DONE (local commit, not pushed)
+
+Approved 2026-11-10. Frontend only; no server, FreeSWITCH, backend or database change.
+
+### What changed
+| File | Change |
+|---|---|
+| `engine/src/types/phone.ts` | `PhoneState.consult` (second line: target, status, held, completing) |
+| `engine/src/services/call-state.ts` | `promoteConsult()` |
+| `engine/src/services/phone-service.ts` | second line: `startConsult(number)` (customer put on hold, colleague called), `swapCalls()`, `cancelConsult()` (colleague hung up, customer resumed), `completeConsult()` (SIP REFER with Replaces on the customer call; FreeSWITCH joins customer and colleague; agent released). Customer hangs up during consult → colleague call becomes the main call. Colleague hangs up → customer stays on hold with a "press Resume" notice. Logout ends both. |
+| `usePhone.js` | exposes the four consult actions |
+| `workspace/phone/PhoneConsole.jsx` | Transfer panel gets **Consult first**. While consulting: card with Customer (on hold / talking) and Colleague (ringing / talking + timer / on hold / transferring); buttons **Complete transfer**, **Talk to customer / Talk to colleague**, **Cancel consult**; keypad, mute, hold and End call disabled |
+
+Call matching (`correlate.js`) is unchanged: it only uses the customer call, so the colleague call is never shown as the queue call (tested).
+
+### How the agent uses it
+1. In a call press **Transfer**, type the colleague's number, press **Consult first**. The customer hears hold music.
+2. When the colleague answers, explain the call. **Talk to customer** / **Talk to colleague** switch between them.
+3. **Complete transfer**: customer and colleague are connected; the agent is free. Or **Cancel consult**: the colleague is hung up and the customer is back with you.
+
+### Verification
+| Check | Result |
+|---|---|
+| Automated tests | **185 / 185** (8 new: 2 engine, 6 console) |
+| Typecheck, build with phone on / off | clean ✓ / ✓ |
+| Real call (owner) | **pending**: consult → complete; consult → cancel; swap both ways; colleague does not answer; customer hangs up during consult |
+
+### Known limitations
+- Microphone change and DTMF apply to the customer call only (not the consult line).
+- Incoming calls while consulting get "busy" (one agent, two lines max).
+- If the colleague is an IVR or queue, Complete transfer depends on FreeSWITCH accepting REFER/Replaces for that leg; Cancel always works.

@@ -1,4 +1,4 @@
-import type { CallDirection, CallInfo, TransferStatus } from '../types/phone';
+import type { CallDirection, CallInfo, ConsultInfo, TransferStatus } from '../types/phone';
 
 /**
  * Pure call-state transitions. Kept free of SIP.js so it can be unit tested and reused.
@@ -45,6 +45,22 @@ export function reduceCall(call: CallInfo | undefined, event: CallEvent): CallIn
     case 'ended':
       return { ...call, status: 'ended', endReason: event.reason };
   }
+}
+
+/**
+ * When the customer call ends during a consult, the consult call becomes the main call
+ * (the agent simply carries on talking to the colleague).
+ */
+export function promoteConsult(consult: ConsultInfo): CallInfo {
+  return {
+    id: consult.id,
+    direction: 'outbound',
+    remoteIdentity: consult.target,
+    status: consult.status === 'ended' ? 'ended' : consult.status,
+    muted: false,
+    held: consult.held,
+    answeredAt: consult.answeredAt,
+  };
 }
 
 /** Status code from a REFER progress NOTIFY body (message/sipfrag, e.g. "SIP/2.0 200 OK"). */

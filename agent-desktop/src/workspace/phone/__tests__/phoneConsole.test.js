@@ -23,7 +23,7 @@ const DEVICES = {
 };
 function makePhone(state = {}) {
   const fns = {};
-  for (const m of ['login', 'logout', 'dial', 'answer', 'reject', 'hangup', 'toggleMute', 'toggleHold', 'sendDtmf', 'transfer', 'refreshDevices', 'selectInput', 'selectOutput', 'unlockAudio', 'clearError']) {
+  for (const m of ['login', 'logout', 'dial', 'answer', 'reject', 'hangup', 'toggleMute', 'toggleHold', 'sendDtmf', 'transfer', 'startConsult', 'cancelConsult', 'swapCalls', 'completeConsult', 'refreshDevices', 'selectInput', 'selectOutput', 'unlockAudio', 'clearError']) {
     fns[m] = vi.fn(async () => (m === 'login' ? { ok: true } : undefined));
   }
   return {
@@ -251,5 +251,68 @@ describe('PhoneConsole — blind transfer', () => {
   it('not offered while ringing', () => {
     render(console_(makePhone({ call: sip() })));
     expect(btn('Transfer').disabled).toBe(true);
+  });
+});
+
+describe('PhoneConsole — consult transfer', () => {
+  const held = () => sip({ status: 'active', held: true, answeredAt: Date.now() });
+  const consult = (extra = {}) => ({ id: 'k1', target: '1002', status: 'active', held: false, completing: false, answeredAt: Date.now(), ...extra });
+
+  it('Consult first calls the colleague with the typed number', async () => {
+    const phone = makePhone({ call: sip({ status: 'active', answeredAt: Date.now() }) });
+    render(console_(phone));
+    act(() => btn('Transfer').click());
+    act(() => type(q('input[aria-label="Transfer to number"]'), '1002'));
+    await act(async () => btn('Consult first').click());
+    expect(phone.startConsult).toHaveBeenCalledWith('1002');
+    expect(phone.transfer).not.toHaveBeenCalled();
+  });
+
+  it('while consulting: both parties shown, Complete / Swap / Cancel work; keypad, mute, hold, End call off', () => {
+    const phone = makePhone({ call: held(), consult: consult() });
+    render(console_(phone));
+    const card = q('[aria-label="Consult call"]').textContent;
+    expect(card).toContain('Customer');
+    expect(card).toContain('On hold');
+    expect(card).toContain('1002');
+    expect(q('[aria-label="Consult status"]').textContent).toMatch(/^Talking/);
+    expect(btn('End call')).toBeUndefined();
+    expect(btn('Mute').disabled).toBe(true);
+    expect(btn('Resume').disabled).toBe(true);
+    expect([...q('[role="group"]').querySelectorAll('button')].every((b) => b.disabled)).toBe(true);
+    act(() => btn('Complete transfer').click());
+    act(() => btn('Talk to customer').click());
+    act(() => btn('Cancel consult').click());
+    expect(phone.completeConsult).toHaveBeenCalled();
+    expect(phone.swapCalls).toHaveBeenCalled();
+    expect(phone.cancelConsult).toHaveBeenCalled();
+  });
+
+  it('colleague still ringing: Complete and Swap wait, Cancel allowed', () => {
+    render(console_(makePhone({ call: held(), consult: consult({ status: 'ringing-out', answeredAt: undefined }) })));
+    expect(q('[aria-label="Consult status"]').textContent).toBe('Ringing…');
+    expect(btn('Complete transfer').disabled).toBe(true);
+    expect(btn('Talk to customer').disabled).toBe(true);
+    expect(btn('Cancel consult').disabled).toBe(false);
+  });
+
+  it('after swapping back to the customer the button offers the colleague', () => {
+    render(console_(makePhone({ call: sip({ status: 'active', held: false, answeredAt: Date.now() }), consult: consult({ held: true }) })));
+    expect(btn('Talk to colleague')).toBeDefined();
+    expect(q('[aria-label="Consult status"]').textContent).toBe('On hold');
+  });
+
+  it('completing: everything locked while FreeSWITCH joins the calls', () => {
+    render(console_(makePhone({ call: held(), consult: consult({ completing: true }) })));
+    expect(q('[aria-label="Consult status"]').textContent).toBe('Transferring…');
+    expect(btn('Complete transfer').disabled).toBe(true);
+    expect(btn('Cancel consult').disabled).toBe(true);
+  });
+
+  it('the consult call never replaces the queue (customer) call in call matching', () => {
+    const phone = makePhone({ call: held(), consult: consult() });
+    const { interaction } = correlate({ esl: { phase: 'talking', callUuid: 'u1', ani: '1001' }, sip: phone.state.call, phoneSignedIn: true });
+    expect(interaction.remoteNumber ?? interaction.number ?? '').not.toContain('1002');
+    expect(interaction.controllable).toBe(true);
   });
 });

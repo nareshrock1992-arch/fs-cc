@@ -34,6 +34,23 @@ export interface CallInfo {
  */
 export type TransferStatus = 'requesting' | 'accepted' | 'done' | 'failed';
 
+/**
+ * Consult (attended) transfer: a second, outbound call to a colleague while the customer
+ * call (PhoneState.call) is on hold.
+ *  dialing -> ringing-out -> active -> ended
+ * `held` = colleague on hold (agent swapped back to the customer).
+ * `completing` = REFER with Replaces sent; both calls end when FreeSWITCH joins them.
+ */
+export interface ConsultInfo {
+  id: string;
+  target: string;
+  status: 'dialing' | 'ringing-out' | 'active' | 'ended';
+  held: boolean;
+  completing: boolean;
+  answeredAt?: number;
+  endReason?: string;
+}
+
 export interface TransferInfo {
   target: string;
   status: TransferStatus;
@@ -68,6 +85,8 @@ export interface PhoneState {
   /** the signed-in identity, never contains the password */
   account?: { extension: string; domain: string; wssUrl: string };
   call?: CallInfo;
+  /** second line: consult call to a colleague (attended transfer) */
+  consult?: ConsultInfo;
   devices: DeviceState;
   /** last user-facing error message */
   error?: string;
