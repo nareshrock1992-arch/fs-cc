@@ -158,7 +158,9 @@ export async function listAgents(req, res) {
 export async function getAgent(req, res) {
   const { rows } = await query(`SELECT * FROM agents WHERE agent_id = $1`, [req.params.agentId]);
   if (!rows[0]) return res.status(404).json({ error: 'Agent not found' });
-  res.json(rows[0]);
+  // Never return the bcrypt PIN hash. Same shape as listAgents: pin_hash is a
+  // boolean "an Agent Desktop PIN exists" flag.
+  res.json({ ...rows[0], pin_hash: rows[0].pin_hash != null });
 }
 
 export async function getAgentHistory(req, res) {

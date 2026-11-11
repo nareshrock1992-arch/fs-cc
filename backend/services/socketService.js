@@ -5,6 +5,9 @@ import { config } from '../config/index.js';
 
 let io = null;
 
+// Room joined by every socket that authenticated (agent, admin or supervisor).
+export const SUBSCRIBERS = 'subscribers';
+
 // Events broadcast to ALL connected clients (admin + agent desktops)
 const BROADCAST_EVENTS = [
   'esl:status',
@@ -64,6 +67,7 @@ export function initSocket(httpServer, corsOrigin) {
         const decoded = jwt.verify(token, config.jwt.secret);
         if (decoded.role !== 'agent') return;
         socket.join(`agent:${decoded.agentId}`);
+        socket.join(SUBSCRIBERS);
         socket.agentId = decoded.agentId;
         socket.emit('agent:authenticated', { agentId: decoded.agentId });
         console.log(`[socket] agent ${decoded.agentId} joined room agent:${decoded.agentId}`);
@@ -87,6 +91,7 @@ export function initSocket(httpServer, corsOrigin) {
           return socket.emit('supervisor:auth-failed');
         }
         socket.join('supervisors');
+        socket.join(SUBSCRIBERS);
         socket.isSupervisor = true;
         socket.emit('supervisor:authenticated', { role: decoded.role });
         console.log(`[socket] supervisor (${decoded.role}) joined room supervisors`);
@@ -113,7 +118,10 @@ export function initSocket(httpServer, corsOrigin) {
   // ── Broadcast all normalized CC events to every connected client ──────────
   BROADCAST_EVENTS.forEach((eventName) => {
     ccEvents.on(eventName, (payload) => {
-      io.emit(eventName, payload);
+      // Only authenticated sockets (agents, admins, supervisors) receive call and
+      // agent events — payloads carry caller numbers. Unauthenticated sockets get
+      // esl:status only.
+      io.to(SUBSCRIBERS).emit(eventName, payload);
 
       // Also emit agent-specific events to the agent's private room
       const getAgentId = AGENT_TARGETED_EVENTS[eventName];

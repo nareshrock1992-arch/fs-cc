@@ -28,6 +28,8 @@ function authenticateSupervisor() {
 }
 socket.on('connect', authenticateSupervisor);
 if (socket.connected) authenticateSupervisor();
+// Login happens after the socket connected: authenticate as soon as a token is stored.
+window.addEventListener('cc-token-changed', () => { if (socket.connected) authenticateSupervisor(); });
 
 export function useSocketEvent(eventName, handler) {
   useEffect(() => {

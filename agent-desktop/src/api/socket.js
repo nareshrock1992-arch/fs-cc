@@ -12,7 +12,14 @@ export const socket = io('/', {
 
 // Authenticate the socket connection as an agent so the backend
 // adds this socket to room agent:{agentId} for targeted events.
+// The server only sends call/agent events to authenticated sockets, and room
+// membership is lost on every reconnect, so the token is remembered (memory only)
+// and re-sent on each (re)connect. Pass null on logout.
+let agentToken = null;
 export function authenticateAgent(token) {
-  if (!token) return;
-  socket.emit('agent:authenticate', { token });
+  agentToken = token || null;
+  if (agentToken && socket.connected) socket.emit('agent:authenticate', { token: agentToken });
 }
+socket.on('connect', () => {
+  if (agentToken) socket.emit('agent:authenticate', { token: agentToken });
+});

@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { requireAgentAuth } from '../middleware/auth.js';
 import { asyncHandler }     from '../utils/asyncHandler.js';
 import * as desk from '../controllers/agentDeskController.js';
+import { createLoginLimiter } from '../middleware/loginLimiter.js';
 
 const router = Router();
 
 // Public — no JWT required
-router.post('/login', asyncHandler(desk.agentLogin));
+router.post('/login', createLoginLimiter({ idField: 'agent_id' }), asyncHandler(desk.agentLogin));
 
 // Agent-authenticated routes (require role:'agent' JWT)
 router.use(requireAgentAuth);

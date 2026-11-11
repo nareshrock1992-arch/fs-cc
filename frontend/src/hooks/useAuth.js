@@ -22,6 +22,9 @@ export function getToken() {
 
 export function setToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
+  // Lets api/socket.js authenticate the live-event connection right after login
+  // (the server sends call/agent events to authenticated sockets only).
+  window.dispatchEvent(new Event('cc-token-changed'));
 }
 
 export function clearToken() {

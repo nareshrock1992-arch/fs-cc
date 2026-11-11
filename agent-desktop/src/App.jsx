@@ -10,7 +10,7 @@ export default function App() {
   const theme = useTheme();
 
   useEffect(() => {
-    if (auth.token) authenticateAgent(auth.token);
+    authenticateAgent(auth.token || null);
   }, [auth.token]);
 
   if (!auth.isAuthenticated) {

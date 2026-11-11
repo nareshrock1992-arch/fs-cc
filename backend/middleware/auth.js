@@ -12,7 +12,14 @@ export function requireAuth(req, res, next) {
   }
 
   try {
-    req.user = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret);
+    // Agent Desktop tokens (role:'agent') are only valid on /api/agent-desk/*.
+    // Without this check any agent could read the admin API (all live calls with
+    // caller numbers, all agents, stats) with the token issued at desk login.
+    if (decoded.role === 'agent') {
+      return res.status(403).json({ error: 'Agent tokens cannot access the admin API' });
+    }
+    req.user = decoded;
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token' });

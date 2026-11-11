@@ -262,7 +262,7 @@ describe('Reports — view_reports permission', () => {
 
 describe('User management — admin only', () => {
   let next, res;
-  beforeEach(() => { next = vi.fn(); res = mockRes(); });
+  beforeEach(() => { next = vi.fn(); res = mockRes(); mockQuery.mockClear(); }); // isolate query-call assertions between tests
 
   // ── 23. Supervisor cannot manage users ────────────────────────────────────
   it('supervisor gets 403 on any /api/users/* endpoint', () => {
