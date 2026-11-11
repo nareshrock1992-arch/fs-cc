@@ -21,3 +21,9 @@
 - TEST-1 BLOCKED: npm install impossible (Ubuntu-FS DNS down).
 - Suites: backend **411/411**, agent desktop 185/185, typecheck ✓, builds ✓.
 - Not committed / not deployed (awaiting owner).
+
+### Cycle 2 deploy + correction (2026-11-11)
+- `367b6439` deployed: SEC-6 verified on DEV (headers present, no X-Powered-By, 200 kB JSON → 413).
+- BUG-004 first fix was wrong: FreeSWITCH still showed max wait 0 while DB says 300. FreeSWITCH help text and `mod_callcenter.c` show **no `queue add` / `queue set`** in 1.10.12. Corrected in `18cd1e21`: queue load only, no unsupported commands, startup drift report. DEV log now: `max_wait_time is "0" in FreeSWITCH but "300" in the database` for all 3 YASREF queues.
+- New: OPS-1 (needs owner decision), UI-1.
+- Suites: backend 412/412, agent desktop 185/185, builds ✓.
