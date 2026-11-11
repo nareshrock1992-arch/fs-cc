@@ -129,3 +129,18 @@ describe('SEC-4 agent detail never returns the PIN hash', () => {
     expect(JSON.stringify(res.json.mock.calls[0][0])).not.toContain('$2a$');
   });
 });
+
+describe('SEC-6 security headers', () => {
+  it('sets nosniff, frame denial, API CSP and no-referrer', async () => {
+    const { securityHeaders, JSON_BODY_LIMIT } = await import('../../../middleware/securityHeaders.js');
+    const res = mockRes(); const next = vi.fn();
+    securityHeaders({}, res, next);
+    const h = res.set.mock.calls[0][0];
+    expect(h['X-Content-Type-Options']).toBe('nosniff');
+    expect(h['X-Frame-Options']).toBe('DENY');
+    expect(h['Content-Security-Policy']).toContain("frame-ancestors 'none'");
+    expect(h['Referrer-Policy']).toBe('no-referrer');
+    expect(next).toHaveBeenCalledOnce();
+    expect(JSON_BODY_LIMIT).toBe('100kb');
+  });
+});

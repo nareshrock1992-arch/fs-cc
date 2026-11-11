@@ -11,6 +11,7 @@ import { warmPool, pool, query } from './db/pool.js';
 import { runMigrations }   from './db/migrationRunner.js';
 import { writeAndReloadXml, generateCallcenterXml } from './utils/queueXml.js';
 import { asyncHandler }    from './utils/asyncHandler.js';
+import { securityHeaders, JSON_BODY_LIMIT } from './middleware/securityHeaders.js';
 
 import authRoutes      from './routes/auth.js';
 import usersRoutes     from './routes/users.js';
@@ -25,8 +26,10 @@ import agentDeskRoutes from './routes/agentDesk.js';
 const app    = express();
 const server = http.createServer(app);
 
+app.disable('x-powered-by');
+app.use(securityHeaders);
 app.use(cors({ origin: config.cors.origin }));
-app.use(express.json());
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
 app.use(morgan(config.env === 'production' ? 'combined' : 'dev'));
 
 // ── Health check (public) ─────────────────────────────────────────────────────

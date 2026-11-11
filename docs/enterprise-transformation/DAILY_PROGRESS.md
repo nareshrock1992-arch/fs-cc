@@ -14,3 +14,10 @@
 - SEC-4: `GET /api/agents/:id` → `pin_hash` boolean, no bcrypt text ✓.
 - SEC-3: anonymous socket received `esl:status` only; supervisor socket authenticated ✓. Call events not observed (no calls during the 8 s window) — owner check of live pages pending.
 - Seen in logs (pre-existing, not from cycle 1): `[esl] push queue SAPAPPS@YASREF add failed: -ERR no reply` → logged as BUG-004.
+
+## 2026-11-11 — Cycle 2
+- BUG-004 root cause found (fs_cli: `callcenter_config queue add SAPAPPS@YASREF` → `-ERR no reply` while the queue is loaded). Fixed: parameters applied when the queue is already loaded. 4 tests.
+- SEC-6: security headers + 100 kB JSON limit + X-Powered-By off, no new dependency. 1 test.
+- TEST-1 BLOCKED: npm install impossible (Ubuntu-FS DNS down).
+- Suites: backend **411/411**, agent desktop 185/185, typecheck ✓, builds ✓.
+- Not committed / not deployed (awaiting owner).

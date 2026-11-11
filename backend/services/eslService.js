@@ -389,6 +389,17 @@ async function flushIvrBuffer(callUuid, chanUuid, queueName) {
 // pushToFreeSWITCH — PostgreSQL → FreeSWITCH
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Whether queue parameters can be applied after "callcenter_config queue add".
+ * OK when add succeeded, when FreeSWITCH says the queue already exists, or when the
+ * queue was already loaded (mod_callcenter then answers "-ERR no reply").
+ */
+export function queueAddUsable(addResult, alreadyLoaded) {
+  if (!addResult || !addResult.startsWith('-ERR')) return true;
+  if (/already exist|already have|already added/i.test(addResult)) return true;
+  return Boolean(alreadyLoaded);
+}
+
 export async function pushToFreeSWITCH() {
   console.log('[esl] ► pushToFreeSWITCH: rebuilding FreeSWITCH state from PostgreSQL …');
 
@@ -408,14 +419,18 @@ export async function pushToFreeSWITCH() {
   ]);
 
   // ── Push queues (sequential — mod_callcenter is not thread-safe) ──────────
+  // Queues already loaded from callcenter.conf.xml make "queue add" answer
+  // "-ERR no reply" (verified on FreeSWITCH 1.10.12). That is NOT a failure: the
+  // DB parameters must still be applied, otherwise admin changes to strategy /
+  // MOH / max wait are silently ignored after every backend restart (BUG-004).
+  let loadedQueues = new Set();
+  try {
+    loadedQueues = new Set(parseFsTable(await eslApi('callcenter_config queue list')).map((r) => r.name));
+  } catch (err) { console.warn('[esl] could not list loaded queues:', err.message); }
   for (const q of queues) {
     try {
-      const addResult = await eslApiSafe(
-        `callcenter_config queue add ${q.name}`, `queue add ${q.name}`
-      );
-      // If add returned a fatal error (not "already exists"), skip param updates
-      if (addResult && addResult.startsWith('-ERR') &&
-          !/already exist|already have/i.test(addResult)) {
+      const addResult = await eslApi(`callcenter_config queue add ${q.name}`);
+      if (!queueAddUsable(addResult, loadedQueues.has(q.name))) {
         console.error(`[esl] push queue ${q.name} add failed: ${addResult}`);
         continue;
       }
