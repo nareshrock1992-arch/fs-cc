@@ -8,7 +8,7 @@
 - docs: this folder
 
 **Next actions**
-1. Owner reviews → commit (one commit "security: cycle 1") → push → `git pull --ff-only` on `/opt/freeswitch-ui/fs-cc` → `pm2 restart fs-backend` (backend change needs restart; frontends are Vite dev).
+1. DONE 2026-11-11: cycle 1 deployed to DEV (`aa2f0243`) and verified (see DAILY_PROGRESS). Owner still to check: live pages update after login; agent desktop gets calls after Wi-Fi off/on.
 2. Verify on DEV: agent desktop receives ringing calls after Wi-Fi off/on; admin Live Operations updates right after login; agent token on `/api/calls/live` → 403; 11th wrong PIN → 429.
 3. Continue roadmap cycle 2 (`IMPLEMENTATION_ROADMAP.md`).
 

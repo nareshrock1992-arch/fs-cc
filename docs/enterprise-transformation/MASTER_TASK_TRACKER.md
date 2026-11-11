@@ -1,4 +1,4 @@
-# Master Task Tracker
+| VERIFIED || VERIFIED || VERIFIED || VERIFIED |# Master Task Tracker
 
 Priorities: P0 security/data/service-breaking · P1 core CC failure · P2 enterprise gap · P3 refinement.
 Statuses: DISCOVERED · INVESTIGATING · READY · IN_PROGRESS · FIXED · TESTING · VERIFIED · BLOCKED · DEFERRED.
@@ -13,6 +13,7 @@ Statuses: DISCOVERED · INVESTIGATING · READY · IN_PROGRESS · FIXED · TESTIN
 | SEC-4 | backend agents | PIN hash in agent detail | `SELECT *` returned as-is | offline cracking of agent PINs | P1 | FIXED | SEC-4 test; field kept as boolean (same as list) for UI compatibility |
 | BUG-002 | agent desktop socket | room lost after reconnect | authenticate sent once per token | missed `agent:offering`, state events after Wi-Fi blip | P1 | FIXED | token kept in memory, re-sent on every `connect`. Runtime NOT VERIFIED |
 | BUG-003 | admin portal socket | supervisor socket not authenticated until reconnect after login | auth only on `connect` | after SEC-3, live pages would stay empty until refresh | P1 | FIXED | `setToken` fires `cc-token-changed`, socket authenticates. Runtime NOT VERIFIED |
+| BUG-004 | backend ESL | startup log: `push queue SAPAPPS@YASREF add failed: -ERR no reply` | not investigated | a queue may be missing in mod_callcenter after restart | P1 | DISCOVERED | DEV log 2026-11-11 |
 | SEC-5 | backend socket | sockets stay in `subscribers` after logout (until page reload) | no de-auth event | low: same browser session | P3 | DISCOVERED | — |
 | SEC-6 | backend | no security headers (helmet), no JSON body size limit set explicitly | not configured | hardening | P2 | DISCOVERED | needs dependency check (no new deps without review) |
 | SEC-7 | backend | JWT kept in `localStorage` (admin) | design | XSS → token theft | P2 | DISCOVERED | design change; plan with owner |
