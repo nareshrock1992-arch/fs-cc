@@ -64,7 +64,7 @@ const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
 // Polls mod_callcenter until it responds without an error.
 // FreeSWITCH loads modules asynchronously after the ESL handshake, so
-// "callcenter_config queue add" can return "-ERR no reply" if we push too soon.
+// callcenter_config commands can return "-ERR no reply" if we push too soon.
 async function waitForModCallcenter(maxWaitMs = 45_000) {
   const start = Date.now();
   let attempt = 0;
@@ -247,10 +247,16 @@ export const cc = {
   agentSetState:  (agentId, state)  => eslApi(`callcenter_config agent set state ${agentId} '${state}'`),
   agentSetParam:  (agentId, p, v)   => eslApi(`callcenter_config agent set ${p} ${agentId} ${v}`),
 
-  queueAdd: (name) =>
-    eslApiSafe(`callcenter_config queue add ${name}`, `queue add ${name}`),
+  // mod_callcenter 1.10.12 has no "queue add" / "queue set": queues and their
+  // parameters come from callcenter.conf.xml. queueAdd loads a queue that is in
+  // the XML; queueSetParam is kept for callers but sends nothing (BUG-004).
+  queueAdd:    (name) => eslApi(`callcenter_config queue load ${name}`),
+  queueReload: (name) => eslApi(`callcenter_config queue reload ${name}`),
   queueDel:      (name)       => eslApi(`callcenter_config queue del ${name}`),
-  queueSetParam: (name, p, v) => eslApi(`callcenter_config queue set ${p} ${name} '${v}'`),
+  queueSetParam: async (name, p, v) => {
+    console.warn(`[esl] queue ${name}: ${p}=${v} saved in the database only; FreeSWITCH applies it after a queue XML export`);
+    return '-ERR not supported by mod_callcenter (use queue XML export)';
+  },
 
   tierAdd: (queue, agent, level = 1, pos = 1) =>
     eslApiSafe(`callcenter_config tier add ${queue} ${agent} ${level} ${pos}`,
@@ -390,15 +396,31 @@ async function flushIvrBuffer(callUuid, chanUuid, queueName) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Whether queue parameters can be applied after "callcenter_config queue add".
- * OK when add succeeded, when FreeSWITCH says the queue already exists, or when the
- * queue was already loaded (mod_callcenter then answers "-ERR no reply").
+ * Queue settings drift between PostgreSQL (what the admin portal shows) and the
+ * running mod_callcenter queue. FreeSWITCH 1.10.12 has NO "queue add" / "queue set"
+ * API (verified in mod_callcenter.c: queue supports load|unload|reload|list|count
+ * only), so queue parameters come exclusively from callcenter.conf.xml. Any
+ * difference means an admin change has not reached FreeSWITCH (BUG-004).
+ * Returns [{ field, db, fs }]. Pure, unit-tested.
  */
-export function queueAddUsable(addResult, alreadyLoaded) {
-  if (!addResult || !addResult.startsWith('-ERR')) return true;
-  if (/already exist|already have|already added/i.test(addResult)) return true;
-  return Boolean(alreadyLoaded);
+export function queueDrift(dbQueue, fsRow) {
+  if (!fsRow) return [{ field: 'loaded', db: 'yes', fs: 'not loaded' }];
+  const norm = (v) => (v === null || v === undefined ? '' : String(v).trim());
+  const pairs = [
+    ['strategy', dbQueue.strategy, fsRow.strategy],
+    ['moh_sound', dbQueue.moh_sound || 'local_stream://moh', fsRow.moh_sound],
+    ['max_wait_time', dbQueue.max_wait_time ?? 0, fsRow.max_wait_time],
+    ['max_wait_time_with_no_agent', dbQueue.max_wait_time_w_no_agent ?? 0, fsRow.max_wait_time_with_no_agent],
+    ['agent_no_answer_status', dbQueue.agent_no_answer_status || 'On Break', fsRow.agent_no_answer_status],
+  ];
+  return pairs
+    .filter(([, db, fsv]) => fsv !== undefined && norm(db) !== norm(fsv))
+    .map(([field, db, fsv]) => ({ field, db: norm(db), fs: norm(fsv) }));
 }
+
+let lastQueueDrift = [];
+/** Queue settings that differed from the database at the last startup push: [{ queue, field, db, fs }]. */
+export function getQueueDrift() { return lastQueueDrift; }
 
 export async function pushToFreeSWITCH() {
   console.log('[esl] ► pushToFreeSWITCH: rebuilding FreeSWITCH state from PostgreSQL …');
@@ -418,31 +440,36 @@ export async function pushToFreeSWITCH() {
            WHERE a.active = true AND q.active = true`)
   ]);
 
-  // ── Push queues (sequential — mod_callcenter is not thread-safe) ──────────
-  // Queues already loaded from callcenter.conf.xml make "queue add" answer
-  // "-ERR no reply" (verified on FreeSWITCH 1.10.12). That is NOT a failure: the
-  // DB parameters must still be applied, otherwise admin changes to strategy /
-  // MOH / max wait are silently ignored after every backend restart (BUG-004).
-  let loadedQueues = new Set();
+  // ── Queues: load if needed, then report DB <-> FreeSWITCH drift ───────────
+  // mod_callcenter takes queue parameters only from callcenter.conf.xml (no
+  // "queue set" API in 1.10.12), so no parameter commands are sent. Queues not
+  // loaded yet are loaded; every setting that differs from the database is logged
+  // so a stale XML file is visible instead of silent (BUG-004).
+  let fsQueues = new Map();
   try {
-    loadedQueues = new Set(parseFsTable(await eslApi('callcenter_config queue list')).map((r) => r.name));
+    fsQueues = new Map(parseFsTable(await eslApi('callcenter_config queue list')).map((r) => [r.name, r]));
   } catch (err) { console.warn('[esl] could not list loaded queues:', err.message); }
+  const drift = [];
   for (const q of queues) {
     try {
-      const addResult = await eslApi(`callcenter_config queue add ${q.name}`);
-      if (!queueAddUsable(addResult, loadedQueues.has(q.name))) {
-        console.error(`[esl] push queue ${q.name} add failed: ${addResult}`);
-        continue;
+      if (!fsQueues.has(q.name)) {
+        const loadResult = await eslApi(`callcenter_config queue load ${q.name}`);
+        if (loadResult.startsWith('-ERR')) {
+          console.error(`[esl] queue ${q.name} is not in callcenter.conf.xml (${loadResult}): export the queue XML`);
+          drift.push({ queue: q.name, field: 'loaded', db: 'yes', fs: 'missing from callcenter.conf.xml' });
+          continue;
+        }
+        const reread = parseFsTable(await eslApi('callcenter_config queue list')).find((r) => r.name === q.name);
+        if (reread) fsQueues.set(q.name, reread);
       }
-      await eslApi(`callcenter_config queue set strategy ${q.name} '${q.strategy}'`);
-      await eslApi(`callcenter_config queue set moh-sound ${q.name} '${q.moh_sound || 'local_stream://moh'}'`);
-      await eslApi(`callcenter_config queue set max-wait-time ${q.name} ${q.max_wait_time}`);
-      if (q.max_wait_time_w_no_agent)
-        await eslApi(`callcenter_config queue set max-wait-time-with-no-agent ${q.name} ${q.max_wait_time_w_no_agent}`);
-      await eslApi(`callcenter_config queue set agent-no-answer-status ${q.name} '${q.agent_no_answer_status || 'On Break'}'`);
-    } catch (err) { console.error(`[esl] push queue ${q.name}:`, err.message); }
+      for (const d of queueDrift(q, fsQueues.get(q.name))) {
+        drift.push({ queue: q.name, ...d });
+        console.warn(`[esl] queue ${q.name}: ${d.field} is "${d.fs}" in FreeSWITCH but "${d.db}" in the database (apply with queue XML export)`);
+      }
+    } catch (err) { console.error(`[esl] queue ${q.name}:`, err.message); }
   }
-  console.log(`[esl] ✓ pushed ${queues.length} queue(s)`);
+  lastQueueDrift = drift;
+  console.log(`[esl] ✓ checked ${queues.length} queue(s); ${drift.length} setting(s) differ from the database`);
 
   // ── Push agents ───────────────────────────────────────────────────────────
   for (const a of agents) {
