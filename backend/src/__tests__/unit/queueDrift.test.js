@@ -13,7 +13,7 @@ vi.mock('../../../services/agentSessionService.js', () => ({
   handleStatusTransition: vi.fn(), reconcileOnStartup: vi.fn(),
 }));
 
-const { queueDrift, cc } = await import('../../../services/eslService.js');
+const { queueDrift, checkQueueDrift, cc } = await import('../../../services/eslService.js');
 
 const db = {
   strategy: 'longest-idle-agent', moh_sound: 'local_stream://moh', max_wait_time: 300,
@@ -44,5 +44,21 @@ describe('cc queue helpers send only commands mod_callcenter supports', () => {
   it('queueSetParam sends nothing and says why', async () => {
     const r = await cc.queueSetParam('q@d', 'strategy', 'round-robin');
     expect(r).toMatch(/not supported/);
+  });
+});
+
+describe('checkQueueDrift (UI-1)', () => {
+  const dbQ = { name: 'A@d', ...db };
+  it('lists differences per queue', async () => {
+    const r = await checkQueueDrift({ fetchDbQueues: async () => [dbQ], listFsQueues: async () => [{ name: 'A@d', ...fsRow }] });
+    expect(r).toEqual({ checked: 1, eslConnected: true, drift: [{ queue: 'A@d', field: 'max_wait_time', db: '300', fs: '0' }] });
+  });
+  it('in sync → empty drift', async () => {
+    const r = await checkQueueDrift({ fetchDbQueues: async () => [{ ...dbQ, max_wait_time: 0 }], listFsQueues: async () => [{ name: 'A@d', ...fsRow }] });
+    expect(r.drift).toEqual([]);
+  });
+  it('ESL down → eslConnected false, no false alarm', async () => {
+    const r = await checkQueueDrift({ fetchDbQueues: async () => [dbQ], listFsQueues: async () => { throw new Error('ESL not connected'); } });
+    expect(r).toEqual({ checked: 1, eslConnected: false, drift: [] });
   });
 });

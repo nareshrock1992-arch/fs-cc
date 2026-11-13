@@ -28,6 +28,7 @@ export default function Queues() {
   const isAdmin = user?.role === 'admin';
 
   const [queues, setQueues]       = useState([]);
+  const [drift, setDrift]         = useState(null);
   const [allAgents, setAllAgents] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
@@ -48,6 +49,8 @@ export default function Queues() {
       setQueues(q);
       setAllAgents(a);
       setError(null);
+      // UI-1: non-fatal — the page still works if the drift check fails.
+      QueuesApi.drift().then(setDrift).catch(() => setDrift(null));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -152,6 +155,28 @@ export default function Queues() {
             <Plus size={15} /> Add Queue
           </button>
         </div>
+      )}
+
+      {drift?.drift?.length > 0 && (
+        <div role="alert" aria-label="Queue settings not applied"
+             className="rounded-md border border-amber-400/60 bg-amber-50 dark:bg-amber-500/10 p-3 text-sm">
+          <p className="font-semibold text-amber-800 dark:text-amber-300">
+            Some saved queue settings are not active in FreeSWITCH yet
+          </p>
+          <p className="mt-1 text-amber-800/90 dark:text-amber-200/80">
+            Calls follow the FreeSWITCH value until the queue configuration file is exported and reloaded.
+          </p>
+          <ul className="mt-2 space-y-0.5 text-amber-900 dark:text-amber-100">
+            {drift.drift.map((d) => (
+              <li key={`${d.queue}-${d.field}`}>
+                <span className="font-mono">{d.queue}</span>: {d.field.replace(/_/g, ' ')} — saved <b>{d.db}</b>, running <b>{d.fs}</b>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {drift && drift.eslConnected === false && (
+        <p className="text-xs text-amber-700 dark:text-amber-300">FreeSWITCH is not connected, so queue settings could not be checked.</p>
       )}
 
       <Panel>

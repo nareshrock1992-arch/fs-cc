@@ -422,6 +422,30 @@ let lastQueueDrift = [];
 /** Queue settings that differed from the database at the last startup push: [{ queue, field, db, fs }]. */
 export function getQueueDrift() { return lastQueueDrift; }
 
+/**
+ * Live drift check for the Queues page (UI-1): compares every active queue in the
+ * database with what mod_callcenter is running right now. Read-only — sends only
+ * "queue list". Returns { checked, eslConnected, drift: [{ queue, field, db, fs }] }.
+ * Dependencies are injectable for unit tests.
+ */
+export async function checkQueueDrift({
+  fetchDbQueues = async () => (await query(
+    `SELECT name, strategy, moh_sound, max_wait_time, max_wait_time_w_no_agent, agent_no_answer_status
+     FROM queues WHERE active = true ORDER BY name`)).rows,
+  listFsQueues = async () => parseFsTable(await eslApi('callcenter_config queue list')),
+} = {}) {
+  const dbQueues = await fetchDbQueues();
+  let fsRows;
+  try { fsRows = await listFsQueues(); }
+  catch { return { checked: dbQueues.length, eslConnected: false, drift: [] }; }
+  const byName = new Map(fsRows.map((r) => [r.name, r]));
+  const drift = [];
+  for (const q of dbQueues) {
+    for (const d of queueDrift(q, byName.get(q.name))) drift.push({ queue: q.name, ...d });
+  }
+  return { checked: dbQueues.length, eslConnected: true, drift };
+}
+
 export async function pushToFreeSWITCH() {
   console.log('[esl] ► pushToFreeSWITCH: rebuilding FreeSWITCH state from PostgreSQL …');
 

@@ -64,7 +64,8 @@ export const Agents = {
 // ---- Queues ----
 export const Queues = {
   list:       ()              => api.get('/queues').then(r => r.data),
-  get:        (name)          => api.get(`/queues/${encodeURIComponent(name)}`).then(r => r.data),
+  drift:      ()              => api.get('/queues/drift').then(r => r.data),
+  get:       (name)          => api.get(`/queues/${encodeURIComponent(name)}`).then(r => r.data),
   create:     (payload)       => api.post('/queues', payload).then(r => r.data),
   update:     (name, payload) => api.put(`/queues/${encodeURIComponent(name)}`, payload).then(r => r.data),
   remove:     (name)          => api.delete(`/queues/${encodeURIComponent(name)}`),

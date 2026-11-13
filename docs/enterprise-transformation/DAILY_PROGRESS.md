@@ -27,3 +27,10 @@
 - BUG-004 first fix was wrong: FreeSWITCH still showed max wait 0 while DB says 300. FreeSWITCH help text and `mod_callcenter.c` show **no `queue add` / `queue set`** in 1.10.12. Corrected in `18cd1e21`: queue load only, no unsupported commands, startup drift report. DEV log now: `max_wait_time is "0" in FreeSWITCH but "300" in the database` for all 3 YASREF queues.
 - New: OPS-1 (needs owner decision), UI-1.
 - Suites: backend 412/412, agent desktop 185/185, builds ✓.
+
+## 2026-11-13 — OPS-1
+- Owner chose "keep no limit". DEV DB `queues.max_wait_time` 300 → 0 (3 YASREF queues); `pm2 restart fs-backend`; drift log: 0 settings differ. No caller-facing change. Docs not yet committed.
+
+## 2026-11-13 — Cycle 3 (part 1: UI-1)
+- UI-1 fixed: drift endpoint + Queues page warning. Backend **415/415**, agent desktop 185/185, both builds ✓ (test copy).
+- BUG-005 discovered (route order). Not committed / not deployed (awaiting owner). Next: WebRTC C1 conference.
