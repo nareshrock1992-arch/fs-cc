@@ -34,3 +34,7 @@
 ## 2026-11-13 — Cycle 3 (part 1: UI-1)
 - UI-1 fixed: drift endpoint + Queues page warning. Backend **415/415**, agent desktop 185/185, both builds ✓ (test copy).
 - BUG-005 discovered (route order). Not committed / not deployed (awaiting owner). Next: WebRTC C1 conference.
+- UI-1 deployed (`6161c53`) and VERIFIED on DEV (drift API answers, 0 differences, 401 without token).
+
+## 2026-11-13 — Cycle 3 (part 2: WebRTC C1 conference)
+- Built merge-to-conference (room 30xx from the existing dialplan; no FreeSWITCH change). Agent desktop **189/189**, backend 415/415, builds ✓. Not committed / not deployed; real call NOT VERIFIED.

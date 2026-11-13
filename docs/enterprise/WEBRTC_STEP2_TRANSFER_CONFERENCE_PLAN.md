@@ -130,3 +130,23 @@ Call matching (`correlate.js`) is unchanged: it only uses the customer call, so 
 - Microphone change and DTMF apply to the customer call only (not the consult line).
 - Incoming calls while consulting get "busy" (one agent, two lines max).
 - If the colleague is an IVR or queue, Complete transfer depends on FreeSWITCH accepting REFER/Replaces for that leg; Cancel always works.
+
+## 9. Stage C1: Conference (3-way) — BUILT (not committed, not deployed)
+
+### What changed
+- Engine `mergeConference()`: during an answered consult, REFERs the **customer** to room `30xx`, then the **colleague**, then the agent dials the same room. Room = `30` + last two digits of the agent extension (`conferenceRoomFor`). Uses the existing FreeSWITCH dialplan (`nb_conferences`, 3000–3099, profile `default`) — no FreeSWITCH change.
+- If the customer cannot be moved, nothing changes: both calls stay connected and an error is shown. If only the colleague fails, the agent joins the customer in the room and a notice says so.
+- Console: **Conference all three** button in the consult panel; the Conference tile is now active during a consult; in the room the screen shows the room number and **End call** becomes **Leave conference** (the others keep talking).
+
+### Verification
+- Agent desktop 189/189 (4 new), typecheck ✓, builds ✓. Real call NOT VERIFIED.
+
+### Known limitations
+- No "end for all" or "remove one person": needs a backend ESL feature (supervisor/conference control, later).
+- Two agents whose extensions end in the same two digits share a room number.
+- Queue reporting after the merge: the customer leaves the agent's queue bridge (like a transfer), so the call is recorded as ended for the agent.
+
+### Owner real-call checklist
+1. Queue or direct call → Transfer → type colleague → **Consult first** → colleague answers → **Conference all three** → all three hear each other.
+2. **Leave conference** → customer and colleague still talking.
+3. Colleague does not answer → Conference stays disabled; Cancel consult works.

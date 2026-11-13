@@ -23,7 +23,7 @@ const DEVICES = {
 };
 function makePhone(state = {}) {
   const fns = {};
-  for (const m of ['login', 'logout', 'dial', 'answer', 'reject', 'hangup', 'toggleMute', 'toggleHold', 'sendDtmf', 'transfer', 'startConsult', 'cancelConsult', 'swapCalls', 'completeConsult', 'refreshDevices', 'selectInput', 'selectOutput', 'unlockAudio', 'clearError']) {
+  for (const m of ['login', 'logout', 'dial', 'answer', 'reject', 'hangup', 'toggleMute', 'toggleHold', 'sendDtmf', 'transfer', 'startConsult', 'cancelConsult', 'swapCalls', 'completeConsult', 'mergeConference', 'refreshDevices', 'selectInput', 'selectOutput', 'unlockAudio', 'clearError']) {
     fns[m] = vi.fn(async () => (m === 'login' ? { ok: true } : undefined));
   }
   return {
@@ -99,7 +99,7 @@ describe('PhoneConsole — idle', () => {
     expect(btn('Mute').disabled).toBe(true);
     expect(btn('Hold').disabled).toBe(true);
     expect(btn('Transfer').disabled).toBe(true);
-    expect(q('button[aria-label="Conference (not available yet)"]').disabled).toBe(true);
+    expect(btn('Conference').disabled).toBe(true);
     expect(btn('End call')).toBeUndefined();
   });
 
@@ -294,6 +294,30 @@ describe('PhoneConsole — consult transfer', () => {
     expect(btn('Complete transfer').disabled).toBe(true);
     expect(btn('Talk to customer').disabled).toBe(true);
     expect(btn('Cancel consult').disabled).toBe(false);
+  });
+
+  it('Conference all three (button and tile) merges the calls', () => {
+    const phone = makePhone({ call: held(), consult: consult() });
+    render(console_(phone));
+    expect(btn('Conference').disabled).toBe(false);
+    act(() => btn('Conference all three').click());
+    act(() => btn('Conference').click());
+    expect(phone.mergeConference).toHaveBeenCalledTimes(2);
+  });
+
+  it('while merging: status says joining, buttons wait', () => {
+    render(console_(makePhone({ call: held(), consult: consult({ completing: true }), conference: { room: '3001', status: 'merging' } })));
+    expect(q('[aria-label="Consult status"]').textContent).toBe('Joining conference…');
+    expect(btn('Conference all three').disabled).toBe(true);
+    expect(btn('Complete transfer').disabled).toBe(true);
+  });
+
+  it('in a conference: room shown and End call becomes Leave conference', () => {
+    const phone = makePhone({ call: sip({ status: 'active', direction: 'outbound', remoteIdentity: '3001', answeredAt: Date.now() }), conference: { room: '3001', status: 'joined' } });
+    render(console_(phone));
+    expect(q('[aria-label="Conference status"]').textContent).toContain('3001');
+    act(() => btn('Leave conference').click());
+    expect(phone.hangup).toHaveBeenCalled();
   });
 
   it('after swapping back to the customer the button offers the colleague', () => {

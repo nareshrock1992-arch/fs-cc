@@ -39,3 +39,14 @@ describe('consult transfer state', () => {
     expect(promoteConsult({ id: 'k1', target: '1002', status: 'ringing-out', held: false, completing: false }).status).toBe('ringing-out');
   });
 });
+
+describe('conference room (C1)', () => {
+  it('is 30 + last two digits of the extension', async () => {
+    const { conferenceRoomFor } = await import('../../src/services/call-state');
+    expect(conferenceRoomFor('1001')).toBe('3001');
+    expect(conferenceRoomFor('2047')).toBe('3047');
+    expect(conferenceRoomFor('7')).toBe('3007');
+    expect(conferenceRoomFor('')).toBeUndefined();
+    expect(conferenceRoomFor(undefined)).toBeUndefined();
+  });
+});

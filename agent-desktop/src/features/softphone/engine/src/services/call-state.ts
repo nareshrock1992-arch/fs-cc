@@ -63,6 +63,18 @@ export function promoteConsult(consult: ConsultInfo): CallInfo {
   };
 }
 
+/**
+ * Conference room for an agent's 3-way call: "30" + last two digits of the extension.
+ * FreeSWITCH's default dialplan turns 3000–3099 into a conference (profile "default").
+ * Two agents whose extensions end in the same two digits share a room number —
+ * documented limitation until a backend room allocator exists.
+ */
+export function conferenceRoomFor(extension: string | undefined): string | undefined {
+  const digits = (extension || '').replace(/\D/g, '');
+  if (!digits) return undefined;
+  return `30${digits.slice(-2).padStart(2, '0')}`;
+}
+
 /** Status code from a REFER progress NOTIFY body (message/sipfrag, e.g. "SIP/2.0 200 OK"). */
 export function sipfragStatus(body: string | undefined): number | undefined {
   const m = /^SIP\/2\.0\s+(\d{3})/i.exec((body || '').trim());

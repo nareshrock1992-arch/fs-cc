@@ -87,6 +87,8 @@ export interface PhoneState {
   call?: CallInfo;
   /** second line: consult call to a colleague (attended transfer) */
   consult?: ConsultInfo;
+  /** 3-way conference: 'merging' while the calls move to the room, then 'joined' */
+  conference?: { room: string; status: 'merging' | 'joined' };
   devices: DeviceState;
   /** last user-facing error message */
   error?: string;

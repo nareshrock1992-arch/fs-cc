@@ -16,7 +16,7 @@ import {
  *   display      number entry (idle) / caller, state, timer (in call)
  *   keypad       ALWAYS visible: dials when idle, sends DTMF in a call
  *   action       Call | Answer + Reject | Cancel call | End call
- *   controls     Mute · Hold · Transfer (n/a) · Conference (n/a)
+ *   controls     Mute · Hold · Transfer · Conference
  *   audio        microphone and speaker selectors
  *
  * Every action is a real usePhone() call on the existing engine (no second engine,
@@ -75,7 +75,8 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   // Consult (attended) transfer: second line to a colleague, customer on hold.
   const consult = phone?.state?.consult;
   const consulting = Boolean(consult && consult.status !== 'ended' && phone?.state?.call);
-  const consultTalk = useElapsed(consult?.status === 'active' ? consult.answeredAt : null);
+  const conference = phone?.state?.conference;
+  const consultTalk =useElapsed(consult?.status === 'active' ? consult.answeredAt : null);
   const showXfer = inCall && !consulting && (xferOpen || xferBusy);
   async function consultNow() {
     const target = xferNumber.replace(DIAL_CHARS, '');
@@ -205,7 +206,8 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
             <div className="mt-1 flex items-center justify-between gap-2">
               <span className="text-ink-dim">Colleague <span className="font-mono text-ink">{consult.target}</span></span>
               <span aria-label="Consult status" className="font-medium">
-                {consult.completing ? 'Transferring…'
+                {conference?.status === 'merging' ? 'Joining conference…'
+                  : consult.completing ? 'Transferring…'
                   : consult.status === 'active' ? (consult.held ? 'On hold' : `Talking ${consultTalk}`)
                   : 'Ringing…'}
               </span>
@@ -280,10 +282,19 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
             </Button>
             <Button variant="danger" size="lg" className="h-12 text-base" onClick={() => phone.cancelConsult()}
               disabled={consult.completing}><PhoneOff size={18} /> Cancel consult</Button>
+            <Button size="lg" className="col-span-2 h-12 text-base" onClick={() => phone.mergeConference()}
+              disabled={consult.status !== 'active' || consult.completing}><Users size={18} /> Conference all three</Button>
           </div>
         )}
+        {inCall && !consulting && conference?.status === 'joined' && (
+          <p aria-label="Conference status" className="mb-2 text-center text-sm text-status-ok">
+            In conference room <span className="font-mono">{conference.room}</span>. Leaving keeps the others connected.
+          </p>
+        )}
         {inCall && !consulting && (
-          <Button variant="danger" size="lg" className="w-full h-12 text-base" onClick={() => phone.hangup()}><PhoneOff size={18} /> End call</Button>
+          <Button variant="danger" size="lg" className="w-full h-12 text-base" onClick={() => phone.hangup()}>
+            <PhoneOff size={18} /> {conference?.status === 'joined' ? 'Leave conference' : 'End call'}
+          </Button>
         )}
         {interaction && !controllable && status !== 'ended' && (
           <p className="h-12 flex items-center justify-center text-xs text-ink-dim text-center">
@@ -300,7 +311,9 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
           pressed={!!interaction?.held} disabled={!inCall || consulting} onClick={() => phone.toggleHold()} />
         <ControlTile label="Transfer" icon={ArrowRightLeft} pressed={showXfer || consulting} disabled={!inCall || xferBusy || consulting}
           onClick={() => setXferOpen((o) => !o)} />
-        <ControlTile label="Conference" icon={Users} unavailable />
+        <ControlTile label="Conference" icon={Users} pressed={conference?.status === 'joined'}
+          disabled={!consulting || consult?.status !== 'active' || consult?.completing}
+          onClick={() => phone.mergeConference()} />
       </div>
 
       {signedIn && state?.devices && (

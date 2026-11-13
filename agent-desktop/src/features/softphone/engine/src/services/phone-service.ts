@@ -29,7 +29,7 @@ import {
   validatePassword,
   validateWssUrl,
 } from '../utils/validation';
-import { describeSipStatus, promoteConsult, reduceCall, sipfragStatus, type CallEvent } from './call-state';
+import { conferenceRoomFor, describeSipStatus, promoteConsult, reduceCall, sipfragStatus, type CallEvent } from './call-state';
 import { ReconnectScheduler } from './reconnect';
 import { Store } from './store';
 
@@ -68,6 +68,8 @@ export class PhoneService {
   /** second line: consult call to a colleague (attended transfer) */
   private consultSession: Inviter | undefined;
   private consultEndReason: string | undefined;
+  /** true while mergeConference moves both legs: no consult promotion */
+  private merging = false;
   private extraTracks: MediaStreamTrack[] = [];
   private pendingEndReason: string | undefined;
   private intentionalDisconnect = false;
@@ -575,6 +577,110 @@ export class PhoneService {
     }
   }
 
+  // ---------------------------------------------------------------- conference (3-way)
+
+  /**
+   * During a consult: moves the customer and then the colleague into a FreeSWITCH
+   * conference room (blind REFER of each leg to 30xx), then the agent dials the
+   * same room. Leaving = hanging up; the other two keep talking.
+   * If the customer cannot be moved, nothing changes (both calls stay connected).
+   */
+  async mergeConference(): Promise<void> {
+    const consultSession = this.consultSession;
+    const main = this.session;
+    const consult = this.store.get().consult;
+    if (!this.client || !this.creds || !consultSession || !main || consult?.status !== 'active' || consult.completing) return;
+    if (main.state !== SessionState.Established || consultSession.state !== SessionState.Established) return;
+    const room = conferenceRoomFor(this.creds.extension);
+    if (!room) {
+      this.store.update({ error: 'No conference room available for this extension.' });
+      return;
+    }
+    let uri;
+    try {
+      uri = this.client.makeTarget(room, this.creds.domain);
+    } catch (err) {
+      this.store.update({ error: `Conference failed: ${errText(err)}` });
+      return;
+    }
+    this.merging = true;
+    this.patchConsult({ completing: true });
+    this.store.update({ conference: { room, status: 'merging' } });
+
+    const customerMoved = await this.referAndWait(main, uri);
+    if (!customerMoved.ok) {
+      this.merging = false;
+      if (this.consultSession === consultSession) this.patchConsult({ completing: false });
+      this.store.update({
+        conference: undefined,
+        error: `Conference failed: ${customerMoved.reason}. Both calls are still connected.`,
+      });
+      return;
+    }
+    this.pendingEndReason = `Moved to conference ${room}`;
+    const colleagueMoved = await this.referAndWait(consultSession, uri);
+    this.consultEndReason = colleagueMoved.ok ? 'Moved to conference' : 'Consult ended';
+    if (!colleagueMoved.ok) {
+      this.store.update({ notice: `${consult.target} could not be added (${colleagueMoved.reason}). Joining the customer in room ${room}.` });
+    }
+    // FreeSWITCH normally hangs up both legs after the REFER; make sure they are released.
+    for (const s of [main, consultSession]) {
+      if (s.state === SessionState.Established) await s.bye().catch(() => undefined);
+    }
+    await this.waitUntil(() => !this.session && !this.consultSession, 4000);
+    this.merging = false;
+    this.store.update({ consult: undefined });
+    if (this.session) {
+      this.store.update({ conference: undefined, error: 'Conference failed: previous call did not end.' });
+      return;
+    }
+    await this.dial(room);
+    if (this.session) this.store.update({ conference: { room, status: 'joined' } });
+    else this.store.update({ conference: undefined, error: `Could not join conference ${room}. The customer is waiting in the room — dial ${room}.` });
+  }
+
+  /** Blind REFER that resolves when FreeSWITCH reports the final outcome (sipfrag NOTIFY). */
+  private referAndWait(session: Session, uri: ReturnType<SipClient['makeTarget']>): Promise<{ ok: boolean; reason?: string }> {
+    return new Promise((resolve) => {
+      let settled = false;
+      let accepted = false;
+      const done = (ok: boolean, reason?: string) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve({ ok, reason });
+      };
+      // Some servers end the leg without a final NOTIFY: treat "accepted + leg ended" as success.
+      const timer = setTimeout(() => done(session.state === SessionState.Terminated, 'no answer from the server'), 8000);
+      session.stateChange.addListener((st) => {
+        if (st === SessionState.Terminated && accepted) done(true);
+      });
+      session
+        .refer(uri, {
+          requestDelegate: {
+            onAccept: () => { accepted = true; },
+            onReject: (response) => done(false, describeSipStatus(response.message.statusCode)),
+          },
+          onNotify: (notification) => {
+            notification.accept().catch(() => undefined);
+            const code = sipfragStatus(notification.request.body);
+            if (code === undefined || code < 200) return;
+            if (code < 300) done(true);
+            else done(false, describeSipStatus(code));
+          },
+        })
+        .catch((err) => done(false, errText(err)));
+    });
+  }
+
+  private waitUntil(cond: () => boolean, ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const tick = () => (cond() || Date.now() - start > ms ? resolve() : setTimeout(tick, 100));
+      tick();
+    });
+  }
+
   private async setMainHeld(held: boolean): Promise<void> {
     const main = this.session;
     const call = this.store.get().call;
@@ -753,7 +859,7 @@ export class PhoneService {
     this.session = undefined;
     this.callEvent({ type: 'ended', reason });
     const endedId = session.id;
-    if (this.consultSession) {
+    if (this.consultSession && !this.merging) {
       // Customer left during a consult: the colleague call becomes the main call.
       const consultSession = this.consultSession;
       const consult = this.store.get().consult;
@@ -770,6 +876,7 @@ export class PhoneService {
       this.attachRemoteAudio(consultSession);
       return;
     }
+    if (!this.merging && this.store.get().conference) this.store.update({ conference: undefined });
     setTimeout(() => {
       if (this.store.get().call?.id === endedId) this.store.update({ call: undefined });
     }, 3000);

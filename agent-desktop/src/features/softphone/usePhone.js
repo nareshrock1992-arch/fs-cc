@@ -49,6 +49,7 @@ export function usePhone() {
       cancelConsult: call('cancelConsult'),
       swapCalls: call('swapCalls'),
       completeConsult: call('completeConsult'),
+      mergeConference: call('mergeConference'),
       sendDtmf: call('sendDtmf'),
       refreshDevices: call('refreshDevices'),
       selectInput: call('selectInput'),
