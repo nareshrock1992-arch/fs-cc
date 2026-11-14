@@ -305,6 +305,19 @@ describe('PhoneConsole — consult transfer', () => {
     expect(phone.mergeConference).toHaveBeenCalledTimes(2);
   });
 
+  it('answered call: Conference opens the panel and Call colleague starts the consult', async () => {
+    const phone = makePhone({ call: sip({ status: 'active', answeredAt: Date.now() }) });
+    render(console_(phone));
+    expect(btn('Conference').disabled).toBe(false);
+    act(() => btn('Conference').click());
+    expect(q('label[for="xfer-number"]').textContent).toBe('Add to conference');
+    expect(btn('Transfer now')).toBeUndefined();
+    act(() => type(q('input[aria-label="Transfer to number"]'), '1002'));
+    await act(async () => btn('Call colleague').click());
+    expect(phone.startConsult).toHaveBeenCalledWith('1002');
+    expect(phone.transfer).not.toHaveBeenCalled();
+  });
+
   it('while merging: status says joining, buttons wait', () => {
     render(console_(makePhone({ call: held(), consult: consult({ completing: true }), conference: { room: '3001', status: 'merging' } })));
     expect(q('[aria-label="Consult status"]').textContent).toBe('Joining conference…');

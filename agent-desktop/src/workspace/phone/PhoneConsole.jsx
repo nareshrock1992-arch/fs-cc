@@ -42,6 +42,9 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   const [tones, setTones] = useState('');
   const [xferOpen, setXferOpen] = useState(false);
   const [xferNumber, setXferNumber] = useState('');
+  // 'transfer' or 'conference': the same number panel, opened from either tile.
+  const [xferMode, setXferMode] = useState('transfer');
+  const confMode = xferMode === 'conference';
 
   const status = interaction?.status;
   const controllable = Boolean(interaction?.controllable && phone);
@@ -215,8 +218,8 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
           </div>
         )}
         {showXfer && (
-          <form onSubmit={transferNow} aria-label="Transfer" className="mt-3 rounded-md border border-primary/40 bg-primary/5 p-2">
-            <label className="block text-[0.6875rem] font-medium text-ink-dim mb-1" htmlFor="xfer-number">Transfer call to</label>
+          <form onSubmit={(e) => { if (confMode) { e.preventDefault(); consultNow(); } else transferNow(e); }} aria-label="Transfer" className="mt-3 rounded-md border border-primary/40 bg-primary/5 p-2">
+            <label className="block text-[0.6875rem] font-medium text-ink-dim mb-1" htmlFor="xfer-number">{confMode ? 'Add to conference' : 'Transfer call to'}</label>
             <div className="flex items-center gap-1">
               <input id="xfer-number" type="tel" inputMode="tel" autoComplete="off" aria-label="Transfer to number"
                 placeholder="Extension or number" value={xferNumber} disabled={xferBusy} autoFocus
@@ -264,10 +267,15 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
         )}
         {showXfer && (
           <div className="grid grid-cols-2 gap-2 mb-2">
-            <Button variant="primary" size="lg" className="h-12 text-base" onClick={transferNow}
-              disabled={!xferNumber.replace(DIAL_CHARS, '') || xferBusy}><ArrowRightLeft size={18} /> Transfer now</Button>
-            <Button size="lg" className="h-12 text-base" onClick={consultNow}
-              disabled={!xferNumber.replace(DIAL_CHARS, '') || xferBusy}><Users size={18} /> Consult first</Button>
+            {confMode ? (
+              <Button variant="primary" size="lg" className="col-span-2 h-12 text-base" onClick={consultNow}
+                disabled={!xferNumber.replace(DIAL_CHARS, '') || xferBusy}><Users size={18} /> Call colleague</Button>
+            ) : (<>
+              <Button variant="primary" size="lg" className="h-12 text-base" onClick={transferNow}
+                disabled={!xferNumber.replace(DIAL_CHARS, '') || xferBusy}><ArrowRightLeft size={18} /> Transfer now</Button>
+              <Button size="lg" className="h-12 text-base" onClick={consultNow}
+                disabled={!xferNumber.replace(DIAL_CHARS, '') || xferBusy}><Users size={18} /> Consult first</Button>
+            </>)}
             <Button size="md" className="col-span-2" disabled={xferBusy}
               onClick={() => { setXferOpen(false); setXferNumber(''); }}>Back to call</Button>
           </div>
@@ -309,11 +317,16 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
           pressed={!!interaction?.muted} disabled={!inCall || consulting} onClick={() => phone.toggleMute()} />
         <ControlTile label={interaction?.held ? 'Resume' : 'Hold'} icon={interaction?.held ? Play : Pause}
           pressed={!!interaction?.held} disabled={!inCall || consulting} onClick={() => phone.toggleHold()} />
-        <ControlTile label="Transfer" icon={ArrowRightLeft} pressed={showXfer || consulting} disabled={!inCall || xferBusy || consulting}
-          onClick={() => setXferOpen((o) => !o)} />
-        <ControlTile label="Conference" icon={Users} pressed={conference?.status === 'joined'}
-          disabled={!consulting || consult?.status !== 'active' || consult?.completing}
-          onClick={() => phone.mergeConference()} />
+        <ControlTile label="Transfer" icon={ArrowRightLeft} pressed={(showXfer && !confMode) || (consulting && !confMode)} disabled={!inCall || xferBusy || consulting}
+          onClick={() => { setXferOpen((o) => !(o && !confMode)); setXferMode('transfer'); }} />
+        {/* Answered call: opens the panel to call a colleague. During a consult: merges all three. */}
+        <ControlTile label="Conference" icon={Users}
+          pressed={conference?.status === 'joined' || (showXfer && confMode)}
+          disabled={consulting ? (consult?.status !== 'active' || consult?.completing) : (!inCall || xferBusy)}
+          onClick={() => {
+            if (consulting) { phone.mergeConference(); return; }
+            setXferOpen((o) => !(o && confMode)); setXferMode('conference');
+          }} />
       </div>
 
       {signedIn && state?.devices && (

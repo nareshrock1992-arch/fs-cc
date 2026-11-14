@@ -51,3 +51,5 @@
 - SEC-8 found (P1): stock dialplan extension 779 lets any phone listen to all calls. Not changed (FreeSWITCH config needs owner approval).
 - SUP-1 plan written: SUPERVISOR_MONITORING_PLAN.md.
 - SEC-8: owner chose not now (DEFERRED, risk accepted for now).
+- Owner real calls: consult + hold + conference + complete transfer all work → T2 and C1 VERIFIED (FS log 17:03: hold re-INVITE, REFER both legs to 3000).
+- UX-1: Conference tile now usable right after answering (opens "Add to conference" → Call colleague → Conference all three). +1 test. Not deployed.
