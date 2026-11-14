@@ -63,3 +63,9 @@
 - Audit: 12 of 14 pages hard-coded greys (≈380) and their own table styles.
 - Moved all admin pages + report components to colour tokens and the shared table classes (`data-table`, `th`, `td`). FSCC_ENTERPRISE_DESIGN_SYSTEM.md written.
 - Preview checked (light + dark): Agents, Queues, Dashboard, Reports, Break Codes, Users, Queue Stats, Agent Performance render correctly. Not committed / not deployed.
+
+## 2026-11-14 — Dashboard simplified (owner request)
+- Dashboard is now "today's summary": offered / answered / abandoned / service level / avg wait / utilization strip, calls by hour, "where calls were lost" (queue vs ringing agent), queues-today table. Live items (waiting, agent status, activity feed) removed — they live in Live Operations (link at top).
+- Preview checked at 1440 px with real data. Not committed / not deployed.
+- Seen: hourly chart (queue_stats_hourly, completed calls) can total less than "calls offered" (calls table) — pre-existing data-source difference, logged as DATA-1.
+- Seen: DEV services all restarted ~18:44 and FreeSWITCH restarted via systemd at 19:09 (not by this session); load average up to 18 on 4 CPUs / 3.8 GB RAM.

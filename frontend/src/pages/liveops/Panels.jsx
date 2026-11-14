@@ -11,7 +11,7 @@ export function fmtDur(sec) {
 }
 
 // ── Health strip: one compact row, the numbers a supervisor reads first ──────
-function Metric({ label, value, sub, tone = 'default', title }) {
+export function Metric({ label, value, sub, tone = 'default', title }) {
   const color = { default: 'text-ink', bad: 'text-status-error', warn: 'text-status-ringing', good: 'text-status-available' }[tone];
   return (
     <div className="bg-surface px-4 py-2.5 min-w-0 last:col-span-2 sm:last:col-span-2 xl:last:col-span-1" title={title}>

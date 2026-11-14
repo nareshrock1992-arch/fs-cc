@@ -12,7 +12,7 @@
  * Keys are exact pathnames (react-router `useLocation().pathname`).
  */
 export const PAGE_META = {
-  '/':                       { title: 'Dashboard',       description: 'Live contact-center overview' },
+  '/':                       { title: 'Dashboard',       description: 'Summary of today (business day)' },
   '/live-operations':        { title: 'Live Operations', description: 'Real-time contact-center operations' },
   '/live-calls':             { title: 'Live Calls',      description: 'Calls in queue and in progress' },
   '/live-agents':            { title: 'Live Agents',     description: 'Real-time agent states and durations' },
