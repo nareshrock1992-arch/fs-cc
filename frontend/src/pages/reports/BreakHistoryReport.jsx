@@ -51,7 +51,7 @@ export default function BreakHistoryReport() {
 
   return (
     <div className="max-w-6xl">
-      <h1 className="font-display font-bold text-lg text-gray-900 dark:text-ink flex items-center gap-2 mb-4">
+      <h1 className="font-display font-bold text-lg text-ink flex items-center gap-2 mb-4">
         <Coffee size={20} className="text-brand dark:text-brand-light" /> Break History
       </h1>
 
@@ -80,9 +80,9 @@ export default function BreakHistoryReport() {
           <EmptyState icon={Coffee} title="No break history" body="No breaks match the selected filters." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
-                <tr className="text-left text-[0.6875rem] text-gray-400 dark:text-ink-faint border-b border-gray-100 dark:border-panel-border">
+                <tr className="text-left text-[0.6875rem] text-ink-faint border-b border-border dark:border-panel-border">
                   <th className="th">Agent</th>
                   <th className="th">Reason</th>
                   <th className="th">Started</th>
@@ -93,14 +93,14 @@ export default function BreakHistoryReport() {
               </thead>
               <tbody>
                 {rows.map(r => (
-                  <tr key={r.id} className="border-b border-gray-50 dark:border-panel-border/40">
-                    <td className="px-4 py-3 text-gray-800 dark:text-ink">{r.full_name || r.agent_id}</td>
+                  <tr key={r.id} className="border-b border-border dark:border-panel-border/40">
+                    <td className="td text-ink">{r.full_name || r.agent_id}</td>
                     {/* Historical snapshot name — not the current break-code name */}
-                    <td className="px-4 py-3 text-gray-600 dark:text-ink-dim">{r.break_name || r.break_code || 'Break'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{fmtDT(r.started_at)}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{r.is_open ? <span className="text-brand dark:text-brand-light">In progress</span> : fmtDT(r.ended_at)}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-ink-dim tabular-nums">{fmtDur(r.duration_seconds)}</td>
-                    <td className="px-4 py-3 text-gray-400 dark:text-ink-faint text-xs">{r.source}</td>
+                    <td className="td text-ink-dim">{r.break_name || r.break_code || 'Break'}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint">{fmtDT(r.started_at)}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint">{r.is_open ? <span className="text-brand dark:text-brand-light">In progress</span> : fmtDT(r.ended_at)}</td>
+                    <td className="td text-ink dark:text-ink-dim tabular-nums">{fmtDur(r.duration_seconds)}</td>
+                    <td className="td text-ink-faint text-xs">{r.source}</td>
                   </tr>
                 ))}
               </tbody>
@@ -110,7 +110,7 @@ export default function BreakHistoryReport() {
       </div>
 
       {!loading && !error && total > 0 && (
-        <div className="flex items-center justify-between mt-3 text-xs text-gray-500 dark:text-ink-faint">
+        <div className="flex items-center justify-between mt-3 text-xs text-ink-dim dark:text-ink-faint">
           <span>{total} break{total === 1 ? '' : 's'}</span>
           <div className="flex items-center gap-2">
             <button className="btn-secondary p-1.5" disabled={page <= 1} onClick={() => setPage(p => p - 1)} aria-label="Previous"><ChevronLeft size={14} /></button>

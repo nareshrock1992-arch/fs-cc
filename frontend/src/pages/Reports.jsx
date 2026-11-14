@@ -38,35 +38,35 @@ function IvrSection({ title, subtitle, rows, labelKey, labelHeader, color }) {
   const total = rows.reduce((s, r) => s + Number(r.calls), 0);
   return (
     <div>
-      <p className="text-xs font-bold dark:text-ink text-gray-800 mb-0.5">
+      <p className="text-xs font-bold text-ink mb-0.5">
         {title}
       </p>
-      <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 mb-2">{subtitle}</p>
-      <table className="w-full text-sm">
+      <p className="text-[0.6875rem] text-ink-faint mb-2">{subtitle}</p>
+      <table className="data-table">
         <thead>
-          <tr className="border-b dark:border-panel-border border-gray-100 text-left">
-            <th className="pb-2 text-left text-xs font-semibold text-ink-dim">
+          <tr className="border-b dark:border-panel-border border-border text-left">
+            <th className="th text-left">
               {labelHeader}
             </th>
-            <th className="pb-2 text-right text-xs font-semibold text-ink-dim">
+            <th className="th text-right">
               Calls
             </th>
-            <th className="pb-2 text-right text-xs font-semibold text-ink-dim">
+            <th className="th text-right">
               Share
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y dark:divide-panel-border divide-gray-100">
+        <tbody className="divide-y dark:divide-panel-border divide-border">
           {rows.map(r => (
             <tr key={r[labelKey]}
-              className="dark:hover:bg-panel-raised/30 hover:bg-gray-50 transition-colors">
+              className="dark:hover:bg-panel-raised/30 hover:bg-surface-2 transition-colors">
               <td className={`py-2 font-medium font-mono tnum ${color}`}>
                 {r[labelKey] || '(unknown)'}
               </td>
-              <td className="py-2 font-mono tnum dark:text-ink-dim text-gray-600 text-right">
+              <td className="td font-mono tnum text-ink-dim text-right">
                 {r.calls}
               </td>
-              <td className="py-2 font-mono tnum dark:text-ink-faint text-gray-400 text-right">
+              <td className="td font-mono tnum text-ink-faint text-right">
                 {total > 0 ? `${r.share}%` : '—'}
               </td>
             </tr>
@@ -102,7 +102,7 @@ const TABS = [
 
 function TabBar({ active, onChange }) {
   return (
-    <div className="flex gap-0 border-b dark:border-panel-border border-gray-200 overflow-x-auto">
+    <div className="flex gap-0 border-b dark:border-panel-border border-border overflow-x-auto">
       {TABS.map(t => (
         <button
           key={t.id}
@@ -111,7 +111,7 @@ function TabBar({ active, onChange }) {
             'px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-colors border-b-2 -mb-px',
             active === t.id
               ? 'border-brand text-brand dark:text-brand-light font-bold'
-              : 'border-transparent text-gray-500 dark:text-ink-faint hover:text-gray-700 dark:hover:text-ink-dim'
+              : 'border-transparent text-ink-dim dark:text-ink-faint hover:text-ink dark:hover:text-ink-dim'
           ].join(' ')}
         >
           {t.label}
@@ -180,7 +180,7 @@ export default function Reports() {
 
   useEffect(() => { load(); }, []);
 
-  const thClass = 'pb-2 text-left text-xs font-semibold text-ink-dim whitespace-nowrap';
+  const thClass = 'th whitespace-nowrap';
 
   return (
     <div className="space-y-4">
@@ -188,11 +188,11 @@ export default function Reports() {
       {/* Date range + Apply + CSV exports */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-medium dark:text-ink-dim text-gray-600 mb-1.5">From</label>
+          <label className="block text-xs font-medium text-ink-dim mb-1.5">From</label>
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className="block text-xs font-medium dark:text-ink-dim text-gray-600 mb-1.5">To</label>
+          <label className="block text-xs font-medium text-ink-dim mb-1.5">To</label>
           <input type="date" value={to} onChange={e => setTo(e.target.value)} className={inputClass} />
         </div>
         <button className={buttonPrimary} onClick={load}>Apply</button>
@@ -210,8 +210,8 @@ export default function Reports() {
                 href={ReportsApi.exportUrl(type, fmt, from, to)}
                 download
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded
-                  dark:bg-panel-border/60 bg-gray-100 dark:text-ink-dim text-gray-600
-                  dark:hover:bg-panel-border hover:bg-gray-200 transition-colors"
+                  dark:bg-panel-border/60 bg-surface-2 text-ink-dim
+                  dark:hover:bg-panel-border hover:bg-border transition-colors"
               >
                 <Download size={12} />
                 {label}
@@ -250,39 +250,39 @@ export default function Reports() {
       {tab === 'queues' && (
         <Panel eyebrow="Historical" title="Queue Performance" noPad>
           {loading ? (
-            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">Loading…</p></div>
+            <div className="p-6"><p className="text-sm text-ink-dim">Loading…</p></div>
           ) : queuePerf.length === 0 ? (
-            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">No calls in this date range.</p></div>
+            <div className="p-6"><p className="text-sm text-ink-dim">No calls in this date range.</p></div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-gray-200 dark:border-panel-border">
+                  <tr className="border-b border-border dark:border-panel-border">
                     {[
                       'Queue', 'Offered', 'Answered',
                       'Abandoned Queue', 'Missed by Agent',
                       'ASA', 'Avg Talk', 'Abandon %', 'SLA %'
                     ].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-[0.6875rem] font-bold
-                        text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap">
+                        text-ink-dim bg-surface-2 dark:bg-panel-raised whitespace-nowrap">
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-panel-border">
+                <tbody className="divide-y divide-border dark:divide-panel-border">
                   {queuePerf.map(q => (
                     <tr key={q.queue_name}
                       className="hover:bg-blue-50/40 dark:hover:bg-panel-raised/40 transition-colors">
-                      <td className="px-4 py-3 font-semibold dark:text-ink text-gray-800">{q.queue_name}</td>
-                      <td className="px-4 py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.offered}</td>
-                      <td className="px-4 py-3 font-mono tnum text-emerald-600 dark:text-emerald-400 font-semibold">{q.answered}</td>
-                      <td className="px-4 py-3 font-mono tnum text-red-500 dark:text-red-400">{q.abandoned_queue ?? q.abandoned}</td>
-                      <td className="px-4 py-3 font-mono tnum text-orange-500 dark:text-orange-400">{q.abandoned_agent ?? 0}</td>
-                      <td className="px-4 py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.asa_seconds}s</td>
-                      <td className="px-4 py-3 font-mono tnum dark:text-ink-dim text-gray-500">{(q.avg_talk_seconds ?? q.aht_seconds)}s</td>
-                      <td className="px-4 py-3 font-mono tnum text-lamp-alert">{q.abandon_rate_pct}%</td>
-                      <td className="px-4 py-3 font-mono tnum text-emerald-600 dark:text-emerald-400">
+                      <td className="td font-semibold text-ink">{q.queue_name}</td>
+                      <td className="td font-mono tnum text-ink-dim">{q.offered}</td>
+                      <td className="td font-mono tnum text-emerald-600 dark:text-emerald-400 font-semibold">{q.answered}</td>
+                      <td className="td font-mono tnum text-red-500 dark:text-red-400">{q.abandoned_queue ?? q.abandoned}</td>
+                      <td className="td font-mono tnum text-orange-500 dark:text-orange-400">{q.abandoned_agent ?? 0}</td>
+                      <td className="td font-mono tnum text-ink-dim">{q.asa_seconds}s</td>
+                      <td className="td font-mono tnum text-ink-dim">{(q.avg_talk_seconds ?? q.aht_seconds)}s</td>
+                      <td className="td font-mono tnum text-lamp-alert">{q.abandon_rate_pct}%</td>
+                      <td className="td font-mono tnum text-emerald-600 dark:text-emerald-400">
                         {q.sla_pct != null ? `${q.sla_pct}%` : '—'}
                       </td>
                     </tr>
@@ -298,14 +298,14 @@ export default function Reports() {
       {tab === 'agents' && (
         <Panel eyebrow="Historical" title="Agent Performance" noPad>
           {loading ? (
-            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">Loading…</p></div>
+            <div className="p-6"><p className="text-sm text-ink-dim">Loading…</p></div>
           ) : agentPerf.length === 0 ? (
-            <div className="p-6"><p className="text-sm text-gray-500 dark:text-ink-dim">No agent activity in this date range.</p></div>
+            <div className="p-6"><p className="text-sm text-ink-dim">No agent activity in this date range.</p></div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="data-table">
                 <thead>
-                  <tr className="border-b border-gray-200 dark:border-panel-border">
+                  <tr className="border-b border-border dark:border-panel-border">
                     {[
                       'Agent',
                       'Calls Offered',
@@ -317,40 +317,40 @@ export default function Reports() {
                       <th
                         key={h}
                         className="px-4 py-3 text-left text-[0.6875rem] font-bold
-                          text-gray-500 bg-gray-50 dark:bg-panel-raised whitespace-nowrap"
+                          text-ink-dim bg-surface-2 dark:bg-panel-raised whitespace-nowrap"
                       >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-panel-border">
+                <tbody className="divide-y divide-border dark:divide-panel-border">
                   {agentPerf.map(a => (
                     <tr
                       key={a.agent_id}
                       className="hover:bg-blue-50/40 dark:hover:bg-panel-raised/40 transition-colors"
                     >
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-gray-800 dark:text-ink">
+                      <td className="td">
+                        <p className="font-semibold text-ink">
                           {a.full_name || a.agent_id}
                         </p>
-                        <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">
+                        <p className="text-[0.6875rem] text-ink-faint font-mono">
                           {a.agent_id}
                         </p>
                       </td>
-                      <td className="px-4 py-3 font-mono tnum text-gray-600 dark:text-ink-dim">
+                      <td className="td font-mono tnum text-ink-dim">
                         {a.calls_offered}
                       </td>
-                      <td className="px-4 py-3 font-mono tnum font-semibold text-emerald-600 dark:text-emerald-400">
+                      <td className="td font-mono tnum font-semibold text-emerald-600 dark:text-emerald-400">
                         {a.calls_answered}
                       </td>
-                      <td className="px-4 py-3 font-mono tnum text-orange-500 dark:text-orange-400">
+                      <td className="td font-mono tnum text-orange-500 dark:text-orange-400">
                         {a.calls_missed}
                       </td>
-                      <td className="px-4 py-3 font-mono tnum text-gray-600 dark:text-ink-dim">
+                      <td className="td font-mono tnum text-ink-dim">
                         {a.avg_talk_min ?? '—'}
                       </td>
-                      <td className="px-4 py-3 font-mono tnum text-gray-600 dark:text-ink-dim">
+                      <td className="td font-mono tnum text-ink-dim">
                         {a.total_talk_min ?? '—'}
                       </td>
                     </tr>
@@ -366,9 +366,9 @@ export default function Reports() {
       {tab === 'ivr' && (
         <Panel eyebrow="IVR" title="Call Flow Activity">
           {loading ? (
-            <p className="text-sm dark:text-ink-dim text-gray-500">Loading…</p>
+            <p className="text-sm text-ink-dim">Loading…</p>
           ) : (ivrPaths.queues.length === 0 && ivrPaths.other.length === 0) ? (
-            <p className="text-sm dark:text-ink-dim text-gray-500">No IVR data in this date range.</p>
+            <p className="text-sm text-ink-dim">No IVR data in this date range.</p>
           ) : (
             <div className="space-y-6">
 
@@ -392,7 +392,7 @@ export default function Reports() {
                   rows={ivrPaths.other}
                   labelKey="step"
                   labelHeader="Event"
-                  color="dark:text-ink-dim text-gray-500"
+                  color="text-ink-dim"
                 />
               )}
 

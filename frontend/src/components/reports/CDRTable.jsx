@@ -34,11 +34,11 @@ const DISP = {
   answered:        { label: 'ANSWERED',       cls: 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-500/25' },
   abandoned_agent: { label: 'MISSED (AGENT)', cls: 'bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400 ring-1 ring-orange-200 dark:ring-orange-500/25' },
   abandoned_queue: { label: 'ABANDONED',      cls: 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-400 ring-1 ring-red-200 dark:ring-red-500/25' },
-  waiting:         { label: 'WAITING',        cls: 'bg-gray-100 dark:bg-panel-raised text-gray-500 dark:text-ink-dim ring-1 ring-gray-200 dark:ring-panel-border' },
+  waiting:         { label: 'WAITING',        cls: 'bg-surface-2 dark:bg-panel-raised text-ink-dim ring-1 ring-border' },
 };
 
 function DispositionBadge({ value }) {
-  const d = DISP[value] ?? { label: (value ?? 'UNKNOWN').toUpperCase(), cls: 'bg-gray-100 text-gray-500 ring-1 ring-gray-200' };
+  const d = DISP[value] ?? { label: (value ?? 'UNKNOWN').toUpperCase(), cls: 'bg-surface-2 text-ink-dim ring-1 ring-border' };
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[0.6875rem] font-bold ${d.cls}`}>
       {d.label}
@@ -47,7 +47,7 @@ function DispositionBadge({ value }) {
 }
 
 function AgentCell({ agent, missedBy, disposition }) {
-  if (!agent && !missedBy) return <span className="text-gray-400 dark:text-ink-faint">—</span>;
+  if (!agent && !missedBy) return <span className="text-ink-faint">—</span>;
   const name  = agent || missedBy;
   const isMiss = disposition === 'abandoned_agent';
   return (
@@ -55,7 +55,7 @@ function AgentCell({ agent, missedBy, disposition }) {
       title={isMiss ? `Offered to ${name} — not answered` : undefined}
       className={isMiss
         ? 'font-medium text-orange-600 dark:text-orange-400 cursor-help'
-        : 'font-medium text-gray-800 dark:text-ink'}
+        : 'font-medium text-ink'}
     >
       {name}
     </span>
@@ -139,13 +139,13 @@ export default function CDRTable({ from, to }) {
   );
 
   return (
-    <div className="bg-white dark:bg-panel-surface rounded-xl shadow-md border border-gray-200 dark:border-panel-border overflow-hidden">
+    <div className="bg-white dark:bg-panel-surface rounded-xl shadow-md border border-border dark:border-panel-border overflow-hidden">
 
       {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-gray-200 dark:border-panel-border">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-border dark:border-panel-border">
         <div>
-          <h3 className="text-base font-bold text-gray-800 dark:text-ink">Call Detail Records</h3>
-          <p className="text-xs text-gray-400 dark:text-ink-faint mt-0.5">
+          <h3 className="text-base font-bold text-ink">Call Detail Records</h3>
+          <p className="text-xs text-ink-faint mt-0.5">
             {from} → {to}
             {page > 0 || rows.length > 0 ? ` · Page ${page + 1}` : ''}
           </p>
@@ -154,12 +154,12 @@ export default function CDRTable({ from, to }) {
         <div className="flex items-center gap-2 flex-wrap">
           {/* Disposition filter */}
           <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
             <select
               value={dispFilter}
               onChange={handleDispChange}
-              className="pl-7 pr-3 py-1.5 rounded-lg border border-gray-300 dark:border-panel-border
-                bg-white dark:bg-panel-raised text-sm text-gray-700 dark:text-ink-dim
+              className="pl-7 pr-3 py-1.5 rounded-lg border border-border-strong dark:border-panel-border
+                bg-white dark:bg-panel-raised text-sm text-ink dark:text-ink-dim
                 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
             >
               <option value="">All Dispositions</option>
@@ -175,9 +175,9 @@ export default function CDRTable({ from, to }) {
             onClick={() => load(page)}
             disabled={loading}
             title="Refresh"
-            className="p-2 rounded-lg border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-raised
-              text-gray-500 dark:text-ink-faint hover:text-gray-800 dark:hover:text-ink
-              hover:bg-gray-50 dark:hover:bg-panel-border transition-colors disabled:opacity-40"
+            className="p-2 rounded-lg border border-border dark:border-panel-border bg-white dark:bg-panel-raised
+              text-ink-dim dark:text-ink-faint hover:text-ink dark:hover:text-ink
+              hover:bg-surface-2 dark:hover:bg-panel-border transition-colors disabled:opacity-40"
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -206,9 +206,9 @@ export default function CDRTable({ from, to }) {
 
       {/* ── Table ── */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[960px] text-sm">
+        <table className="data-table min-w-[960px]">
           <thead>
-            <tr className="border-b border-gray-200 dark:border-panel-border">
+            <tr className="border-b border-border dark:border-panel-border">
               <TH>UUID</TH>
               <TH>Caller (ANI)</TH>
               <TH>DNIS</TH>
@@ -222,10 +222,10 @@ export default function CDRTable({ from, to }) {
               <TH>End Time</TH>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-panel-border">
+          <tbody className="divide-y divide-border dark:divide-panel-border">
             {loading && rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm text-gray-400">
+                <td colSpan={11} className="py-12 text-center text-sm text-ink-faint">
                   <RefreshCw size={18} className="animate-spin mx-auto mb-2 text-blue-400" />
                   Loading records…
                 </td>
@@ -233,7 +233,7 @@ export default function CDRTable({ from, to }) {
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm text-gray-400">
+                <td colSpan={11} className="py-12 text-center text-sm text-ink-faint">
                   No records found for the selected date range and filter.
                 </td>
               </tr>
@@ -243,44 +243,44 @@ export default function CDRTable({ from, to }) {
                 key={r.call_uuid}
                 className="hover:bg-blue-50/50 dark:hover:bg-panel-raised/40 transition-colors"
               >
-                <td className="px-4 py-3 font-mono text-[0.6875rem] text-gray-400">
+                <td className="td font-mono text-[0.6875rem] text-ink-faint">
                   <span title={r.call_uuid} className="cursor-default">{shortUuid(r.call_uuid)}</span>
                 </td>
-                <td className="px-4 py-3 font-semibold text-gray-800 dark:text-ink font-mono">
+                <td className="td font-semibold text-ink font-mono">
                   {r.caller_name ? `${r.caller_name} (${r.ani || '—'})` : (r.ani || '—')}
                 </td>
-                <td className="px-4 py-3 text-gray-500 dark:text-ink-dim font-mono">
+                <td className="td text-ink-dim font-mono">
                   {r.dnis || '—'}
                 </td>
-                <td className="px-4 py-3">
-                  <span className="font-medium text-gray-700 dark:text-ink-dim">
+                <td className="td">
+                  <span className="font-medium text-ink dark:text-ink-dim">
                     {r.queue_display_name || r.queue_name || '—'}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="td">
                   <AgentCell
                     agent={r.agent}
                     missedBy={r.missed_by_agent}
                     disposition={r.disposition}
                   />
                 </td>
-                <td className="px-4 py-3 font-mono text-gray-600 dark:text-ink-dim tnum">
+                <td className="td font-mono text-ink-dim tnum">
                   {/* Answered → canonical queue_wait_seconds (queue wait); missed → ring_seconds (agent ring). */}
                   {fmtSec(r.queue_wait_seconds ?? r.ring_seconds)}
                 </td>
-                <td className="px-4 py-3 font-mono text-gray-600 dark:text-ink-dim tnum">
+                <td className="td font-mono text-ink-dim tnum">
                   {fmtSec(r.talk_seconds)}
                 </td>
-                <td className="px-4 py-3 font-mono text-amber-600 dark:text-amber-400 tnum">
+                <td className="td font-mono text-amber-600 dark:text-amber-400 tnum">
                   {fmtSec(r.abandoned_seconds)}
                 </td>
-                <td className="px-4 py-3">
+                <td className="td">
                   <DispositionBadge value={r.disposition} />
                 </td>
-                <td className="px-4 py-3 text-gray-500 dark:text-ink-dim whitespace-nowrap">
+                <td className="td text-ink-dim whitespace-nowrap">
                   {fmtTs(r.start_time)}
                 </td>
-                <td className="px-4 py-3 text-gray-500 dark:text-ink-dim whitespace-nowrap">
+                <td className="td text-ink-dim whitespace-nowrap">
                   {fmtTs(r.end_time)}
                 </td>
               </tr>
@@ -290,26 +290,26 @@ export default function CDRTable({ from, to }) {
       </div>
 
       {/* ── Pagination ── */}
-      <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 dark:border-panel-border bg-gray-50 dark:bg-panel-raised/30">
+      <div className="flex items-center justify-between px-6 py-3 border-t border-border dark:border-panel-border bg-surface-2 dark:bg-panel-raised/30">
         <button
           onClick={() => load(page - 1)}
           disabled={page === 0 || loading}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-panel-border
-            text-xs font-medium text-gray-600 dark:text-ink-dim bg-white dark:bg-panel-raised
-            hover:bg-gray-100 dark:hover:bg-panel-border transition-colors
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border-strong dark:border-panel-border
+            text-xs font-medium text-ink-dim bg-white dark:bg-panel-raised
+            hover:bg-surface-2 dark:hover:bg-panel-border transition-colors
             disabled:opacity-40 disabled:pointer-events-none"
         >
           <ChevronLeft size={13} /> Prev
         </button>
-        <span className="text-xs text-gray-400 dark:text-ink-faint font-mono">
+        <span className="text-xs text-ink-faint font-mono">
           Page {page + 1} · {rows.length} records
         </span>
         <button
           onClick={() => load(page + 1)}
           disabled={!hasMore || loading}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-panel-border
-            text-xs font-medium text-gray-600 dark:text-ink-dim bg-white dark:bg-panel-raised
-            hover:bg-gray-100 dark:hover:bg-panel-border transition-colors
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-border-strong dark:border-panel-border
+            text-xs font-medium text-ink-dim bg-white dark:bg-panel-raised
+            hover:bg-surface-2 dark:hover:bg-panel-border transition-colors
             disabled:opacity-40 disabled:pointer-events-none"
         >
           Next <ChevronRight size={13} />

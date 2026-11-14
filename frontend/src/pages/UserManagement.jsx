@@ -44,8 +44,8 @@ function RoleBadge({ role }) {
         <ShieldCheck size={9} /> Admin
       </span>
     : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[0.6875rem] font-bold
-                       bg-gray-100 dark:bg-panel-raised text-gray-500 dark:text-ink-dim
-                       border border-gray-200 dark:border-panel-border">
+                       bg-surface-2 dark:bg-panel-raised text-ink-dim
+                       border border-border dark:border-panel-border">
         <User size={9} /> Supervisor
       </span>;
 }
@@ -229,7 +229,7 @@ export default function UserManagement() {
              action={
                <div className="flex items-center gap-2">
                  <div className="relative">
-                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                   <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none" />
                    <input
                      type="text"
                      placeholder="Search users…"
@@ -258,26 +258,26 @@ export default function UserManagement() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="data-table">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-panel-border">
+              <tr className="border-b border-border dark:border-panel-border">
                 <th className={thClass}>User</th>
                 <th className={thClass}>Role</th>
                 <th className={thClass}>Created</th>
                 <th className={`${thClass} text-right`}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-panel-border">
+            <tbody className="divide-y divide-border dark:divide-panel-border">
               {loading && (
                 <tr>
-                  <td colSpan={4} className="py-10 text-center text-sm text-gray-400">
+                  <td colSpan={4} className="py-10 text-center text-sm text-ink-faint">
                     Loading users…
                   </td>
                 </tr>
               )}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-10 text-center text-sm text-gray-400">
+                  <td colSpan={4} className="py-10 text-center text-sm text-ink-faint">
                     No users found.
                   </td>
                 </tr>
@@ -287,36 +287,36 @@ export default function UserManagement() {
                   key={u.id}
                   className="hover:bg-blue-50/40 dark:hover:bg-panel-raised/40 transition-colors"
                 >
-                  <td className="px-4 py-3">
+                  <td className="td">
                     <div className="flex items-center gap-3">
                       <Avatar username={u.username} />
                       <div>
-                        <p className="font-semibold text-gray-800 dark:text-ink capitalize">
+                        <p className="font-semibold text-ink capitalize">
                           {u.username}
                           {u.id === me?.id && (
                             <span className="ml-1.5 text-[0.6875rem] font-bold text-brand dark:text-brand-light">(you)</span>
                           )}
                         </p>
-                        <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint font-mono">
+                        <p className="text-[0.6875rem] text-ink-faint font-mono">
                           #{u.id}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="td">
                     <RoleBadge role={u.role} />
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-ink-dim whitespace-nowrap">
+                  <td className="td text-xs text-ink-dim whitespace-nowrap">
                     {new Date(u.created_at).toLocaleDateString(undefined, {
                       month: 'short', day: 'numeric', year: 'numeric'
                     })}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="td">
                     <div className="flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => openEdit(u)}
                         title="Edit"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50
+                        className="p-1.5 rounded-lg text-ink-faint hover:text-blue-600 hover:bg-blue-50
                           dark:hover:bg-blue-500/10 dark:hover:text-blue-400 transition-colors"
                       >
                         <Pencil size={14} />
@@ -325,7 +325,7 @@ export default function UserManagement() {
                         <button
                           onClick={() => openPerms(u)}
                           title="Permissions"
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-violet-600 hover:bg-violet-50
+                          className="p-1.5 rounded-lg text-ink-faint hover:text-violet-600 hover:bg-violet-50
                             dark:hover:bg-violet-500/10 dark:hover:text-violet-400 transition-colors"
                         >
                           <Settings2 size={14} />
@@ -334,7 +334,7 @@ export default function UserManagement() {
                       <button
                         onClick={() => openReset(u)}
                         title="Reset password"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50
+                        className="p-1.5 rounded-lg text-ink-faint hover:text-amber-600 hover:bg-amber-50
                           dark:hover:bg-amber-500/10 dark:hover:text-amber-400 transition-colors"
                       >
                         <Key size={14} />
@@ -343,7 +343,7 @@ export default function UserManagement() {
                         onClick={() => openDelete(u)}
                         title="Delete"
                         disabled={u.id === me?.id}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50
+                        className="p-1.5 rounded-lg text-ink-faint hover:text-red-600 hover:bg-red-50
                           dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors
                           disabled:opacity-30 disabled:pointer-events-none"
                       >
@@ -490,9 +490,9 @@ export default function UserManagement() {
           </>
         }
       >
-        <p className="text-sm text-gray-700 dark:text-ink-dim">
+        <p className="text-sm text-ink dark:text-ink-dim">
           Are you sure you want to delete{' '}
-          <span className="font-semibold text-gray-900 dark:text-ink capitalize">{selected?.username}</span>?
+          <span className="font-semibold text-ink capitalize">{selected?.username}</span>?
           This action cannot be undone.
         </p>
       </Modal>
@@ -516,7 +516,7 @@ export default function UserManagement() {
             {formErr}
           </div>
         )}
-        <p className="text-xs text-gray-500 dark:text-ink-faint mb-4">
+        <p className="text-xs text-ink-dim dark:text-ink-faint mb-4">
           Grant or revoke feature access for this supervisor account.
           Changes take effect on their next login.
         </p>
@@ -524,26 +524,26 @@ export default function UserManagement() {
           {/* Group permissions by their group label */}
           {[...new Set(ALL_PERMISSIONS.map(p => p.group))].map(group => (
             <div key={group}>
-              <p className="text-[0.6875rem] font-bold text-gray-400
+              <p className="text-[0.6875rem] font-bold text-ink-faint
                 dark:text-ink-faint mb-2">{group}</p>
               <div className="space-y-2">
                 {ALL_PERMISSIONS.filter(p => p.group === group).map(({ key, label, description }) => (
                   <label
                     key={key}
-                    className="flex items-start gap-3 p-3 rounded-lg border border-gray-200
-                      dark:border-panel-border cursor-pointer hover:bg-gray-50
+                    className="flex items-start gap-3 p-3 rounded-lg border border-border
+                      dark:border-panel-border cursor-pointer hover:bg-surface-2
                       dark:hover:bg-panel-raised/50 transition-colors"
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600
+                      className="mt-0.5 h-4 w-4 rounded border-border-strong text-blue-600
                         focus:ring-blue-500/30 focus:ring-2 cursor-pointer"
                       checked={permsForm.includes(key)}
                       onChange={() => togglePerm(key)}
                     />
                     <div>
-                      <p className="text-sm font-semibold text-gray-800 dark:text-ink">{label}</p>
-                      <p className="text-xs text-gray-500 dark:text-ink-faint mt-0.5">{description}</p>
+                      <p className="text-sm font-semibold text-ink">{label}</p>
+                      <p className="text-xs text-ink-dim dark:text-ink-faint mt-0.5">{description}</p>
                     </div>
                   </label>
                 ))}

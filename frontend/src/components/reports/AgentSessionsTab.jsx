@@ -47,11 +47,11 @@ function TH({ children, right = false }) {
 
 function MetricCard({ label, value }) {
   return (
-    <div className="px-4 py-3 rounded-lg bg-gray-50 dark:bg-panel-raised border border-gray-200 dark:border-panel-border">
-      <p className="text-[0.6875rem] font-bold text-gray-400 dark:text-ink-faint">
+    <div className="px-4 py-3 rounded-lg bg-surface-2 dark:bg-panel-raised border border-border dark:border-panel-border">
+      <p className="text-[0.6875rem] font-bold text-ink-faint">
         {label}
       </p>
-      <p className="text-lg font-mono font-semibold text-gray-800 dark:text-ink mt-0.5 tabular-nums">
+      <p className="text-lg font-mono font-semibold text-ink mt-0.5 tabular-nums">
         {value}
       </p>
     </div>
@@ -102,23 +102,23 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
       {/* Panel */}
       <div className="relative z-10 w-full max-w-4xl max-h-[85vh] overflow-y-auto
         bg-white dark:bg-panel-surface rounded-xl shadow-card-hover
-        border border-gray-200 dark:border-panel-border">
+        border border-border dark:border-panel-border">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4
-          border-b border-gray-200 dark:border-panel-border
+          border-b border-border dark:border-panel-border
           sticky top-0 bg-white dark:bg-panel-surface z-10">
           <div>
-            <h3 className="text-base font-bold text-gray-800 dark:text-ink">
+            <h3 className="text-base font-bold text-ink">
               {agentName || agentId}
             </h3>
-            <p className="text-xs text-gray-400 dark:text-ink-faint mt-0.5 font-mono">
+            <p className="text-xs text-ink-faint mt-0.5 font-mono">
               {agentId} · {from} → {to}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-700
+            className="p-2 rounded-lg text-ink-faint hover:text-ink
               dark:hover:text-ink transition-colors"
           >
             <X size={18} />
@@ -127,7 +127,7 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
 
         <div className="p-6 space-y-6">
           {loading && (
-            <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-ink-faint">
+            <div className="flex items-center gap-2 text-sm text-ink-faint">
               <RefreshCw size={14} className="animate-spin" />
               Loading agent data…
             </div>
@@ -171,13 +171,13 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
               {/* Session list */}
               {sessions.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-bold text-gray-700 dark:text-ink mb-2">
+                  <h4 className="text-sm font-bold text-ink mb-2">
                     Sessions ({sessions.length})
                   </h4>
-                  <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-panel-border">
-                    <table className="w-full text-sm">
+                  <div className="overflow-x-auto rounded-lg border border-border dark:border-panel-border">
+                    <table className="data-table">
                       <thead>
-                        <tr className="border-b border-gray-200 dark:border-panel-border">
+                        <tr className="border-b border-border dark:border-panel-border">
                           <TH>Login</TH>
                           <TH>Logout</TH>
                           <TH right>Duration</TH>
@@ -185,24 +185,24 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
                           <TH>Status</TH>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-panel-border">
+                      <tbody className="divide-y divide-border dark:divide-panel-border">
                         {sessions.map(s => (
                           <tr key={s.id}
-                            className="hover:bg-gray-50 dark:hover:bg-panel-raised/40 transition-colors">
-                            <td className="px-3 py-2.5 text-gray-600 dark:text-ink-dim whitespace-nowrap">
+                            className="hover:bg-surface-2 dark:hover:bg-panel-raised/40 transition-colors">
+                            <td className="td text-ink-dim whitespace-nowrap">
                               {fmtTs(s.login_at)}
                             </td>
-                            <td className="px-3 py-2.5 text-gray-600 dark:text-ink-dim whitespace-nowrap">
+                            <td className="td text-ink-dim whitespace-nowrap">
                               {fmtTs(s.logout_at)}
                             </td>
-                            <td className="px-3 py-2.5 font-mono tabular-nums text-right
-                              text-gray-700 dark:text-ink">
+                            <td className="td font-mono tabular-nums text-right
+                              text-ink">
                               {fmtSec(s.duration_seconds)}
                             </td>
-                            <td className="px-3 py-2.5 text-gray-500 dark:text-ink-faint text-xs">
+                            <td className="td text-ink-dim dark:text-ink-faint text-xs">
                               {s.logout_reason ?? '—'}
                             </td>
-                            <td className="px-3 py-2.5">
+                            <td className="td">
                               {s.is_open && (
                                 <span className="inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold
                                   bg-emerald-100 text-emerald-700
@@ -222,24 +222,24 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
               {/* State events */}
               {events.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-bold text-gray-700 dark:text-ink mb-2">
+                  <h4 className="text-sm font-bold text-ink mb-2">
                     State Events ({events.length})
                   </h4>
-                  <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-panel-border">
-                    <table className="w-full text-sm">
+                  <div className="overflow-x-auto rounded-lg border border-border dark:border-panel-border">
+                    <table className="data-table">
                       <thead>
-                        <tr className="border-b border-gray-200 dark:border-panel-border">
+                        <tr className="border-b border-border dark:border-panel-border">
                           <TH>Status</TH>
                           <TH>Started</TH>
                           <TH>Ended</TH>
                           <TH right>Duration</TH>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-panel-border">
+                      <tbody className="divide-y divide-border dark:divide-panel-border">
                         {events.map(e => (
                           <tr key={e.id}
-                            className="hover:bg-gray-50 dark:hover:bg-panel-raised/40 transition-colors">
-                            <td className="px-3 py-2.5">
+                            className="hover:bg-surface-2 dark:hover:bg-panel-raised/40 transition-colors">
+                            <td className="td">
                               <span className={[
                                 'inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold',
                                 e.status === 'Available'
@@ -249,14 +249,14 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
                                 {e.status}
                               </span>
                             </td>
-                            <td className="px-3 py-2.5 text-gray-600 dark:text-ink-dim whitespace-nowrap">
+                            <td className="td text-ink-dim whitespace-nowrap">
                               {fmtTs(e.started_at)}
                             </td>
-                            <td className="px-3 py-2.5 text-gray-600 dark:text-ink-dim whitespace-nowrap">
+                            <td className="td text-ink-dim whitespace-nowrap">
                               {fmtTs(e.ended_at)}
                             </td>
-                            <td className="px-3 py-2.5 font-mono tabular-nums text-right
-                              text-gray-700 dark:text-ink">
+                            <td className="td font-mono tabular-nums text-right
+                              text-ink">
                               {fmtSec(e.duration_seconds)}
                             </td>
                           </tr>
@@ -269,7 +269,7 @@ function AgentDetailModal({ agentId, agentName, from, to, onClose }) {
 
               {/* No data case */}
               {sessions.length === 0 && events.length === 0 && (
-                <p className="text-sm text-gray-400 dark:text-ink-faint">
+                <p className="text-sm text-ink-faint">
                   No session or state event data for this agent in the selected range.
                 </p>
               )}
@@ -306,16 +306,16 @@ export default function AgentSessionsTab({ from, to }) {
 
   return (
     <div className="bg-white dark:bg-panel-surface rounded-xl shadow-md
-      border border-gray-200 dark:border-panel-border overflow-hidden">
+      border border-border dark:border-panel-border overflow-hidden">
 
       {/* Toolbar */}
       <div className="flex items-center justify-between px-6 py-4
-        border-b border-gray-200 dark:border-panel-border">
+        border-b border-border dark:border-panel-border">
         <div>
-          <h3 className="text-base font-bold text-gray-800 dark:text-ink">
+          <h3 className="text-base font-bold text-ink">
             Agent Sessions
           </h3>
-          <p className="text-xs text-gray-400 dark:text-ink-faint mt-0.5">
+          <p className="text-xs text-ink-faint mt-0.5">
             Login · availability · call metrics per agent — click a row to drill down
           </p>
         </div>
@@ -323,10 +323,10 @@ export default function AgentSessionsTab({ from, to }) {
           onClick={load}
           disabled={loading}
           title="Refresh"
-          className="p-2 rounded-lg border border-gray-200 dark:border-panel-border
-            text-gray-500 dark:text-ink-faint
-            hover:text-gray-800 dark:hover:text-ink
-            hover:bg-gray-50 dark:hover:bg-panel-border
+          className="p-2 rounded-lg border border-border dark:border-panel-border
+            text-ink-dim dark:text-ink-faint
+            hover:text-ink dark:hover:text-ink
+            hover:bg-surface-2 dark:hover:bg-panel-border
             transition-colors disabled:opacity-40"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -344,9 +344,9 @@ export default function AgentSessionsTab({ from, to }) {
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1100px] text-sm">
+        <table className="data-table min-w-[1100px]">
           <thead>
-            <tr className="border-b border-gray-200 dark:border-panel-border">
+            <tr className="border-b border-border dark:border-panel-border">
               <TH>Agent</TH>
               <TH right>Sessions</TH>
               <TH right>Login Time</TH>
@@ -362,13 +362,13 @@ export default function AgentSessionsTab({ from, to }) {
               <TH right>Avg Talk</TH>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-panel-border">
+          <tbody className="divide-y divide-border dark:divide-panel-border">
 
             {/* Loading skeleton */}
             {loading && (
               <tr>
                 <td colSpan={12}
-                  className="py-12 text-center text-sm text-gray-400 dark:text-ink-faint">
+                  className="py-12 text-center text-sm text-ink-faint">
                   <RefreshCw size={18} className="animate-spin mx-auto mb-2 text-blue-400" />
                   Loading agent sessions…
                 </td>
@@ -379,7 +379,7 @@ export default function AgentSessionsTab({ from, to }) {
             {!loading && data.length === 0 && !error && (
               <tr>
                 <td colSpan={12}
-                  className="py-12 text-center text-sm text-gray-400 dark:text-ink-faint">
+                  className="py-12 text-center text-sm text-ink-faint">
                   No agent session data for this date range.
                 </td>
               </tr>
@@ -393,62 +393,62 @@ export default function AgentSessionsTab({ from, to }) {
                 className="hover:bg-blue-50/40 dark:hover:bg-panel-raised/40
                   transition-colors cursor-pointer"
               >
-                <td className="px-3 py-3">
-                  <p className="font-semibold text-gray-800 dark:text-ink">
+                <td className="td">
+                  <p className="font-semibold text-ink">
                     {a.full_name || a.agent_id}
                   </p>
-                  <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">
+                  <p className="text-[0.6875rem] text-ink-faint font-mono">
                     {a.agent_id}
                   </p>
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
-                  text-gray-600 dark:text-ink-dim">
+                <td className="td font-mono tabular-nums text-right
+                  text-ink-dim">
                   {a.session_count ?? 0}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
-                  text-gray-600 dark:text-ink-dim">
+                <td className="td font-mono tabular-nums text-right
+                  text-ink-dim">
                   {fmtSec(a.total_login_seconds)}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
+                <td className="td font-mono tabular-nums text-right
                   text-emerald-600 dark:text-emerald-400">
                   {fmtSec(a.available_seconds)}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
+                <td className="td font-mono tabular-nums text-right
                   text-amber-600 dark:text-amber-400">
                   {fmtSec(a.break_seconds)}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right font-semibold">
+                <td className="td font-mono tabular-nums text-right font-semibold">
                   {/* null occupancy → "—" (no Available time recorded) */}
                   <span className={
                     a.occupancy_pct == null
-                      ? 'text-gray-400 dark:text-ink-faint'
+                      ? 'text-ink-faint'
                       : 'text-blue-600 dark:text-brand-light'
                   }>
                     {fmtOcc(a.occupancy_pct)}
                   </span>
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
-                  text-gray-600 dark:text-ink-dim">
+                <td className="td font-mono tabular-nums text-right
+                  text-ink-dim">
                   {a.calls_offered ?? 0}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right font-semibold
+                <td className="td font-mono tabular-nums text-right font-semibold
                   text-emerald-600 dark:text-emerald-400">
                   {a.calls_answered ?? 0}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
+                <td className="td font-mono tabular-nums text-right
                   text-orange-500 dark:text-orange-400">
                   {a.calls_missed ?? 0}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
-                  text-gray-600 dark:text-ink-dim">
+                <td className="td font-mono tabular-nums text-right
+                  text-ink-dim">
                   {fmtSec(a.total_ring_seconds)}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
-                  text-gray-600 dark:text-ink-dim">
+                <td className="td font-mono tabular-nums text-right
+                  text-ink-dim">
                   {fmtSec(a.total_talk_seconds)}
                 </td>
-                <td className="px-3 py-3 font-mono tabular-nums text-right
-                  text-gray-600 dark:text-ink-dim">
+                <td className="td font-mono tabular-nums text-right
+                  text-ink-dim">
                   {fmtSec(a.avg_talk_seconds)}
                 </td>
               </tr>
@@ -459,9 +459,9 @@ export default function AgentSessionsTab({ from, to }) {
 
       {/* Footer note */}
       {!loading && !error && (
-        <div className="px-6 py-3 border-t border-gray-200 dark:border-panel-border
-          bg-gray-50 dark:bg-panel-raised/30">
-          <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint">
+        <div className="px-6 py-3 border-t border-border dark:border-panel-border
+          bg-surface-2 dark:bg-panel-raised/30">
+          <p className="text-[0.6875rem] text-ink-faint">
             Occupancy = (ring + talk) / available × 100. — means no Available state recorded in range.
             Avg Talk = average talk time for answered calls only — not Average Handle Time.
           </p>

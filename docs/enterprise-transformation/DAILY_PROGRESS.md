@@ -58,3 +58,8 @@
 - Live Operations analysis written (FSCC_LIVE_OPERATIONS_REDESIGN.md) from owner screenshots.
 - BUG-006 found and fixed: SLA target now its own per-queue setting (`sla_seconds`, default 20 s, migration 012). Backend 422/422, agent desktop 190/190, builds ✓. Not committed / not deployed.
 - Live Operations redesign built and previewed (wide + phone); not committed / not deployed.
+
+## 2026-11-14 — Admin pages: shared look
+- Audit: 12 of 14 pages hard-coded greys (≈380) and their own table styles.
+- Moved all admin pages + report components to colour tokens and the shared table classes (`data-table`, `th`, `td`). FSCC_ENTERPRISE_DESIGN_SYSTEM.md written.
+- Preview checked (light + dark): Agents, Queues, Dashboard, Reports, Break Codes, Users, Queue Stats, Agent Performance render correctly. Not committed / not deployed.

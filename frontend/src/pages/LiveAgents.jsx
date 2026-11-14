@@ -15,7 +15,7 @@ const STATE_META = {
   'Ringing':  { label: 'Ringing',  dot: '#F5A623', pill: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',       kpi: 'amber'  },
   'On Call':  { label: 'On Call',  dot: '#2563EB', pill: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',           kpi: 'blue'   },
   'On Break': { label: 'On Break', dot: '#A78BFA', pill: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-400',   kpi: 'purple' },
-  'Offline':  { label: 'Offline',  dot: '#4C5A78', pill: 'bg-gray-100 text-gray-500 dark:bg-panel-raised dark:text-ink-dim',          kpi: 'default'},
+  'Offline':  { label: 'Offline',  dot: '#4C5A78', pill: 'bg-surface-2 text-ink-dim dark:bg-panel-raised dark:text-ink-dim',          kpi: 'default'},
 };
 const STATE_ORDER = { 'On Call': 0, 'Ringing': 1, 'Idle': 2, 'On Break': 3, 'Offline': 4 };
 const FILTERS = ['All', 'Idle', 'Ringing', 'On Call', 'On Break', 'Offline'];
@@ -173,7 +173,7 @@ export default function LiveAgents() {
   }, [scheduleRefresh]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
-  if (loading) return <p className="text-sm text-gray-500 dark:text-ink-dim">Loading live agents…</p>;
+  if (loading) return <p className="text-sm text-ink-dim">Loading live agents…</p>;
 
   const KPI = [
     { label: 'Idle / Available', value: kpis.Idle,       tone: 'green',   icon: UserCheck },
@@ -211,29 +211,29 @@ export default function LiveAgents() {
         }
       >
         {/* Controls */}
-        <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-gray-100 dark:border-panel-border">
+        <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-border dark:border-panel-border">
           <div className="relative">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-ink-faint" />
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search name / extension"
-              className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-panel-border bg-gray-50 dark:bg-panel-raised text-gray-900 dark:text-ink placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand/40 w-56"
+              className="pl-8 pr-3 py-1.5 text-sm rounded-lg border border-border-strong dark:border-panel-border bg-surface-2 dark:bg-panel-raised text-ink placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-brand/40 w-56"
             />
           </div>
           <div className="flex items-center gap-1">
             {FILTERS.map(f => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-2.5 py-1 rounded-full text-[0.6875rem] font-semibold border transition-colors ${filter === f ? 'bg-brand text-white border-brand' : 'border-gray-200 dark:border-panel-border text-gray-600 dark:text-ink-dim hover:bg-gray-50 dark:hover:bg-panel-raised'}`}>
+                className={`px-2.5 py-1 rounded-full text-[0.6875rem] font-semibold border transition-colors ${filter === f ? 'bg-brand text-white border-brand' : 'border-border dark:border-panel-border text-ink-dim hover:bg-surface-2 dark:hover:bg-panel-raised'}`}>
                 {f}{f !== 'All' && kpis[f] !== undefined ? ` ${kpis[f]}` : ''}
               </button>
             ))}
           </div>
           <select value={queue} onChange={e => setQueue(e.target.value)}
-            className="ml-auto py-1.5 px-2 text-sm rounded-lg border border-gray-300 dark:border-panel-border bg-gray-50 dark:bg-panel-raised text-gray-700 dark:text-ink">
+            className="ml-auto py-1.5 px-2 text-sm rounded-lg border border-border-strong dark:border-panel-border bg-surface-2 dark:bg-panel-raised text-ink">
             {queueOptions.map(q => <option key={q} value={q}>{q === 'All' ? 'All queues' : q}</option>)}
           </select>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-            className="py-1.5 px-2 text-sm rounded-lg border border-gray-300 dark:border-panel-border bg-gray-50 dark:bg-panel-raised text-gray-700 dark:text-ink">
+            className="py-1.5 px-2 text-sm rounded-lg border border-border-strong dark:border-panel-border bg-surface-2 dark:bg-panel-raised text-ink">
             <option value="state">Sort: State</option>
             <option value="agent">Sort: Agent</option>
             <option value="duration">Sort: State duration</option>
@@ -243,59 +243,59 @@ export default function LiveAgents() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="data-table">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-panel-border">
+              <tr className="border-b border-border dark:border-panel-border">
                 {['Agent', 'Ext', 'State', 'State Duration', 'Idle', 'Queue(s)', 'Current Call', 'Since', canChangeState ? 'Actions' : ''].map((h, i) => (
-                  <th key={i} className="px-4 py-2.5 text-left text-[0.6875rem] font-bold text-gray-400 dark:text-ink-faint bg-gray-50 dark:bg-panel-raised whitespace-nowrap">{h}</th>
+                  <th key={i} className="px-4 py-2.5 text-left text-[0.6875rem] font-bold text-ink-faint bg-surface-2 dark:bg-panel-raised whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-panel-border/30">
+            <tbody className="divide-y divide-border dark:divide-panel-border/30">
               {view.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400 dark:text-ink-faint">
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-ink-faint">
                   {agents.length === 0 ? 'No agents configured.' : 'No agents match the current filters.'}
                 </td></tr>
               ) : view.map(r => {
                 const meta = STATE_META[r.operational_state] || STATE_META['Offline'];
                 const cc = r.current_call;
                 return (
-                  <tr key={r.agent_id} className="hover:bg-gray-50/60 dark:hover:bg-panel-raised/20 transition-colors">
-                    <td className="px-4 py-2.5">
-                      <div className="font-medium text-gray-800 dark:text-ink truncate max-w-[180px]">{r.full_name || r.agent_id}</div>
+                  <tr key={r.agent_id} className="hover:bg-surface-2/60 dark:hover:bg-panel-raised/20 transition-colors">
+                    <td className="td">
+                      <div className="font-medium text-ink truncate max-w-[180px]">{r.full_name || r.agent_id}</div>
                       {r._loginDur != null && r.operational_state !== 'Offline' && (
-                        <div className="text-[0.6875rem] text-gray-400 dark:text-ink-faint">logged in {fmtDur(r._loginDur)}</div>
+                        <div className="text-[0.6875rem] text-ink-faint">logged in {fmtDur(r._loginDur)}</div>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-600 dark:text-ink-dim">{r.avaya_extension || '—'}</td>
-                    <td className="px-4 py-2.5">
+                    <td className="td font-mono tnum text-ink-dim">{r.avaya_extension || '—'}</td>
+                    <td className="td">
                       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold ${meta.pill}`}>
                         <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.dot }} />
                         {meta.label}
                         {r.operational_state === 'On Break' && r.break_name ? ` · ${r.break_name}` : ''}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-700 dark:text-ink">{fmtDur(r._stateDur)}</td>
-                    <td className={`px-4 py-2.5 font-mono tnum ${r._idleDur > 600 ? 'text-amber-600 dark:text-lamp-warn font-semibold' : 'text-gray-500 dark:text-ink-dim'}`}>
+                    <td className="td font-mono tnum text-ink">{fmtDur(r._stateDur)}</td>
+                    <td className={`px-4 py-2.5 font-mono tnum ${r._idleDur > 600 ? 'text-amber-600 dark:text-lamp-warn font-semibold' : 'text-ink-dim'}`}>
                       {r._idleDur != null ? fmtDur(r._idleDur) : '—'}
                     </td>
-                    <td className="px-4 py-2.5 text-gray-600 dark:text-ink-dim truncate max-w-[160px]">
+                    <td className="td text-ink-dim truncate max-w-[160px]">
                       {(r.queues || []).map(q => q.display_name || q.queue).join(', ') || '—'}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="td">
                       {cc ? (
-                        <span className="font-mono tnum text-xs text-gray-700 dark:text-ink">
+                        <span className="font-mono tnum text-xs text-ink">
                           {cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'unknown')}{cc.queue_name ? ` → ${String(cc.queue_name).split('@')[0]}` : ''}
                         </span>
-                      ) : <span className="text-gray-300 dark:text-ink-faint/50">—</span>}
+                      ) : <span className="text-ink-disabled dark:text-ink-faint/50">—</span>}
                     </td>
-                    <td className="px-4 py-2.5 font-mono tnum text-gray-400 dark:text-ink-faint">{clockTime(r.state_since || r.status_since)}</td>
+                    <td className="td font-mono tnum text-ink-faint">{clockTime(r.state_since || r.status_since)}</td>
                     {canChangeState && (
-                      <td className="px-4 py-2.5">
+                      <td className="td">
                         <select
                           value=""
                           onChange={e => { if (e.target.value) setStatus(r.agent_id, e.target.value); }}
-                          className="py-1 px-1.5 text-xs rounded border border-gray-200 dark:border-panel-border bg-white dark:bg-panel-raised text-gray-600 dark:text-ink-dim"
+                          className="py-1 px-1.5 text-xs rounded border border-border dark:border-panel-border bg-white dark:bg-panel-raised text-ink-dim"
                         >
                           <option value="">Set…</option>
                           <option value="Available">Available</option>

@@ -3,7 +3,7 @@
 // when there's nothing to show, so the rest of the page rises).
 export default function EmptyState({ icon: Icon, title, body, action, compact = false, tone = 'neutral' }) {
   if (compact) {
-    const dot = tone === 'ok' ? 'bg-status-available' : tone === 'warn' ? 'bg-status-ringing' : 'bg-gray-300 dark:bg-ink-faint/50';
+    const dot = tone === 'ok' ? 'bg-status-available' : tone === 'warn' ? 'bg-status-ringing' : 'bg-ink-faint/50';
     return (
       <div className="flex items-start gap-2.5 px-4 py-3 min-w-0">
         <span className={`h-2 w-2 rounded-full shrink-0 mt-[0.35rem] ${dot}`} aria-hidden="true" />

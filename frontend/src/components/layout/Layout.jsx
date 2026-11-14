@@ -52,7 +52,7 @@ export default function Layout() {
                 to keep the title clear of the status/user controls, show it
                 here instead. */}
             <div className="lg:hidden"><PageHeader description={meta.description} /></div>
-            <Suspense fallback={<p className="p-4 text-sm text-gray-500 dark:text-ink-dim" role="status">Loading…</p>}>
+            <Suspense fallback={<p className="p-4 text-sm text-ink-dim" role="status">Loading…</p>}>
               <Outlet />
             </Suspense>
           </div>

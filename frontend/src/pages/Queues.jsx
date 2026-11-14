@@ -145,7 +145,7 @@ export default function Queues() {
     ? allAgents.filter((a) => !tierQueue.agents.some((t) => t.agent_id === a.agent_id))
     : [];
 
-  const thClass = 'pb-2 text-left text-xs font-semibold text-ink-dim whitespace-nowrap';
+  const thClass = 'th whitespace-nowrap';
 
   return (
     <div className="space-y-4">
@@ -180,15 +180,15 @@ export default function Queues() {
       )}
 
       <Panel>
-        {loading && <p className="text-sm dark:text-ink-dim text-gray-500">Loading queues…</p>}
+        {loading && <p className="text-sm text-ink-dim">Loading queues…</p>}
         {error   && <p className="text-sm text-lamp-alert">{error}</p>}
         {!loading && !error && queues.length === 0 && (
           <EmptyState icon={Layers} title="No queues configured yet" body="Add a queue to start routing calls." />
         )}
         {!loading && !error && queues.length > 0 && (
-          <table className="w-full text-sm">
+          <table className="data-table">
             <thead>
-              <tr className={`text-left border-b dark:border-panel-border border-gray-100`}>
+              <tr className={`text-left border-b dark:border-panel-border border-border`}>
                 <th className={thClass}>Queue</th>
                 <th className={thClass}>Strategy</th>
                 <th className={thClass}>Service Level</th>
@@ -199,31 +199,31 @@ export default function Queues() {
             </thead>
             <tbody>
               {queues.map((q) => (
-                <tr key={q.name} className="border-b dark:border-panel-border/60 border-gray-50 last:border-0">
-                  <td className="py-3">
-                    <p className="font-medium dark:text-ink text-gray-800">{q.display_name}</p>
-                    <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">{q.name}</p>
+                <tr key={q.name} className="border-b dark:border-panel-border/60 border-border last:border-0">
+                  <td className="td">
+                    <p className="font-medium text-ink">{q.display_name}</p>
+                    <p className="text-[0.6875rem] text-ink-faint font-mono">{q.name}</p>
                   </td>
-                  <td className="py-3 dark:text-ink-dim text-gray-500">
+                  <td className="td text-ink-dim">
                     {STRATEGIES.find((s) => s.value === q.strategy)?.label || q.strategy}
                   </td>
-                  <td className="py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.sla_seconds != null ? `answer within ${q.sla_seconds}s` : '—'}</td>
-                  <td className="py-3 font-mono tnum dark:text-ink-dim text-gray-500">{Number(q.max_wait_time) === 0 ? 'no limit' : `${q.max_wait_time}s`}</td>
-                  <td className="py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.max_queue_size}</td>
+                  <td className="td font-mono tnum text-ink-dim">{q.sla_seconds != null ? `answer within ${q.sla_seconds}s` : '—'}</td>
+                  <td className="td font-mono tnum text-ink-dim">{Number(q.max_wait_time) === 0 ? 'no limit' : `${q.max_wait_time}s`}</td>
+                  <td className="td font-mono tnum text-ink-dim">{q.max_queue_size}</td>
                   {isAdmin && (
-                    <td className="py-3">
+                    <td className="td">
                       <div className="flex justify-end gap-1.5">
                         <button onClick={() => openTiers(q.name)}
-                          className="p-1.5 rounded-lg dark:text-ink-dim text-gray-400 hover:text-gray-800 dark:hover:text-ink hover:bg-gray-100 dark:hover:bg-panel-raised transition-colors"
+                          className="p-1.5 rounded-lg dark:text-ink-dim text-ink-faint hover:text-ink dark:hover:text-ink hover:bg-surface-2 dark:hover:bg-panel-raised transition-colors"
                           title="Manage agents">
                           <Users2 size={14} />
                         </button>
                         <button onClick={() => openEdit(q)}
-                          className="p-1.5 rounded-lg dark:text-ink-dim text-gray-400 hover:text-gray-800 dark:hover:text-ink hover:bg-gray-100 dark:hover:bg-panel-raised transition-colors">
+                          className="p-1.5 rounded-lg dark:text-ink-dim text-ink-faint hover:text-ink dark:hover:text-ink hover:bg-surface-2 dark:hover:bg-panel-raised transition-colors">
                           <Pencil size={14} />
                         </button>
                         <button onClick={() => handleDelete(q.name)}
-                          className="p-1.5 rounded-lg dark:text-ink-dim text-gray-400 hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors">
+                          className="p-1.5 rounded-lg dark:text-ink-dim text-ink-faint hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors">
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -330,24 +330,24 @@ export default function Queues() {
 
               <div className="space-y-2">
                 {tierQueue.agents.length === 0 && (
-                  <p className="text-sm dark:text-ink-dim text-gray-500">No agents assigned to this queue yet.</p>
+                  <p className="text-sm text-ink-dim">No agents assigned to this queue yet.</p>
                 )}
                 {tierQueue.agents.map((a) => (
                   <div key={a.agent_id}
-                    className="flex items-center justify-between rounded-lg border dark:border-panel-border border-gray-200 px-3 py-2">
+                    className="flex items-center justify-between rounded-lg border dark:border-panel-border border-border px-3 py-2">
                     <div className="flex items-center gap-3">
                       <StatusLamp status={a.status} showLabel={false} />
                       <div>
-                        <p className="text-sm font-medium dark:text-ink text-gray-800">{a.full_name}</p>
-                        <p className="text-[0.6875rem] dark:text-ink-faint text-gray-400 font-mono">{a.agent_id}</p>
+                        <p className="text-sm font-medium text-ink">{a.full_name}</p>
+                        <p className="text-[0.6875rem] text-ink-faint font-mono">{a.agent_id}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <label className="text-[0.6875rem] dark:text-ink-faint text-gray-400">Lvl</label>
+                      <label className="text-[0.6875rem] text-ink-faint">Lvl</label>
                       <input type="number" min="1" max="10" defaultValue={a.level}
                         onBlur={(e) => { const v = Number(e.target.value); if (v !== a.level) handleSetTier(a.agent_id, { level: v }); }}
                         className={`${inputClass} w-14 py-1`} title="Tier level (lower tried first)" />
-                      <label className="text-[0.6875rem] dark:text-ink-faint text-gray-400">Pos</label>
+                      <label className="text-[0.6875rem] text-ink-faint">Pos</label>
                       <input type="number" min="1" max="100" defaultValue={a.position}
                         onBlur={(e) => { const v = Number(e.target.value); if (v !== a.position) handleSetTier(a.agent_id, { position: v }); }}
                         className={`${inputClass} w-14 py-1`} title="Tie-break position within a level" />
@@ -360,7 +360,7 @@ export default function Queues() {
                         ))}
                       </select>
                       <button onClick={() => handleRemoveTier(a.agent_id)}
-                        className="p-1 rounded-lg dark:text-ink-faint text-gray-400 hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors"
+                        className="p-1 rounded-lg text-ink-faint hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors"
                         title="Remove from queue">
                         <X size={14} />
                       </button>

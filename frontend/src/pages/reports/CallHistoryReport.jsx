@@ -56,7 +56,7 @@ export default function CallHistoryReport() {
 
   return (
     <div className="max-w-6xl">
-      <h1 className="font-display font-bold text-lg text-gray-900 dark:text-ink flex items-center gap-2 mb-4">
+      <h1 className="font-display font-bold text-lg text-ink flex items-center gap-2 mb-4">
         <PhoneCall size={20} className="text-brand dark:text-brand-light" /> Call History
       </h1>
 
@@ -73,7 +73,7 @@ export default function CallHistoryReport() {
         <input type="date" className="field-input w-auto" value={from} onChange={reset(setFrom)} aria-label="From date" />
         <input type="date" className="field-input w-auto" value={to} onChange={reset(setTo)} aria-label="To date" />
         <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearch(searchInput.trim()); }} className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-ink-faint" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-faint" />
           <input className="field-input w-48 pl-8" placeholder="Search number…" aria-label="Search caller or number"
             value={searchInput} onChange={e => setSearchInput(e.target.value)} />
         </form>
@@ -91,9 +91,9 @@ export default function CallHistoryReport() {
           <EmptyState icon={PhoneCall} title="No calls" body="No calls match the selected filters." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
-                <tr className="text-left text-[0.6875rem] text-gray-400 dark:text-ink-faint border-b border-gray-100 dark:border-panel-border">
+                <tr className="text-left text-[0.6875rem] text-ink-faint border-b border-border dark:border-panel-border">
                   <th className="th">Direction</th>
                   <th className="th">Agent</th>
                   <th className="th">Caller</th>
@@ -106,15 +106,15 @@ export default function CallHistoryReport() {
               </thead>
               <tbody>
                 {rows.map(c => (
-                  <tr key={c.call_uuid} className="border-b border-gray-50 dark:border-panel-border/40">
-                    <td className="px-4 py-3"><Dir c={c} /></td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-ink-dim">{c.agent_id || '—'}</td>
-                    <td className="px-4 py-3 text-gray-800 dark:text-ink">{c.direction === 'outbound' ? c.dnis : (c.caller_name ? `${c.caller_name} (${c.ani || '—'})` : (c.ani || 'Anonymous'))}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{c.queue_name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{fmtDT(c.start_time)}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint tabular-nums">{fmtDur(c.wait_seconds)}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-ink-dim tabular-nums">{fmtDur(c.talk_seconds)}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{c.disposition || '—'}</td>
+                  <tr key={c.call_uuid} className="border-b border-border dark:border-panel-border/40">
+                    <td className="td"><Dir c={c} /></td>
+                    <td className="td text-ink dark:text-ink-dim">{c.agent_id || '—'}</td>
+                    <td className="td text-ink">{c.direction === 'outbound' ? c.dnis : (c.caller_name ? `${c.caller_name} (${c.ani || '—'})` : (c.ani || 'Anonymous'))}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint">{c.queue_name || '—'}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint">{fmtDT(c.start_time)}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint tabular-nums">{fmtDur(c.wait_seconds)}</td>
+                    <td className="td text-ink dark:text-ink-dim tabular-nums">{fmtDur(c.talk_seconds)}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint">{c.disposition || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -124,7 +124,7 @@ export default function CallHistoryReport() {
       </div>
 
       {!loading && !error && total > 0 && (
-        <div className="flex items-center justify-between mt-3 text-xs text-gray-500 dark:text-ink-faint">
+        <div className="flex items-center justify-between mt-3 text-xs text-ink-dim dark:text-ink-faint">
           <span>{total} call{total === 1 ? '' : 's'}</span>
           <div className="flex items-center gap-2">
             <button className="btn-secondary p-1.5" disabled={page <= 1} onClick={() => setPage(p => p - 1)} aria-label="Previous"><ChevronLeft size={14} /></button>

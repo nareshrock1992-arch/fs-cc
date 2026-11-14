@@ -243,7 +243,7 @@ export default function Agents() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-ink-faint" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -258,13 +258,13 @@ export default function Agents() {
                 <span className="h-1.5 w-1.5 rounded-full bg-lamp-available" />
                 {availableCount}
               </span>
-              <span className="text-gray-300 dark:text-panel-border">·</span>
+              <span className="text-ink-disabled dark:text-panel-border">·</span>
               <span className="flex items-center gap-1 text-blue-600 dark:text-lamp-break font-semibold">
                 <span className="h-1.5 w-1.5 rounded-full bg-lamp-break" />
                 {breakCount}
               </span>
-              <span className="text-gray-300 dark:text-panel-border">·</span>
-              <span className="flex items-center gap-1 text-gray-500 dark:text-ink-faint font-semibold">
+              <span className="text-ink-disabled dark:text-panel-border">·</span>
+              <span className="flex items-center gap-1 text-ink-dim dark:text-ink-faint font-semibold">
                 <span className="h-1.5 w-1.5 rounded-full bg-lamp-loggedout" />
                 {outCount}
               </span>
@@ -313,9 +313,9 @@ export default function Agents() {
         )}
 
         {!loading && !error && filtered.length > 0 && (
-          <table className="w-full text-sm">
+          <table className="data-table">
             <thead>
-              <tr className="border-b border-gray-100 dark:border-panel-border text-left">
+              <tr className="border-b border-border dark:border-panel-border text-left">
                 <th className="th">Agent</th>
                 <th className="th">Extension</th>
                 <th className="th hidden md:table-cell">Contact</th>
@@ -327,31 +327,31 @@ export default function Agents() {
             <tbody>
               {filtered.map((a) => (
                 <tr key={a.agent_id}
-                    className="border-b border-gray-50 dark:border-panel-border/60 last:border-0
-                               hover:bg-gray-50 dark:hover:bg-panel-raised/30 transition-colors align-middle">
+                    className="border-b border-border dark:border-panel-border/60 last:border-0
+                               hover:bg-surface-2 dark:hover:bg-panel-raised/30 transition-colors align-middle">
 
                   {/* Agent name + ID */}
-                  <td className="px-4 py-3">
+                  <td className="td">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-brand/10 dark:bg-brand/20 flex items-center justify-center shrink-0
                                       text-brand dark:text-brand-light text-xs font-bold">
                         {(a.full_name?.[0] || '?').toUpperCase()}
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-800 dark:text-ink">{a.full_name}</p>
-                        <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint font-mono">{a.agent_id}</p>
+                        <p className="font-semibold text-ink">{a.full_name}</p>
+                        <p className="text-[0.6875rem] text-ink-faint font-mono">{a.agent_id}</p>
                       </div>
                     </div>
                   </td>
 
-                  <td className="px-4 py-3 font-mono tnum text-gray-500 dark:text-ink-dim">{a.avaya_extension}</td>
+                  <td className="td font-mono tnum text-ink-dim">{a.avaya_extension}</td>
 
-                  <td className="px-4 py-3 font-mono text-xs text-gray-400 dark:text-ink-faint truncate max-w-[200px] hidden md:table-cell">
+                  <td className="td font-mono text-xs text-ink-faint truncate max-w-[200px] hidden md:table-cell">
                     {a.contact}
                   </td>
 
                   {/* Status */}
-                  <td className="px-4 py-3">
+                  <td className="td">
                     {canChangeState ? (() => {
                       const sc = STATUS_SELECT[a.status] ?? STATUS_SELECT['Logged Out'];
                       return (
@@ -365,7 +365,7 @@ export default function Agents() {
                                         transition-colors cursor-pointer ${sc.cls}`}
                           >
                             {STATUS_OPTIONS.map((s) => (
-                              <option key={s} value={s} className="dark:bg-panel-surface bg-white text-gray-800 dark:text-ink">{s}</option>
+                              <option key={s} value={s} className="dark:bg-panel-surface bg-white text-ink">{s}</option>
                             ))}
                           </select>
                         </div>
@@ -376,7 +376,7 @@ export default function Agents() {
                   </td>
 
                   {/* PIN */}
-                  <td className="px-4 py-3">
+                  <td className="td">
                     {a.pin_hash ? (
                       <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold
                                        text-emerald-600 dark:text-lamp-available">
@@ -384,7 +384,7 @@ export default function Agents() {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold
-                                       text-gray-400 dark:text-ink-faint">
+                                       text-ink-faint">
                         <XCircle size={12} /> Not set
                       </span>
                     )}
@@ -392,13 +392,13 @@ export default function Agents() {
 
                   {/* Actions */}
                   {isAdmin && (
-                    <td className="px-4 py-3">
+                    <td className="td">
                       <div className="flex justify-end gap-1">
                         <button
                           onClick={() => openPinModal(a)}
                           title="Set Agent Desktop PIN"
                           aria-label="Set PIN"
-                          className="p-1.5 rounded-lg text-gray-400 dark:text-ink-faint
+                          className="p-1.5 rounded-lg text-ink-faint
                                      hover:text-blue-600 dark:hover:text-lamp-break
                                      hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
                         >
@@ -407,16 +407,16 @@ export default function Agents() {
                         <button
                           onClick={() => openEdit(a)}
                           aria-label="Edit agent"
-                          className="p-1.5 rounded-lg text-gray-400 dark:text-ink-faint
-                                     hover:text-gray-700 dark:hover:text-ink
-                                     hover:bg-gray-100 dark:hover:bg-panel-raised transition-colors"
+                          className="p-1.5 rounded-lg text-ink-faint
+                                     hover:text-ink dark:hover:text-ink
+                                     hover:bg-surface-2 dark:hover:bg-panel-raised transition-colors"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
                           onClick={() => handleDelete(a.agent_id)}
                           aria-label="Delete agent"
-                          className="p-1.5 rounded-lg text-gray-400 dark:text-ink-faint
+                          className="p-1.5 rounded-lg text-ink-faint
                                      hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors"
                         >
                           <Trash2 size={14} />
@@ -583,9 +583,9 @@ export default function Agents() {
         }
       >
         <form id="pin-form" onSubmit={handleSetPin} className="space-y-4">
-          <p className="text-sm text-gray-500 dark:text-ink-dim">
-            Set a PIN for <strong className="text-gray-800 dark:text-ink">{pinAgentName}</strong>{' '}
-            (<code className="text-xs bg-gray-100 dark:bg-panel-raised px-1 rounded font-mono">{pinAgentId}</code>)
+          <p className="text-sm text-ink-dim">
+            Set a PIN for <strong className="text-ink">{pinAgentName}</strong>{' '}
+            (<code className="text-xs bg-surface-2 dark:bg-panel-raised px-1 rounded font-mono">{pinAgentId}</code>)
             to log in to the Agent Desktop.
           </p>
           {pinError && (

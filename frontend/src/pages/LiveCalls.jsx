@@ -37,25 +37,25 @@ function WaitingCard({ call, tick }) {
       {/* Info grid */}
       <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Queue</p>
-          <p className="text-sm font-semibold text-gray-800 dark:text-ink truncate" title={call.queue_name}>
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Queue</p>
+          <p className="text-sm font-semibold text-ink truncate" title={call.queue_name}>
             {call.queue_name || '—'}
           </p>
         </div>
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
-          <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Customer</p>
+          <p className="text-sm font-mono text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
         </div>
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Since</p>
-          <p className="text-sm font-mono text-gray-600 dark:text-ink-dim">
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Since</p>
+          <p className="text-sm font-mono text-ink-dim">
             {call.queue_enter_time
               ? new Date(call.queue_enter_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
               : '—'}
           </p>
         </div>
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Waiting</p>
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Waiting</p>
           <p className={`text-sm font-mono font-bold tnum ${isLong ? 'text-lamp-alert' : 'text-amber-600 dark:text-lamp-live'}`}>
             {fmt(waitSec)}
           </p>
@@ -89,29 +89,29 @@ function ActiveCallCard({ call, tick }) {
       {/* Info grid */}
       <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Agent</p>
-          <p className="text-sm font-semibold text-gray-800 dark:text-ink truncate" title={call.agent_name}>
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Agent</p>
+          <p className="text-sm font-semibold text-ink truncate" title={call.agent_name}>
             {call.agent_name || call.agent_id || '—'}
           </p>
         </div>
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Customer</p>
-          <p className="text-sm font-mono text-gray-800 dark:text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Customer</p>
+          <p className="text-sm font-mono text-ink">{call.caller_name ? `${call.caller_name} (${call.ani || '—'})` : (call.ani || 'Unknown')}</p>
         </div>
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Queue</p>
-          <p className="text-sm text-gray-600 dark:text-ink-dim truncate" title={call.queue_name}>
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Queue</p>
+          <p className="text-sm text-ink-dim truncate" title={call.queue_name}>
             {call.queue_name || '—'}
           </p>
         </div>
         <div className="hidden sm:block">
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Extension</p>
-          <p className="text-sm font-mono text-gray-500 dark:text-ink-faint">
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Extension</p>
+          <p className="text-sm font-mono text-ink-dim dark:text-ink-faint">
             {call.agent_extension ? `ext ${call.agent_extension}` : '—'}
           </p>
         </div>
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint mb-0.5">Duration</p>
+          <p className="text-[0.6875rem] font-semibold text-ink-faint mb-0.5">Duration</p>
           <p className="text-sm font-mono font-bold tnum text-emerald-600 dark:text-lamp-available">
             {fmt(talkSec)}
           </p>
@@ -223,7 +223,7 @@ export default function LiveCalls() {
       {/* Waiting callers */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-ink-dim">
+          <h2 className="text-sm font-semibold text-ink dark:text-ink-dim">
             Waiting in Queue
           </h2>
           {waiting.length > 0 && (
@@ -236,7 +236,7 @@ export default function LiveCalls() {
         </div>
 
         {waiting.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 dark:border-panel-border
+          <div className="rounded-xl border border-border dark:border-panel-border
                           bg-white dark:bg-panel-surface p-6">
             <EmptyState
               icon={PhoneOff}
@@ -256,7 +256,7 @@ export default function LiveCalls() {
       {/* Active calls */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <h2 className="text-sm font-semibold text-gray-700 dark:text-ink-dim">
+          <h2 className="text-sm font-semibold text-ink dark:text-ink-dim">
             On a Call
           </h2>
           {onCall.length > 0 && (
@@ -269,7 +269,7 @@ export default function LiveCalls() {
         </div>
 
         {onCall.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 dark:border-panel-border
+          <div className="rounded-xl border border-border dark:border-panel-border
                           bg-white dark:bg-panel-surface p-6">
             <EmptyState
               icon={Users}

@@ -266,7 +266,7 @@ export default function AgentPerformanceDashboard() {
               {/* ── Comparison table ──────────────────────────────────────────── */}
               <Panel eyebrow="Historical" title="Agent Comparison" noPad>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="data-table">
                     <thead>
                       <tr className="border-b border-border">
                         {COLS.map(c => (

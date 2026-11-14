@@ -121,10 +121,10 @@ export default function BreakCodesPage() {
     <div>
       <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <div>
-          <h1 className="font-display font-bold text-lg text-gray-900 dark:text-ink flex items-center gap-2">
+          <h1 className="font-display font-bold text-lg text-ink flex items-center gap-2">
             <Coffee size={20} className="text-brand dark:text-brand-light" /> Break Codes
           </h1>
-          <p className="text-xs text-gray-500 dark:text-ink-faint mt-0.5">
+          <p className="text-xs text-ink-dim dark:text-ink-faint mt-0.5">
             Configure the break reasons agents can select. Deactivating preserves historical records.
           </p>
         </div>
@@ -157,10 +157,10 @@ export default function BreakCodesPage() {
             action={<button className={buttonPrimary} onClick={openCreate}><Plus size={15} /> Add Break</button>} />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="data-table">
               <thead>
-                <tr className="text-left text-[0.6875rem] text-gray-400 dark:text-ink-faint
-                               border-b border-gray-100 dark:border-panel-border">
+                <tr className="text-left text-[0.6875rem] text-ink-faint
+                               border-b border-border dark:border-panel-border">
                   <th className="th">Code</th>
                   <th className="th">Name</th>
                   <th className="th">Active</th>
@@ -173,34 +173,34 @@ export default function BreakCodesPage() {
               </thead>
               <tbody>
                 {rows.map(r => (
-                  <tr key={r.id} className="border-b border-gray-50 dark:border-panel-border/40
-                                            hover:bg-gray-50 dark:hover:bg-panel-raised/50">
-                    <td className="px-4 py-3">
+                  <tr key={r.id} className="border-b border-border dark:border-panel-border/40
+                                            hover:bg-surface-2 dark:hover:bg-panel-raised/50">
+                    <td className="td">
                       <span className="inline-flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full border border-gray-200 dark:border-panel-border shrink-0"
+                        <span className="w-2.5 h-2.5 rounded-full border border-border dark:border-panel-border shrink-0"
                               style={r.color ? { backgroundColor: r.color } : undefined} aria-hidden="true" />
-                        <code className="text-xs text-gray-700 dark:text-ink-dim">{r.code}</code>
+                        <code className="text-xs text-ink dark:text-ink-dim">{r.code}</code>
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-800 dark:text-ink">{r.name}</td>
-                    <td className="px-4 py-3">
+                    <td className="td text-ink">{r.name}</td>
+                    <td className="td">
                       {r.active
                         ? <span className="inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold bg-lamp-available/10 text-lamp-available border border-lamp-available/20">Active</span>
-                        : <span className="inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold bg-gray-100 dark:bg-panel-raised text-gray-400 dark:text-ink-faint border border-gray-200 dark:border-panel-border">Inactive</span>}
+                        : <span className="inline-flex px-2 py-0.5 rounded-full text-[0.6875rem] font-bold bg-surface-2 dark:bg-panel-raised text-ink-faint border border-border dark:border-panel-border">Inactive</span>}
                     </td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{r.agent_selectable ? 'Yes' : 'No'}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint tabular-nums">{r.display_order}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{fmtMin(r.warn_threshold_seconds)}</td>
-                    <td className="px-4 py-3 text-gray-500 dark:text-ink-faint">{fmtMin(r.max_duration_seconds)}</td>
-                    <td className="px-4 py-3">
+                    <td className="td text-ink-dim dark:text-ink-faint">{r.agent_selectable ? 'Yes' : 'No'}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint tabular-nums">{r.display_order}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint">{fmtMin(r.warn_threshold_seconds)}</td>
+                    <td className="td text-ink-dim dark:text-ink-faint">{fmtMin(r.max_duration_seconds)}</td>
+                    <td className="td">
                       <div className="flex items-center justify-end gap-1.5">
                         <button onClick={() => openEdit(r)} title="Edit"
-                          className="p-1.5 rounded-lg text-gray-400 dark:text-ink-faint hover:text-brand dark:hover:text-brand-light hover:bg-gray-100 dark:hover:bg-panel-raised">
+                          className="p-1.5 rounded-lg text-ink-faint hover:text-brand dark:hover:text-brand-light hover:bg-surface-2 dark:hover:bg-panel-raised">
                           <Pencil size={15} />
                         </button>
                         <button onClick={() => setConfirm(r)} title={r.active ? 'Deactivate' : 'Activate'}
-                          className={`p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-panel-raised
-                            ${r.active ? 'text-gray-400 dark:text-ink-faint hover:text-lamp-alert' : 'text-gray-400 dark:text-ink-faint hover:text-lamp-available'}`}>
+                          className={`p-1.5 rounded-lg hover:bg-surface-2 dark:hover:bg-panel-raised
+                            ${r.active ? 'text-ink-faint hover:text-lamp-alert' : 'text-ink-faint hover:text-lamp-available'}`}>
                           <Power size={15} />
                         </button>
                       </div>
@@ -275,12 +275,12 @@ export default function BreakCodesPage() {
             </FormField>
           </div>
           <div className="flex items-center gap-6 mt-1">
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-ink-dim">
+            <label className="flex items-center gap-2 text-sm text-ink dark:text-ink-dim">
               <input type="checkbox" checked={form.agent_selectable}
                 onChange={e => setForm(f => ({ ...f, agent_selectable: e.target.checked }))} />
               Agent selectable
             </label>
-            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-ink-dim">
+            <label className="flex items-center gap-2 text-sm text-ink dark:text-ink-dim">
               <input type="checkbox" checked={form.active}
                 onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} />
               Active
@@ -305,13 +305,13 @@ export default function BreakCodesPage() {
         }
       >
         {confirm?.active ? (
-          <div className="flex items-start gap-3 text-sm text-gray-600 dark:text-ink-dim">
+          <div className="flex items-start gap-3 text-sm text-ink-dim">
             <AlertTriangle size={18} className="text-lamp-alert shrink-0 mt-0.5" />
             <p>Agents will no longer be able to select this break.
                Existing historical records remain unchanged.</p>
           </div>
         ) : (
-          <p className="text-sm text-gray-600 dark:text-ink-dim">
+          <p className="text-sm text-ink-dim">
             Agents will be able to select this break again.
           </p>
         )}

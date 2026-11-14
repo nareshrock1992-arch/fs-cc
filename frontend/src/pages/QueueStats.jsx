@@ -13,10 +13,10 @@ function SlaBar({ pct }) {
   const color = pct >= 80 ? 'bg-lamp-ok' : pct >= 60 ? 'bg-lamp-warn' : 'bg-lamp-alert';
   return (
     <div className="flex items-center gap-1.5 mt-0.5">
-      <div className="flex-1 h-1.5 rounded-full dark:bg-panel-border bg-gray-200 overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full dark:bg-panel-border bg-border overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
-      <span className="text-xs font-mono tnum dark:text-ink-dim text-gray-600 shrink-0">{pct}%</span>
+      <span className="text-xs font-mono tnum text-ink-dim shrink-0">{pct}%</span>
     </div>
   );
 }
@@ -25,10 +25,10 @@ function SlaBar({ pct }) {
 function Stat({ label, value, colorClass, title }) {
   return (
     <div title={title} className="min-w-0">
-      <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
+      <p className="text-[0.6875rem] font-display font-medium text-ink-faint leading-none mb-0.5">
         {label}
       </p>
-      <p className={`text-sm font-semibold font-mono tnum min-w-0 [overflow-wrap:anywhere] ${colorClass ?? 'dark:text-ink text-gray-800'}`}>
+      <p className={`text-sm font-semibold font-mono tnum min-w-0 [overflow-wrap:anywhere] ${colorClass ?? 'text-ink'}`}>
         {value}
       </p>
     </div>
@@ -53,14 +53,14 @@ function QueueCard({ q }) {
 
   // Color: answer rate — higher is better
   const answerRateColor = offered === 0
-    ? 'dark:text-ink-dim text-gray-500'
+    ? 'text-ink-dim'
     : answerRate >= 80 ? 'text-lamp-ok'
     : answerRate >= 60 ? 'text-lamp-warn'
     : 'text-lamp-alert';
 
   // Color: abandon rate — lower is better
   const abandonRateColor = offered === 0
-    ? 'dark:text-ink-dim text-gray-500'
+    ? 'text-ink-dim'
     : abandonRate === 0    ? 'text-lamp-ok'
     : abandonRate <= 10   ? 'text-lamp-warn'
     : 'text-lamp-alert';
@@ -68,14 +68,14 @@ function QueueCard({ q }) {
   const slaVal = Number(q.sla_pct_today) || 0;
 
   return (
-    <div className="rounded-lg border shadow-card dark:bg-panel-surface dark:border-panel-border bg-white border-gray-200">
+    <div className="rounded-lg border shadow-card dark:bg-panel-surface dark:border-panel-border bg-white border-border">
 
       {/* Card header — compact py-2.5 vs Panel's py-3.5 */}
-      <div className="px-4 py-2.5 border-b dark:border-panel-border border-gray-100">
+      <div className="px-4 py-2.5 border-b dark:border-panel-border border-border">
         <p className="text-[0.6875rem] tracking-[0.12em] font-bold dark:text-brand-light text-blue-500 font-display mb-0.5">
           {q.strategy}
         </p>
-        <h2 className="font-display font-semibold text-sm dark:text-ink text-gray-900">
+        <h2 className="font-display font-semibold text-sm text-ink">
           {q.display_name || q.queue_name}
         </h2>
       </div>
@@ -93,10 +93,10 @@ function QueueCard({ q }) {
             const color = tone === 'green' ? 'text-lamp-ok'
               : tone === 'amber' ? 'text-lamp-warn'
               : tone === 'red'   ? 'text-lamp-alert'
-              : 'dark:text-ink text-gray-900';
+              : 'text-ink';
             return (
               <div key={label} className="min-w-0">
-                <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
+                <p className="text-[0.6875rem] font-display font-medium text-ink-faint leading-none mb-0.5">
                   {label}
                 </p>
                 <p className={`text-metric ${color}`}>{value}</p>
@@ -106,8 +106,8 @@ function QueueCard({ q }) {
         </div>
 
         {/* ── TODAY — 4×2 compact stat grid ───────────────────────────── */}
-        <div className="border-t dark:border-panel-border border-gray-100 pt-3">
-          <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 mb-2">
+        <div className="border-t dark:border-panel-border border-border pt-3">
+          <p className="text-[0.6875rem] font-display font-medium text-ink-faint mb-2">
             Today
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2.5">
@@ -116,7 +116,7 @@ function QueueCard({ q }) {
             <Stat label="Offered"     value={q.offered_today}  />
             <Stat label="Answered"    value={q.answered_today} colorClass="text-lamp-ok" />
             <Stat label="Answer Rate" value={`${answerRate}%`} colorClass={answerRateColor} />
-            <Stat label="Avg Wait"    value={fmtSeconds(q.avg_wait_today)} colorClass="dark:text-ink-dim text-gray-500" />
+            <Stat label="Avg Wait"    value={fmtSeconds(q.avg_wait_today)} colorClass="text-ink-dim" />
 
             {/* Row 2: abandonment + SLA */}
             <Stat
@@ -135,7 +135,7 @@ function QueueCard({ q }) {
 
             {/* SLA — keeps the bar visualization */}
             <div>
-              <p className="text-[0.6875rem] font-display font-medium dark:text-ink-faint text-gray-400 leading-none mb-0.5">
+              <p className="text-[0.6875rem] font-display font-medium text-ink-faint leading-none mb-0.5">
                 SLA ({q.max_wait_time}s)
               </p>
               <SlaBar pct={slaVal} />
@@ -180,7 +180,7 @@ export default function QueueStats() {
   useSocketEvent('agent:state',     load);
   useSocketEvent('agent:status',    load);
 
-  if (loading) return <p className="text-sm dark:text-ink-dim text-gray-500">Loading queue statistics…</p>;
+  if (loading) return <p className="text-sm text-ink-dim">Loading queue statistics…</p>;
   if (error)   return <p className="text-sm text-lamp-alert">{error}</p>;
 
   // Responsive 2-column grid: 1 col on mobile, 2 cols from md (768px) up.
@@ -193,8 +193,8 @@ export default function QueueStats() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {queues.length === 0 ? (
-        <div className="col-span-full rounded-lg border shadow-card dark:bg-panel-surface dark:border-panel-border bg-white border-gray-200 p-5">
-          <p className="text-sm dark:text-ink-dim text-gray-500">No active queues found.</p>
+        <div className="col-span-full rounded-lg border shadow-card dark:bg-panel-surface dark:border-panel-border bg-white border-border p-5">
+          <p className="text-sm text-ink-dim">No active queues found.</p>
         </div>
       ) : (
         queues.map(q => <QueueCard key={q.queue_name} q={q} />)

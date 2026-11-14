@@ -67,7 +67,7 @@ function ServiceLevelGauge({ pct, noData = false }) {
       <svg width="100" height="100" viewBox="0 0 100 100" className="shrink-0">
         <circle cx={cx} cy={cy} r={r} fill="none"
           stroke="currentColor" strokeWidth="7"
-          className="text-gray-100 dark:text-panel-raised" />
+          className="text-ink dark:text-panel-raised" />
         <circle cx={cx} cy={cy} r={r} fill="none"
           stroke={stroke} strokeWidth="7"
           strokeDasharray={circumference}
@@ -87,7 +87,7 @@ function ServiceLevelGauge({ pct, noData = false }) {
         <p className="text-xs font-semibold mt-0.5" style={{ color: stroke }}>
           {status}
         </p>
-        <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
+        <p className="text-[0.6875rem] text-ink-faint mt-1 leading-relaxed">
           Target: ≥80% answered within<br />each queue's configured target
         </p>
       </div>
@@ -101,12 +101,12 @@ function BarTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border bg-white dark:bg-panel-raised dark:border-panel-border
-                    border-gray-200 px-3 py-2 text-xs shadow-card-hover">
-      <p className="font-semibold text-gray-800 dark:text-ink mb-1.5">{label}</p>
+                    border-border px-3 py-2 text-xs shadow-card-hover">
+      <p className="font-semibold text-ink mb-1.5">{label}</p>
       {payload.map(p => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1 last:mb-0">
           <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.fill }} />
-          <span className="text-gray-500 dark:text-ink-dim w-14">{p.name}:</span>
+          <span className="text-ink-dim w-14">{p.name}:</span>
           <span className="font-mono font-semibold" style={{ color: p.fill }}>{p.value}</span>
         </div>
       ))}
@@ -136,7 +136,7 @@ function QueueHealthSection({ distribution, liveByName }) {
   }));
 
   const legend = (
-    <div className="hidden sm:flex items-center gap-3 text-[0.6875rem] text-gray-400 dark:text-ink-faint">
+    <div className="hidden sm:flex items-center gap-3 text-[0.6875rem] text-ink-faint">
       {[['#3B82F6','Offered'],['#27C98A','Answered'],['#EF4444','Abandoned']].map(([c, l]) => (
         <span key={l} className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: c }} />
@@ -149,7 +149,7 @@ function QueueHealthSection({ distribution, liveByName }) {
   return (
     <Panel eyebrow="Live + Today" title="Queue Health" action={legend}>
       {distribution.length === 0 ? (
-        <div className="flex items-center gap-3 py-3 text-gray-400 dark:text-ink-faint">
+        <div className="flex items-center gap-3 py-3 text-ink-faint">
           <Activity size={16} strokeWidth={1.5} className="shrink-0" />
           <p className="text-xs">No queues configured yet.</p>
         </div>
@@ -181,7 +181,7 @@ function QueueHealthSection({ distribution, liveByName }) {
             </div>
             {totalOffered === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-[0.6875rem] text-gray-400 dark:text-ink-faint bg-white/80
+                <span className="text-[0.6875rem] text-ink-faint bg-white/80
                   dark:bg-panel-surface/80 px-2 py-1 rounded">
                   No calls today
                 </span>
@@ -209,7 +209,7 @@ function QueueHealthSection({ distribution, liveByName }) {
                 <col style={{ width: '10.5%' }} />
               </colgroup>
               <thead className="sticky top-0 bg-white dark:bg-panel-surface z-10">
-                <tr className="border-b border-gray-100 dark:border-panel-border">
+                <tr className="border-b border-border dark:border-panel-border">
                   {[
                     ['Queue',   'text-left',  ''],
                     ['Waiting', 'text-right', 'live'],
@@ -236,7 +236,7 @@ function QueueHealthSection({ distribution, liveByName }) {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-panel-border/20">
+              <tbody className="divide-y divide-border dark:divide-panel-border/20">
                 {distribution.map((q) => {
                   const live      = liveByName[q.queue_name] || {};
                   const offered   = q.offered_today  || 0;
@@ -250,12 +250,12 @@ function QueueHealthSection({ distribution, liveByName }) {
                   const sla       = (live.sla_pct_today == null || offered === 0) ? null : Number(live.sla_pct_today);
                   const color     = queueColor(q.queue_name, distribution);
                   const ansColor  = ansRate === null
-                    ? 'text-gray-300 dark:text-ink-faint/40'
+                    ? 'text-ink-disabled dark:text-ink-faint/40'
                     : ansRate >= 80 ? 'text-emerald-600 dark:text-lamp-ok'
                     : ansRate >= 60 ? 'text-amber-500 dark:text-lamp-warn'
                     : 'text-red-500 dark:text-lamp-alert';
                   const slaColor  = sla === null
-                    ? 'text-gray-300 dark:text-ink-faint/40'
+                    ? 'text-ink-disabled dark:text-ink-faint/40'
                     : sla >= 80 ? 'text-emerald-600 dark:text-lamp-ok'
                     : sla >= 60 ? 'text-amber-500 dark:text-lamp-warn'
                     : 'text-red-500 dark:text-lamp-alert';
@@ -265,18 +265,18 @@ function QueueHealthSection({ distribution, liveByName }) {
                       className={`transition-colors ${
                         waiting > 0
                           ? 'bg-amber-50/50 dark:bg-amber-500/5'
-                          : 'hover:bg-gray-50/60 dark:hover:bg-panel-raised/20'
+                          : 'hover:bg-surface-2/60 dark:hover:bg-panel-raised/20'
                       }`}>
                       <td className="py-2 px-1.5 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="h-1.5 w-1.5 rounded-full shrink-0"
                             style={{ background: color }} />
-                          <span className="font-medium text-gray-700 dark:text-ink truncate min-w-0"
+                          <span className="font-medium text-ink truncate min-w-0"
                             title={q.display_name || q.queue_name}>
                             {q.display_name || q.queue_name}
                           </span>
                           {avail !== null && (
-                            <span className="shrink-0 text-[0.6875rem] font-mono text-gray-400 dark:text-ink-faint">
+                            <span className="shrink-0 text-[0.6875rem] font-mono text-ink-faint">
                               · {avail} avail
                             </span>
                           )}
@@ -293,7 +293,7 @@ function QueueHealthSection({ distribution, liveByName }) {
                           <span className="tnum text-ink-faint">0</span>
                         )}
                       </td>
-                      <td className="py-2 px-1.5 font-mono tnum text-right text-gray-500 dark:text-ink-dim">
+                      <td className="py-2 px-1.5 font-mono tnum text-right text-ink-dim">
                         {waiting > 0 ? longest : '—'}
                       </td>
                       <td className={`py-2 px-1.5 tnum text-right ${offered > 0 ? 'text-ink' : 'text-ink-faint'}`}>{offered}</td>
@@ -322,16 +322,16 @@ function QueueHealthSection({ distribution, liveByName }) {
 function MetricRow({ icon: Icon, label, value, valueClass, iconClass }) {
   return (
     <div className="flex items-center justify-between py-2
-      border-b border-gray-50 dark:border-panel-border/30 last:border-0">
+      border-b border-border dark:border-panel-border/30 last:border-0">
       <div className="flex items-center gap-2">
         <div className={`h-6 w-6 rounded-md flex items-center justify-center shrink-0
-          ${iconClass || 'bg-gray-100 dark:bg-panel-raised text-gray-400 dark:text-ink-dim'}`}>
+          ${iconClass || 'bg-surface-2 dark:bg-panel-raised text-ink-faint dark:text-ink-dim'}`}>
           <Icon size={12} strokeWidth={2} />
         </div>
-        <span className="text-[0.6875rem] text-gray-600 dark:text-ink-dim">{label}</span>
+        <span className="text-[0.6875rem] text-ink-dim">{label}</span>
       </div>
       <span className={`text-sm font-mono tnum font-semibold
-        ${valueClass || 'text-gray-800 dark:text-ink'}`}>
+        ${valueClass || 'text-ink'}`}>
         {value}
       </span>
     </div>
@@ -364,7 +364,7 @@ function ServiceHealth({ stats }) {
             icon={CheckCircle2} label="Answer Rate"
             value={total > 0 ? `${ansRate}%` : '—'}
             valueClass={
-              total === 0 ? 'text-gray-300 dark:text-ink-faint/40'
+              total === 0 ? 'text-ink-disabled dark:text-ink-faint/40'
               : ansRate >= 80 ? 'text-emerald-600 dark:text-lamp-ok'
               : ansRate >= 60 ? 'text-amber-500 dark:text-lamp-warn'
               : 'text-red-500 dark:text-lamp-alert'
@@ -375,7 +375,7 @@ function ServiceHealth({ stats }) {
             icon={PhoneMissed} label="Abandon Rate"
             value={total > 0 ? `${abnRate}%` : '—'}
             valueClass={
-              total === 0 ? 'text-gray-300 dark:text-ink-faint/40'
+              total === 0 ? 'text-ink-disabled dark:text-ink-faint/40'
               : abnRate === 0 ? 'text-emerald-600 dark:text-lamp-ok'
               : abnRate <= 10 ? 'text-amber-500 dark:text-lamp-warn'
               : 'text-red-500 dark:text-lamp-alert'
@@ -395,9 +395,9 @@ const ACTIVITY_CFG = {
   'call:bridged':   { Icon: PhoneCall,     cls: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
   'call:abandoned': { Icon: PhoneOff,      cls: 'bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400' },
   'agent:login':    { Icon: UserCheck,     cls: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-  'agent:logout':   { Icon: UserX,         cls: 'bg-gray-100 dark:bg-panel-raised text-gray-500 dark:text-ink-dim' },
+  'agent:logout':   { Icon: UserX,         cls: 'bg-surface-2 dark:bg-panel-raised text-ink-dim' },
   'agent:break':    { Icon: Coffee,        cls: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  'default':        { Icon: Activity,      cls: 'bg-gray-100 dark:bg-panel-raised text-gray-400 dark:text-ink-dim' },
+  'default':        { Icon: Activity,      cls: 'bg-surface-2 dark:bg-panel-raised text-ink-faint dark:text-ink-dim' },
 };
 
 function ActivityFeed({ activities }) {
@@ -411,10 +411,10 @@ function ActivityFeed({ activities }) {
   return (
     <Panel eyebrow="Live" title="Activity Feed" action={viewAgents}>
       {activities.length === 0 ? (
-        <div className="flex items-center gap-3 py-3 text-gray-400 dark:text-ink-faint">
+        <div className="flex items-center gap-3 py-3 text-ink-faint">
           <Radio size={15} strokeWidth={1.5} className="shrink-0" />
           <div>
-            <p className="text-xs font-semibold text-gray-500 dark:text-ink-dim">No recent activity</p>
+            <p className="text-xs font-semibold text-ink-dim">No recent activity</p>
             <p className="text-[0.6875rem] mt-0.5">Events appear here in real time</p>
           </div>
         </div>
@@ -426,21 +426,21 @@ function ActivityFeed({ activities }) {
             return (
               <div key={act.id}
                 className="flex items-start gap-2 py-1.5 px-1 rounded-md
-                  hover:bg-gray-50/60 dark:hover:bg-panel-raised/30 transition-colors
+                  hover:bg-surface-2/60 dark:hover:bg-panel-raised/30 transition-colors
                   animate-slide-in-up">
                 <div className={`h-6 w-6 rounded-md flex items-center justify-center
                   shrink-0 mt-0.5 ${cls}`}>
                   <Icon size={11} strokeWidth={2} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[0.6875rem] font-medium text-gray-800 dark:text-ink leading-snug">
+                  <p className="text-[0.6875rem] font-medium text-ink leading-snug">
                     {act.text}
                   </p>
                   {act.detail && (
-                    <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint">{act.detail}</p>
+                    <p className="text-[0.6875rem] text-ink-faint">{act.detail}</p>
                   )}
                 </div>
-                <span className="text-[0.6875rem] text-gray-400 dark:text-ink-faint shrink-0 mt-0.5 tabular-nums">
+                <span className="text-[0.6875rem] text-ink-faint shrink-0 mt-0.5 tabular-nums">
                   {timeAgo(act.ts)}
                 </span>
               </div>
@@ -478,14 +478,14 @@ function AgentStatusCard({ agents }) {
   return (
     <Panel eyebrow="Live" title="Agent Status">
       {total === 0 ? (
-        <div className="flex items-center gap-2.5 py-3 text-gray-400 dark:text-ink-faint">
+        <div className="flex items-center gap-2.5 py-3 text-ink-faint">
           <Users size={15} strokeWidth={1.5} className="shrink-0" />
           <span className="text-xs">No agents online</span>
         </div>
       ) : (
         <div className="space-y-3">
           {/* Compact distribution bar */}
-          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-panel-raised">
+          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-surface-2 dark:bg-panel-raised">
             {AGENT_STATUS.map(s => counts[s.key] > 0 && (
               <div key={s.key} style={{ width: `${(counts[s.key] / total) * 100}%`, background: s.color }}
                 title={`${s.label}: ${counts[s.key]}`} />
@@ -496,18 +496,18 @@ function AgentStatusCard({ agents }) {
             {AGENT_STATUS.map(s => (
               <div key={s.key} className="flex items-center gap-2 text-[0.6875rem]">
                 <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: s.color }} />
-                <span className="flex-1 text-gray-500 dark:text-ink-dim truncate">{s.label}</span>
-                <span className="font-mono tnum font-semibold text-gray-700 dark:text-ink">{counts[s.key]}</span>
+                <span className="flex-1 text-ink-dim truncate">{s.label}</span>
+                <span className="font-mono tnum font-semibold text-ink">{counts[s.key]}</span>
               </div>
             ))}
           </div>
           {/* Available capacity */}
-          <div className="pt-2 border-t border-gray-100 dark:border-panel-border/40">
-            <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint">
+          <div className="pt-2 border-t border-border dark:border-panel-border/40">
+            <p className="text-[0.6875rem] font-semibold text-ink-faint">
               Available Capacity
             </p>
             <p className="text-metric text-emerald-600 dark:text-emerald-400 mt-0.5">
-              {available}<span className="text-gray-400 dark:text-ink-faint"> / {total}</span>
+              {available}<span className="text-ink-faint"> / {total}</span>
             </p>
           </div>
         </div>
@@ -522,12 +522,12 @@ function TrendTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border bg-white dark:bg-panel-raised dark:border-panel-border
-                    border-gray-200 px-3 py-2 text-xs shadow-card-hover">
-      <p className="font-semibold text-gray-800 dark:text-ink mb-1.5">{label}</p>
+                    border-border px-3 py-2 text-xs shadow-card-hover">
+      <p className="font-semibold text-ink mb-1.5">{label}</p>
       {payload.map(p => (
         <div key={p.dataKey} className="flex items-center gap-2 mb-1 last:mb-0">
           <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: p.color }} />
-          <span className="text-gray-500 dark:text-ink-dim w-16">{p.name}:</span>
+          <span className="text-ink-dim w-16">{p.name}:</span>
           <span className="font-mono font-semibold" style={{ color: p.color }}>{p.value}</span>
         </div>
       ))}
@@ -544,11 +544,11 @@ function CallsTrendCard({ data, ready }) {
       {/* Clamped responsive height — never a fixed magic px that breaks wallboards. */}
       <div className="relative w-full" style={{ height: 'clamp(200px, 26vh, 340px)' }}>
         {!ready ? (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 dark:text-ink-faint">
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-ink-faint">
             Loading…
           </div>
         ) : !hasData ? (
-          <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 dark:text-ink-faint">
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-ink-faint">
             No call data for today yet
           </div>
         ) : (
@@ -581,7 +581,7 @@ function CallsTrendCard({ data, ready }) {
             </ResponsiveContainer>
             {!anyVolume && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <span className="text-[0.6875rem] text-gray-400 dark:text-ink-faint bg-white/80 dark:bg-panel-surface/80 px-2 py-1 rounded">
+                <span className="text-[0.6875rem] text-ink-faint bg-white/80 dark:bg-panel-surface/80 px-2 py-1 rounded">
                   No calls today
                 </span>
               </div>
@@ -607,22 +607,22 @@ function UtilizationCard({ util, agents }) {
     <Panel eyebrow="Today" title="Agent Utilization">
       <div className="space-y-3">
         <div>
-          <p className="text-[0.6875rem] font-semibold text-gray-400 dark:text-ink-faint">
+          <p className="text-[0.6875rem] font-semibold text-ink-faint">
             Today
           </p>
           <p className="text-metric mt-0.5" style={{ color: tone }}>
             {pct == null ? '—' : `${pct}%`}
           </p>
-          <p className="text-[0.6875rem] text-gray-400 dark:text-ink-faint mt-1 leading-relaxed">
+          <p className="text-[0.6875rem] text-ink-faint mt-1 leading-relaxed">
             (Ring + Talk) ÷ Available time · excludes ACW/hold
           </p>
         </div>
-        <div className="pt-2 border-t border-gray-100 dark:border-panel-border/40 grid grid-cols-2 gap-x-3 gap-y-1">
+        <div className="pt-2 border-t border-border dark:border-panel-border/40 grid grid-cols-2 gap-x-3 gap-y-1">
           {AGENT_STATUS.filter(s => s.key !== 'Offline').map(s => (
             <div key={s.key} className="flex items-center gap-2 text-[0.6875rem]">
               <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: s.color }} />
-              <span className="flex-1 text-gray-500 dark:text-ink-dim truncate">{s.label}</span>
-              <span className="font-mono tnum font-semibold text-gray-700 dark:text-ink">{counts[s.key]}</span>
+              <span className="flex-1 text-ink-dim truncate">{s.label}</span>
+              <span className="font-mono tnum font-semibold text-ink">{counts[s.key]}</span>
             </div>
           ))}
         </div>
@@ -749,10 +749,10 @@ export default function Dashboard() {
             <LayoutDashboard size={18} strokeWidth={1.5} className="text-red-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-700 dark:text-ink">
+            <p className="text-sm font-semibold text-ink">
               Could not load dashboard data
             </p>
-            <p className="text-xs text-gray-400 dark:text-ink-faint mt-1">{error}</p>
+            <p className="text-xs text-ink-faint mt-1">{error}</p>
             <button onClick={load} className="btn-secondary gap-1.5 mt-3 text-xs">
               <RefreshCw size={12} /> Retry
             </button>
