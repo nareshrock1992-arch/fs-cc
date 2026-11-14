@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client';
 const setStatus = vi.fn();
 vi.mock('../../api/client.js', () => ({ api: { setStatus: (...a) => setStatus(...a) } }));
 
-const { buildLamps, default: ConnectionLamps } = await import('../ConnectionLamps.jsx');
+const { buildLamps, overallHealth, default: ConnectionLamps } = await import('../ConnectionLamps.jsx');
 const { default: StatusSelector, statusLevel } = await import('../StatusSelector.jsx');
 const { default: AppShell } = await import('../AppShell.jsx');
 
@@ -28,7 +28,7 @@ afterEach(() => {
 });
 
 describe('buildLamps', () => {
-  it('keeps server, live, FreeSWITCH and phone separate', () => {
+  it('keeps server, live, SIP engine and phone separate', () => {
     const lamps = buildLamps({
       apiOk: true, socketConnected: true, eslConnected: true,
       phone: { level: 'error', label: 'Phone sign-in failed' },
@@ -45,13 +45,31 @@ describe('buildLamps', () => {
     expect(buildLamps({ apiOk: false, socketConnected: true, eslConnected: true })[0].level).toBe('error');
   });
 
-  it('renders accessible text for each lamp', () => {
+  it('names the call engine "SIP engine", not FreeSWITCH', () => {
+    const lamps = buildLamps({ apiOk: true, socketConnected: true, eslConnected: false });
+    expect(lamps.find((l) => l.key === 'fs')).toMatchObject({ label: 'SIP engine', level: 'error' });
+    expect(JSON.stringify(lamps)).not.toMatch(/FreeSWITCH/);
+  });
+
+  it('overall health is the worst component: phone off is never Healthy', () => {
+    const ok = buildLamps({ apiOk: true, socketConnected: true, eslConnected: true, phone: { level: 'ok', label: 'Phone ready' } });
+    expect(overallHealth(ok)).toEqual({ level: 'ok', label: 'Healthy' });
+    expect(overallHealth(buildLamps({ apiOk: true, socketConnected: true, eslConnected: true, phone: { level: 'off', label: 'Phone off' } })).label).toBe('Warning');
+    expect(overallHealth(buildLamps({ apiOk: true, socketConnected: true, eslConnected: false })).label).toBe('Unhealthy');
+  });
+
+  it('one badge; clicking it lists every component with its detail', () => {
     render(createElement(ConnectionLamps, {
       lamps: buildLamps({ apiOk: true, socketConnected: false, eslConnected: true, phone: { level: 'off', label: 'Phone off' } }),
     }));
+    const btn = host.querySelector('button[aria-haspopup="dialog"]');
+    expect(btn.textContent).toContain('Unhealthy');
+    expect(btn.textContent).toContain('Live updates');
+    expect(host.querySelectorAll('li')).toHaveLength(0);
+    act(() => btn.click());
+    expect(host.querySelectorAll('li')).toHaveLength(4);
     expect(host.textContent).toContain('Live updates disconnected');
     expect(host.textContent).toContain('Phone off');
-    expect(host.querySelectorAll('li')).toHaveLength(4);
   });
 });
 
