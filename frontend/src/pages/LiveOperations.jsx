@@ -188,7 +188,7 @@ const AGENT_SORTS = [
   ['ext', 'Extension'], ['calldur', 'Current call duration'],
 ];
 
-function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort }) {
+function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort, canHangup, onHangup }) {
   const cols = ['Agent', 'State', 'In State', 'Queue(s)', 'Current Call', 'Call Dur', canChangeState ? 'Action' : ''].filter(Boolean);
   return (
     <Panel title="Agent Floor Status" count={rows.length} noPad
@@ -238,6 +238,11 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
                             {cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'unknown')}
                           </div>
                           {cc.queue_name && <div className="text-xs text-ink-faint break-words">→ {qn(cc.queue_name)}</div>}
+                          {canHangup && cc.call_uuid && (
+                            <button type="button" onClick={() => onHangup(r, cc)}
+                              className="mt-1 text-[0.6875rem] font-medium text-status-error hover:underline"
+                              title="End this call in FreeSWITCH (use when a call is stuck)">Force hang-up</button>
+                          )}
                         </div>
                       ) : DASH}
                     </td>
@@ -646,6 +651,18 @@ export default function LiveOperations() {
     return ['All', ...Array.from(set).sort()];
   }, [agents, calls]);
 
+  // BUG-007: supervisors can end a call stuck in FreeSWITCH (audited server-side).
+  const canHangup = user?.role === 'admin' || user?.role === 'supervisor';
+  const forceHangup = useCallback(async (agent, cc) => {
+    const who = cc.caller_name ? `${cc.caller_name} (${cc.ani || '—'})` : (cc.ani || 'this call');
+    if (!window.confirm(`End ${who} for ${agent.full_name || agent.agent_id} now?
+
+Use this only when the call is stuck. Everyone on the call is disconnected.`)) return;
+    try { await Calls.forceHangup(cc.call_uuid); }
+    catch (err) { setError(`Force hang-up failed: ${err.response?.data?.error || err.message}`); }
+    finally { scheduleRefresh(); }
+  }, [scheduleRefresh]);
+
   const setStatus = useCallback(async (agentId, status) => {
     try { await AgentsApi.setStatus(agentId, status); }
     catch (err) { setError(`Status change failed: ${err.message}`); }
@@ -729,6 +746,7 @@ export default function LiveOperations() {
       {/* Agents */}
       <AgentsTable rows={agentView} allEmpty={agentRows.length === 0}
         canChangeState={canChangeState} onSetStatus={setStatus}
+        canHangup={canHangup} onHangup={forceHangup}
         sort={agentSort} onSort={setAgentSort} />
 
     </div>

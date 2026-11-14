@@ -69,3 +69,7 @@
 - Preview checked at 1440 px with real data. Not committed / not deployed.
 - Seen: hourly chart (queue_stats_hourly, completed calls) can total less than "calls offered" (calls table) — pre-existing data-source difference, logged as DATA-1.
 - Seen: DEV services all restarted ~18:44 and FreeSWITCH restarted via systemd at 19:09 (not by this session); load average up to 18 on 4 CPUs / 3.8 GB RAM.
+
+## 2026-11-14 — BUG-007 stuck call
+- Diagnosed from FreeSWITCH log: Wednesday's leg 724e107e held at 16:58:57, never hung up; customer 5bdcbcf7 left at 17:00:41; agent leg ended only at the 19:08 FreeSWITCH restart.
+- Fixes: phone release fallback (10 s after REFER accepted), supervisor Force hang-up (audited). Not committed / not deployed.

@@ -34,6 +34,8 @@ import { ReconnectScheduler } from './reconnect';
 import { Store } from './store';
 
 const AUTH_FAILURE_CODES = new Set([401, 403, 407]);
+/** After a REFER is accepted, release the agent's leg(s) even if no final NOTIFY arrives (BUG-007). */
+export const CONSULT_RELEASE_FALLBACK_MS = 10_000;
 
 export function initialPhoneState(): PhoneState {
   return {
@@ -390,6 +392,13 @@ export class PhoneService {
           onAccept: () => {
             this.pendingEndReason = `Transferred to ${target}`;
             this.callEvent({ type: 'transfer', target, status: 'accepted' });
+            // Safety net (BUG-007): release this leg even if no final NOTIFY arrives.
+            setTimeout(() => {
+              if (this.session === session && session.state === SessionState.Established
+                  && this.store.get().call?.transfer?.status !== 'failed') {
+                session.bye().catch(() => undefined);
+              }
+            }, CONSULT_RELEASE_FALLBACK_MS);
           },
           onReject: (response) => {
             this.pendingEndReason = undefined;
@@ -542,7 +551,9 @@ export class PhoneService {
     if (!consultSession || !main || consult?.status !== 'active' || consult.completing) return;
     if (main.state !== SessionState.Established || consultSession.state !== SessionState.Established) return;
     const target = consult.target;
+    let failed = false;
     const fail = (reason: string) => {
+      failed = true;
       this.pendingEndReason = undefined;
       this.consultEndReason = undefined;
       if (this.consultSession === consultSession) this.patchConsult({ completing: false });
@@ -561,6 +572,11 @@ export class PhoneService {
           onAccept: () => {
             this.pendingEndReason = `Transferred to ${target} (after consult)`;
             this.consultEndReason = 'Transfer completed';
+            // Safety net (BUG-007): if FreeSWITCH never sends the final NOTIFY, the
+            // agent's held leg would stay up (and the agent "In a queue call") forever.
+            // After the REFER is accepted, release both legs anyway — a failure NOTIFY
+            // arriving earlier cancels this via `failed`.
+            setTimeout(() => { if (!failed) releaseBoth(); }, CONSULT_RELEASE_FALLBACK_MS);
           },
           onReject: (response) => fail(describeSipStatus(response.message.statusCode)),
         },

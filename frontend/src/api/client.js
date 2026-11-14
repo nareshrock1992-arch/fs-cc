@@ -78,6 +78,8 @@ export const Queues = {
 export const Calls = {
   live:     () => api.get('/calls/live').then(r => r.data),
   prequeue: () => api.get('/calls/prequeue').then(r => r.data),
+  // Supervisor: end a call stuck in FreeSWITCH (audited server-side).
+  forceHangup: (callUuid) => api.post(`/calls/${encodeURIComponent(callUuid)}/force-hangup`).then(r => r.data),
 };
 
 // ---- Stats / Reports ----
