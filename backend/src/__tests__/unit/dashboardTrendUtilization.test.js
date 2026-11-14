@@ -48,17 +48,18 @@ const req = () => ({ query: {}, params: {} });
 beforeEach(() => { captured.length = 0; MOCK_ROWS = []; STATE_ROWS = []; CALL_ROWS = []; });
 
 // ── Calls trend ───────────────────────────────────────────────────────────────
-describe('getCallsTrend — hourly aggregation from queue_stats_hourly', () => {
+describe('getCallsTrend — hourly aggregation from the calls table (DATA-1)', () => {
   it('aggregates across queues, projects buckets to the business timezone, scopes to today', async () => {
     await stats.getCallsTrend(req(), mockRes());
     const { sql, params } = captured[0];
-    expect(sql).toMatch(/FROM queue_stats_hourly/);
-    expect(sql).toMatch(/SUM\(offered\)/i);
-    expect(sql).toMatch(/SUM\(answered\)/i);
-    expect(sql).toMatch(/SUM\(abandoned\)/i);
+    // same source and rules as the daily totals, so the chart adds up to them
+    expect(sql).toMatch(/FROM calls c/);
+    expect(sql).not.toMatch(/queue_stats_hourly/);
+    expect(sql).toMatch(/JOIN queues q ON q\.name = c\.queue_name AND q\.active = true/);
+    expect(sql).toMatch(/COUNT\(\*\)::INT\s+AS offered/);
     // business-timezone projection + half-open today range (not raw UTC date)
     expect(sql).toMatch(/AT TIME ZONE \$3/);
-    expect(sql).toMatch(/hour_bucket >= \$1 AND hour_bucket < \$2/);
+    expect(sql).toMatch(/c\.start_time >= \$1 AND c\.start_time < \$2/);
     expect(params[2]).toBe('Asia/Riyadh');
   });
 

@@ -377,26 +377,29 @@ export async function getLiveAgents(_req, res) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/stats/calls-trend — today's hourly call volume for the dashboard
-// "Calls — Today" chart. Reads the EXISTING, live-maintained queue_stats_hourly
-// rollup (eslService upserts it as calls complete) and aggregates ACROSS queues.
+// "Calls by hour" chart, aggregated ACROSS active queues from the calls table.
 //
-// Business-timezone correctness: hour_bucket is a TIMESTAMPTZ truncated to the
-// UTC hour at insert time. We scope to the current BUSINESS day via the half-open
-// UTC range [fromUTC,toUTC) from businessTodayRange(), then project each bucket to
-// the business-local wall-clock hour for the label — never the raw server/UTC date.
+// Business-timezone correctness: scoped to the current BUSINESS day via the
+// half-open UTC range [fromUTC,toUTC) from businessTodayRange(); each call's
+// start_time is projected to the business-local wall-clock hour for the label.
 // Returns [] for a day with no calls (frontend renders a zero/empty state).
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getCallsTrend(_req, res) {
+  // DATA-1: counted from the calls table with the SAME rules as the daily totals
+  // (/stats/queues offered/answered/abandoned_today, active queues, start_time in
+  // the business day), so the chart always adds up to "Calls offered". The old
+  // queue_stats_hourly rollup missed calls closed by transfers / the ghost reaper.
   const { fromUTC, toUTC } = businessTodayRange();
   const { rows } = await query(
     `SELECT
-       to_char(date_trunc('hour', hour_bucket AT TIME ZONE $3), 'HH24:00') AS hour,
-       date_trunc('hour', hour_bucket AT TIME ZONE $3)                     AS local_hour,
-       SUM(offered)::INT   AS offered,
-       SUM(answered)::INT  AS answered,
-       SUM(abandoned)::INT AS abandoned
-     FROM queue_stats_hourly
-     WHERE hour_bucket >= $1 AND hour_bucket < $2
+       to_char(date_trunc('hour', c.start_time AT TIME ZONE $3), 'HH24:00') AS hour,
+       date_trunc('hour', c.start_time AT TIME ZONE $3)                     AS local_hour,
+       COUNT(*)::INT                                   AS offered,
+       COUNT(*) FILTER (WHERE ${answered('c')})::INT   AS answered,
+       COUNT(*) FILTER (WHERE ${abandoned('c')})::INT  AS abandoned
+     FROM calls c
+     JOIN queues q ON q.name = c.queue_name AND q.active = true
+     WHERE c.start_time >= $1 AND c.start_time < $2
      GROUP BY 1, 2
      ORDER BY 2 ASC`,
     [fromUTC.toISOString(), toUTC.toISOString(), config.businessTimezone]

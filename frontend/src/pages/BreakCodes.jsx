@@ -119,15 +119,11 @@ export default function BreakCodesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-        <div>
-          <h1 className="font-display font-bold text-lg text-ink flex items-center gap-2">
-            <Coffee size={20} className="text-brand dark:text-brand-light" /> Break Codes
-          </h1>
-          <p className="text-xs text-ink-dim dark:text-ink-faint mt-0.5">
-            Configure the break reasons agents can select. Deactivating preserves historical records.
-          </p>
-        </div>
+      {/* The page title comes from the shared page header; only the hint and action here. */}
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <p className="text-sm text-ink-dim">
+          Break reasons agents can select. Deactivating a code keeps historical records.
+        </p>
         <button className={buttonPrimary} onClick={openCreate}>
           <Plus size={15} /> Add Break
         </button>
