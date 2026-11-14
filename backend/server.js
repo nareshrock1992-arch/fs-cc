@@ -6,11 +6,9 @@ import morgan  from 'morgan';
 import { config, assertBusinessTimezone } from './config/index.js';
 import { connectESL, isConnected } from './services/eslService.js';
 import { initSocket }      from './services/socketService.js';
-import { requireAuth, requireAdmin } from './middleware/auth.js';
+import { requireAuth } from './middleware/auth.js';
 import { warmPool, pool, query } from './db/pool.js';
 import { runMigrations }   from './db/migrationRunner.js';
-import { writeAndReloadXml, generateCallcenterXml } from './utils/queueXml.js';
-import { asyncHandler }    from './utils/asyncHandler.js';
 import { securityHeaders, JSON_BODY_LIMIT } from './middleware/securityHeaders.js';
 
 import authRoutes      from './routes/auth.js';
@@ -65,16 +63,8 @@ app.use('/api/stats',   statsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/break-codes', breakCodesRoutes);
 
-// ── Queue XML export (admin only) ─────────────────────────────────────────────
-app.post('/api/queues/export-xml', requireAdmin, asyncHandler(async (_req, res) => {
-  const result = await writeAndReloadXml();
-  res.json(result);
-}));
-
-app.get('/api/queues/preview-xml', requireAdmin, asyncHandler(async (_req, res) => {
-  const xml = await generateCallcenterXml();
-  res.type('text/xml').send(xml);
-}));
+// Queue XML export / preview routes live in routes/queues.js (BUG-005: they must be
+// registered before /:queueName, otherwise preview-xml is read as a queue name).
 
 // ── Error handler ─────────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {

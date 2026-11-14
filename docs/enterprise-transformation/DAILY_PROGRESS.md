@@ -38,3 +38,9 @@
 
 ## 2026-11-13 — Cycle 3 (part 2: WebRTC C1 conference)
 - Built merge-to-conference (room 30xx from the existing dialplan; no FreeSWITCH change). Agent desktop **189/189**, backend 415/415, builds ✓. Not committed / not deployed; real call NOT VERIFIED.
+
+## 2026-11-14 — Cycle 4 (part 1)
+- Owner real call: consult + Complete transfer OK (T2 partly verified). Conference reached the room; owner to confirm 3-way audio + Leave.
+- BUG-005 confirmed on DEV (preview-xml → 404 "Queue not found") and fixed (route order) + test.
+- PERF-1: admin pages lazy-loaded; main chunk 858 kB → 283 kB.
+- Suites: backend **416/416**, agent desktop 189/189, builds ✓. Not committed / not deployed.

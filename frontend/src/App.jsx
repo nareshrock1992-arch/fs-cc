@@ -1,21 +1,23 @@
+import { lazy } from 'react';
 import { Navigate, Routes, Route } from 'react-router-dom';
+// PERF-1: pages are loaded on demand (code splitting); Login and Layout stay in the main bundle.
 import { useAuth } from './hooks/useAuth.js';
 
 import Layout from './components/layout/Layout.jsx';
 import Login from './pages/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import Agents from './pages/Agents.jsx';
-import Queues from './pages/Queues.jsx';
-import LiveCalls from './pages/LiveCalls.jsx';
-import QueueStats from './pages/QueueStats.jsx';
-import LiveAgents from './pages/LiveAgents.jsx';
-import LiveOperations from './pages/LiveOperations.jsx';
-import Reports from './pages/Reports.jsx';
-import AgentPerformanceDashboard from './pages/AgentPerformanceDashboard.jsx';
-import UserManagement from './pages/UserManagement.jsx';
-import BreakCodes from './pages/BreakCodes.jsx';
-import BreakHistoryReport from './pages/reports/BreakHistoryReport.jsx';
-import CallHistoryReport from './pages/reports/CallHistoryReport.jsx';
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Agents = lazy(() => import('./pages/Agents.jsx'));
+const Queues = lazy(() => import('./pages/Queues.jsx'));
+const LiveCalls = lazy(() => import('./pages/LiveCalls.jsx'));
+const QueueStats = lazy(() => import('./pages/QueueStats.jsx'));
+const LiveAgents = lazy(() => import('./pages/LiveAgents.jsx'));
+const LiveOperations = lazy(() => import('./pages/LiveOperations.jsx'));
+const Reports = lazy(() => import('./pages/Reports.jsx'));
+const AgentPerformanceDashboard = lazy(() => import('./pages/AgentPerformanceDashboard.jsx'));
+const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
+const BreakCodes = lazy(() => import('./pages/BreakCodes.jsx'));
+const BreakHistoryReport = lazy(() => import('./pages/reports/BreakHistoryReport.jsx'));
+const CallHistoryReport = lazy(() => import('./pages/reports/CallHistoryReport.jsx'));
 
 function ProtectedRoute({ children }) {
   const { isAuth } = useAuth();

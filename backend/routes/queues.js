@@ -3,6 +3,7 @@ import * as queues from '../controllers/queuesController.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { checkQueueDrift } from '../services/eslService.js';
+import { writeAndReloadXml, generateCallcenterXml } from '../utils/queueXml.js';
 
 const router = Router();
 
@@ -10,6 +11,11 @@ const router = Router();
 router.get('/',           asyncHandler(queues.listQueues));
 // UI-1: settings saved in the database but not (yet) running in FreeSWITCH.
 router.get('/drift',      asyncHandler(async (_req, res) => res.json(await checkQueueDrift())));
+// BUG-005: fixed paths must come before /:queueName.
+router.get('/preview-xml', requireAdmin, asyncHandler(async (_req, res) => {
+  res.type('text/xml').send(await generateCallcenterXml());
+}));
+router.post('/export-xml', requireAdmin, asyncHandler(async (_req, res) => res.json(await writeAndReloadXml())));
 router.get('/:queueName', asyncHandler(queues.getQueue));
 
 // Admin-only mutations
