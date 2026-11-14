@@ -65,3 +65,17 @@ Add a separate **service level target (seconds)** per queue, default **20 s** (i
 1. P1 fix (SL target) — needs owner OK on 20 s default.
 2. Live Operations layout (sections 3–4), screenshots, tests.
 3. Design system + shell, then other pages (UI brief).
+
+## 7. Implementation (2026-11-14) — built, previewed, NOT deployed
+Files: `frontend/src/pages/LiveOperations.jsx`, new `pages/liveops/model.js` (pure view model), `pages/liveops/Panels.jsx`.
+- Health strip (7 metrics, grid 2/4/7 columns), Queue performance (click = filter), Alerts (derived only), Calls by hour (answered/abandoned stacked), Agents bar + legend (click = filter).
+- "Calls waiting & ringing" replaces "Calls Requiring Attention" (connected calls stay in the agent floor; "On Call" filter still lists them).
+- Agent floor queue chips (full names); pre-queue hides Eligibility/Target columns until the feed reports them.
+- Hourly trend fetched at most once a minute; last good chart kept on a transient error.
+- No backend change. Values without data show "—" (e.g. service level with no calls).
+
+Validation: test copy preview (`:5199`, read-only against DEV data), owner signed in.
+- 1440×1300: whole page fits one screen, no console errors from the page.
+- 375 phone: no horizontal page scroll (tables scroll inside their panel).
+- Seen during testing: DEV backend returned some 500 "connection timeout" while the test machine was loaded by builds (load avg ~8); the page now degrades gracefully.
+- Not covered: admin portal has no automated tests (TEST-1), dark mode not checked.

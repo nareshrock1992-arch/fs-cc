@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PhoneIncoming, PhoneCall, Headphones, Coffee, PowerOff, UserCheck,
-  Timer, Search, WifiOff, AlertTriangle, RefreshCw, Radio,
+  Headphones, Search, WifiOff, AlertTriangle, RefreshCw,
   ChevronDown, ChevronRight, ListTree, CheckCircle2,
 } from 'lucide-react';
 import { Calls, Stats, Agents as AgentsApi } from '../api/client.js';
 import { useSocketEvent } from '../api/socket.js';
 import { useAuth } from '../hooks/useAuth.js';
-import KpiCard from '../components/KpiCard.jsx';
 import Panel, { LiveIndicator } from '../components/Panel.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import { KpiSkeleton } from '../components/LoadingState.jsx';
+import { HealthStrip, QueuePerformance, AlertsPanel, CallsByHour, AgentOverview } from './liveops/Panels.jsx';
+import { buildQueueRows, buildAlerts, agentStateCounts, overallServiceLevel, overallAvgWait, sumToday } from './liveops/model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live Operations — the primary real-time supervisor workspace. It does NOT own
@@ -34,7 +33,7 @@ const QUICK = ['All', 'Attention', 'Waiting', 'Ringing', 'On Call', 'Available',
 
 // Which call/agent states each quick filter reveals (single page-wide lens).
 const CALL_STATES_FOR = {
-  All: ['Waiting', 'Ringing', 'Connected'], Attention: ['Waiting', 'Ringing'],
+  All: ['Waiting', 'Ringing'], Attention: ['Waiting', 'Ringing'],
   Waiting: ['Waiting'], Ringing: ['Ringing'], 'On Call': ['Connected'],
   Available: [], Break: [], Offline: [],
 };
@@ -116,46 +115,6 @@ function HealthIndicator({ health, lastOk }) {
   );
 }
 
-// ── KPI summary ──────────────────────────────────────────────────────────────
-// Two groups so queue health (wait / SLA) reads separately from agent-state
-// counts. The groups sit side by side when both fit (flex-basis in rem, grow
-// 3:5 so each card gets a similar width) and wrap to two rows otherwise.
-// Inside a group, columns come from the group's own width via container
-// queries (see .kpi-group / .kpi-cols in index.css) — zoom-safe reflow.
-function KpiGroup({ label, cols, className = '', children }) {
-  return (
-    <section aria-label={label} className={`kpi-group ${className}`}>
-      <h2 className="text-xs font-semibold text-ink-dim mb-1.5">{label}</h2>
-      <div className="kpi-cols" data-cols={cols}>{children}</div>
-    </section>
-  );
-}
-
-function KpiBar({ k }) {
-  const breached = k.slaBreached > 0;
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-3">
-      <KpiGroup label="Queue" cols="3" className="flex-[3_1_23rem]">
-        <KpiCard label="Waiting" value={k.waiting} tone="amber" icon={PhoneIncoming}
-          sub={k.waiting > 0 ? 'Callers in queue' : 'No callers waiting'} />
-        <KpiCard label="Longest Wait" value={fmtDur(k.longestWait)} tone="amber" icon={Timer}
-          sub={k.waiting > 0 ? 'Oldest waiting caller' : null} />
-        <KpiCard label="SLA Breached" value={k.slaBreached} tone={breached ? 'red' : 'green'}
-          icon={breached ? AlertTriangle : CheckCircle2}
-          alert={breached ? 'critical' : null}
-          sub={breached ? 'Wait ≥ queue target' : 'All within target'} />
-      </KpiGroup>
-      <KpiGroup label="Agents" cols="5" className="flex-[5_1_39rem]">
-        <KpiCard label="Available" value={k.available} tone="green"   icon={UserCheck} />
-        <KpiCard label="On Call"   value={k.onCall}    tone="blue"    icon={PhoneCall} />
-        <KpiCard label="Ringing"   value={k.ringing}   tone="amber"   icon={Radio} />
-        <KpiCard label="On Break"  value={k.onBreak}   tone="purple"  icon={Coffee} />
-        <KpiCard label="Offline"   value={k.offline}   tone="default" icon={PowerOff} />
-      </KpiGroup>
-    </div>
-  );
-}
-
 // ── Calls Requiring Attention ────────────────────────────────────────────────
 const CALL_SORTS = [
   ['attention', 'Attention'], ['wait', 'Longest waiting'], ['newest', 'Newest'],
@@ -164,14 +123,14 @@ const CALL_SORTS = [
 
 function CallsTable({ rows, allEmpty, sort, onSort }) {
   return (
-    <Panel title="Calls Requiring Attention" count={rows.length} noPad
+    <Panel title="Calls waiting & ringing" count={rows.length} noPad
       action={<SortControl value={sort} onChange={onSort} options={CALL_SORTS} label="Sort calls" />}>
       {rows.length === 0 ? (
         /* Compact empty state — collapses to one row so the agent floor rises
            immediately when the floor is quiet. */
         <EmptyState compact tone={allEmpty ? 'ok' : 'neutral'}
-          title={allEmpty ? 'No active calls' : 'No calls match the current filters'}
-          body={allEmpty ? 'waiting, ringing and connected calls appear here in real time' : 'adjust the filters or search'} />
+          title={allEmpty ? 'No callers waiting' : 'No calls match the current filters'}
+          body={allEmpty ? 'callers waiting in a queue or ringing an agent appear here; calls in progress are in the agent floor' : 'adjust the filters or search'} />
       ) : (
         <div className="overflow-auto tall:max-h-[46vh]">
           <table className="data-table" style={{ minWidth: 720 }}>
@@ -251,7 +210,7 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
             <tbody>
               {rows.map(r => {
                 const cc = r.current_call;
-                const queues = (r.queues || []).map(q => q.display_name || q.queue).join(', ');
+                const queues = (r.queues || []).map(q => q.display_name || qn(q.queue));
                 return (
                   <tr key={r.agent_id} className="tr-row">
                     <td className="td">
@@ -268,7 +227,10 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
                         label={r.operational_state === 'On Break' && r.break_name ? `On Break · ${r.break_name}` : undefined} />
                     </td>
                     <td className="td tabular-nums whitespace-nowrap">{fmtDur(r._stateDur)}</td>
-                    <td className="td-secondary break-words max-w-[14rem]">{queues || DASH}</td>
+                    <td className="td">{queues.length ? (
+                      <div className="flex flex-wrap gap-1 max-w-[20rem]">{queues.map(n => (
+                        <span key={n} className="rounded bg-surface-2 px-1.5 py-0.5 text-[0.6875rem] text-ink-dim whitespace-nowrap">{n}</span>))}</div>
+                    ) : DASH}</td>
                     <td className="td">
                       {cc ? (
                         <div className="leading-tight min-w-0">
@@ -315,6 +277,8 @@ const NOT_REPORTED = <span className="text-ink-faint" title="Not reported by the
 function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
   const Chevron = open ? ChevronDown : ChevronRight;
   const hasCallers = rows.length > 0;
+  // Eligibility / target queue are not reported by the feed yet: hide empty columns.
+  const showExtra = rows.some(r => r.eligibilityReason || r.targetQueue);
 
   // Feed state, most severe first: feed error > event stream down > stale > live.
   const feed = loadFailed ? { state: 'stale', label: 'Feed unavailable' }
@@ -354,7 +318,7 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
               <table className="data-table" style={{ minWidth: 820 }}>
                 <thead className="sticky top-0 z-10">
                   <tr>
-                    {['Caller', 'Current Stage', 'In Stage', 'Eligibility', 'Target Queue', 'Last Update', 'Channel'].map(h => (
+                    {['Caller', 'Current Stage', 'In Stage', ...(showExtra ? ['Eligibility', 'Target Queue'] : []), 'Last Update', 'Channel'].map(h => (
                       <th key={h} scope="col" className="th">{h}</th>
                     ))}
                   </tr>
@@ -377,8 +341,8 @@ function PreQueuePanel({ rows, nowMs, open, onToggle, loadFailed, health }) {
                         </span>
                       </td>
                       <td className="td tabular-nums font-semibold whitespace-nowrap">{fmtDur(secsSince(r.stageSince, nowMs))}</td>
-                      <td className="td">{r.eligibilityReason || NOT_REPORTED}</td>
-                      <td className="td">{r.targetQueue ? qn(r.targetQueue) : NOT_REPORTED}</td>
+                      {showExtra && <td className="td">{r.eligibilityReason || NOT_REPORTED}</td>}
+                      {showExtra && <td className="td">{r.targetQueue ? qn(r.targetQueue) : NOT_REPORTED}</td>}
                       <td className="td-secondary tabular-nums whitespace-nowrap">{fmtDur(secsSince(r.lastUpdate, nowMs))} ago</td>
                       <td className="td-secondary tabular-nums text-xs" title={r.chanUuid}>{r.id}</td>
                     </tr>
@@ -403,6 +367,9 @@ export default function LiveOperations() {
   const [calls,  setCalls]  = useState([]);
   const [agents, setAgents] = useState([]);
   const [queueMax, setQueueMax] = useState({}); // { normalizedQueueName: max_wait_time }
+  const [queueStats, setQueueStats] = useState([]);
+  const [trend, setTrend] = useState([]);
+  const [trendFailed, setTrendFailed] = useState(false);
   const [prequeue, setPrequeue] = useState({}); // chanUuid → masked pre-queue record
   const [pqFailed, setPqFailed] = useState(false);
   const [pqOpen, setPqOpen] = useState(true);
@@ -411,6 +378,7 @@ export default function LiveOperations() {
   const [error, setError]   = useState(null);
   const [tick, setTick]     = useState(Date.now());
   const [lastOk, setLastOk] = useState(0);
+  const trendAtRef = useRef(0);
   const skewRef = useRef(0); // server_time - clientTime, from /stats/live-agents
 
   // Controls (state preserved across refetches — data is swapped underneath).
@@ -422,9 +390,14 @@ export default function LiveOperations() {
 
   // ── Single load: three canonical sources, resilient to partial failure ──────
   const load = useCallback(async () => {
-    const [cRes, aRes, qRes, pqRes] = await Promise.allSettled([
+    const [cRes, aRes, qRes, pqRes, tRes] = await Promise.allSettled([
       Calls.live(), Stats.liveAgents(), Stats.queues(), Calls.prequeue(),
+      // Hourly figures change slowly: refresh at most once a minute (less DB load).
+      Date.now() - trendAtRef.current > 60_000 ? Stats.callsTrend() : Promise.resolve(null),
     ]);
+    if (tRes.status === 'fulfilled') {
+      if (tRes.value) { setTrend(Array.isArray(tRes.value) ? tRes.value : []); trendAtRef.current = Date.now(); setTrendFailed(false); }
+    } else if (!trendAtRef.current) setTrendFailed(true); // keep the last good chart on a transient error
     // Pre-queue is an INDEPENDENT, additive source: its success/failure never
     // affects the existing call/agent/queue KPIs or the `ok` health signal.
     if (pqRes.status === 'fulfilled') {
@@ -448,6 +421,7 @@ export default function LiveOperations() {
       const map = {};
       for (const q of (qRes.value || [])) map[qn(q.queue_name)] = q.sla_seconds ?? null; // service level target (migration 012)
       setQueueMax(map);
+      setQueueStats(Array.isArray(qRes.value) ? qRes.value : []);
     }
     if (ok) { setLastOk(Date.now()); setError(null); }
     else setError(cRes.reason?.message || aRes.reason?.message || 'Failed to load live operations');
@@ -582,6 +556,12 @@ export default function LiveOperations() {
 
   const waitingExists = kpi.waiting > 0;
 
+  const queueRows = useMemo(() => buildQueueRows(queueStats, callRows, agentRows), [queueStats, callRows, agentRows]);
+  const alerts = useMemo(() => buildAlerts({ health, pqFailed, queueRows, agentRows }), [health, pqFailed, queueRows, agentRows]);
+  const stateCounts = useMemo(() => agentStateCounts(agentRows), [agentRows]);
+  const activeCalls = useMemo(() => calls.filter(c => c.agent_id && c.disposition === 'answered').length, [calls]);
+  const PICK = { Idle: 'Available', 'On Call': 'On Call', Ringing: 'Ringing', 'On Break': 'Break', Offline: 'Offline', Other: 'All' };
+
   // Pre-queue rows (oldest first — longest in the IVR at the top).
   const prequeueRows = useMemo(
     () => Object.values(prequeue).sort((a, b) => new Date(a.firstSeen) - new Date(b.firstSeen)),
@@ -677,10 +657,8 @@ export default function LiveOperations() {
   if (loading) {
     return (
       <div className="space-y-4" aria-busy="true">
-        <div className="flex flex-wrap gap-x-4 gap-y-3">
-          <div className="kpi-group flex-[3_1_23rem] pt-5"><KpiSkeleton count={3} cols="3" className="kpi-cols" /></div>
-          <div className="kpi-group flex-[5_1_39rem] pt-5"><KpiSkeleton count={5} cols="5" className="kpi-cols" /></div>
-        </div>
+        <div className="skeleton h-16 rounded-md" />
+        <div className="skeleton h-40 rounded-md" />
         <div className="skeleton h-11 rounded-md" />
         <div className="skeleton h-11 rounded-md" />
         <div className="skeleton h-56 rounded-md" />
@@ -692,8 +670,22 @@ export default function LiveOperations() {
   return (
     <div className="space-y-4">
 
-      {/* KPI summary — queue health + agent states */}
-      <KpiBar k={kpi} />
+      {/* Health strip — the numbers a supervisor reads first */}
+      <HealthStrip k={kpi} sl={overallServiceLevel(queueStats)} avgWait={overallAvgWait(queueStats)}
+        abandoned={sumToday(queueStats, 'abandoned_today')} offered={sumToday(queueStats, 'offered_today')}
+        activeCalls={activeCalls} />
+
+      {/* Queues + alerts */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+        <QueuePerformance rows={queueRows} selected={queue} onSelect={setQueue} />
+        <AlertsPanel alerts={alerts} />
+      </div>
+
+      {/* Trend + agent overview */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+        <CallsByHour data={trend} failed={trendFailed} />
+        <AgentOverview counts={stateCounts} onPick={(st) => setQuick(PICK[st] || 'All')} />
+      </div>
 
       {/* IVR & Pre-Queue Monitor — callers observed before queue entry */}
       <PreQueuePanel rows={prequeueRows} nowMs={nowMs} open={pqOpen}

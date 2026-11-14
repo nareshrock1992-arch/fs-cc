@@ -57,3 +57,4 @@
 ## 2026-11-14 — UI brief, step 0
 - Live Operations analysis written (FSCC_LIVE_OPERATIONS_REDESIGN.md) from owner screenshots.
 - BUG-006 found and fixed: SLA target now its own per-queue setting (`sla_seconds`, default 20 s, migration 012). Backend 422/422, agent desktop 190/190, builds ✓. Not committed / not deployed.
+- Live Operations redesign built and previewed (wide + phone); not committed / not deployed.
