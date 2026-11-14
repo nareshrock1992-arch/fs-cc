@@ -17,8 +17,11 @@ export const socket = io('/', {
 // and re-sent on each (re)connect. Pass null on logout.
 let agentToken = null;
 export function authenticateAgent(token) {
+  const hadToken = agentToken;
   agentToken = token || null;
   if (agentToken && socket.connected) socket.emit('agent:authenticate', { token: agentToken });
+  // SEC-5: logout → leave the live-event rooms on this open connection.
+  if (!agentToken && hadToken && socket.connected) socket.emit('client:deauthenticate');
 }
 socket.on('connect', () => {
   if (agentToken) socket.emit('agent:authenticate', { token: agentToken });

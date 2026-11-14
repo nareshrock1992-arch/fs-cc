@@ -100,6 +100,17 @@ export function initSocket(httpServer, corsOrigin) {
       }
     });
 
+    // SEC-5: on logout the client asks to leave every live-event room, so the
+    // open connection stops receiving caller data until someone signs in again.
+    socket.on('client:deauthenticate', () => {
+      if (socket.agentId) socket.leave(`agent:${socket.agentId}`);
+      socket.leave('supervisors');
+      socket.leave(SUBSCRIBERS);
+      socket.agentId = undefined;
+      socket.isSupervisor = false;
+      socket.emit('client:deauthenticated');
+    });
+
     socket.on('disconnect', () => {
       console.log(`[socket] client disconnected: ${socket.id}`);
     });

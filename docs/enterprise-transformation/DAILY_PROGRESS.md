@@ -44,3 +44,10 @@
 - BUG-005 confirmed on DEV (preview-xml → 404 "Queue not found") and fixed (route order) + test.
 - PERF-1: admin pages lazy-loaded; main chunk 858 kB → 283 kB.
 - Suites: backend **416/416**, agent desktop 189/189, builds ✓. Not committed / not deployed.
+- Deployed `7b25ab5` (owner approved). BUG-005 VERIFIED (preview-xml 200 for admin, 403 supervisor). PERF-1: all page modules compile on DEV, login page clean; signed-in click-through left to owner.
+
+## 2026-11-14 — Cycle 4 (part 2)
+- SEC-5 fixed: logout de-authenticates the live-event socket (server + both apps) + test. Backend **417/417**, agent desktop 189/189, builds ✓. Not committed / not deployed.
+- SEC-8 found (P1): stock dialplan extension 779 lets any phone listen to all calls. Not changed (FreeSWITCH config needs owner approval).
+- SUP-1 plan written: SUPERVISOR_MONITORING_PLAN.md.
+- SEC-8: owner chose not now (DEFERRED, risk accepted for now).

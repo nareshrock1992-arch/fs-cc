@@ -29,6 +29,7 @@ export function setToken(token) {
 
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
+  window.dispatchEvent(new Event('cc-token-changed')); // SEC-5: socket leaves live rooms
 }
 
 export function useAuth() {

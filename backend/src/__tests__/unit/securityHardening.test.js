@@ -91,7 +91,7 @@ describe('SEC-2 login limiter', () => {
 describe('SEC-3 live events only to authenticated sockets', () => {
   function connect() {
     const handlers = {}; const sent = []; const rooms = new Set();
-    const socket = { id: 's', on: (ev, fn) => { handlers[ev] = fn; }, emit: (ev, p) => sent.push({ ev, p }), join: (r) => rooms.add(r) };
+    const socket = { id: 's', on: (ev, fn) => { handlers[ev] = fn; }, emit: (ev, p) => sent.push({ ev, p }), join: (r) => rooms.add(r), leave: (r) => rooms.delete(r) };
     ioState.connectionHandler(socket);
     return { handlers, sent, rooms };
   }
@@ -114,6 +114,15 @@ describe('SEC-3 live events only to authenticated sockets', () => {
     const x = connect(); x.handlers['agent:authenticate']({ token: 'forged' });
     x.handlers['supervisor:authenticate']({ token: jwt.sign({ role: 'agent', agentId: '1' }, 'test-secret') });
     expect(x.rooms.size).toBe(0);
+  });
+  it('SEC-5: deauthenticate on logout leaves every live-event room', () => {
+    const a = connect(); a.handlers['agent:authenticate']({ token: jwt.sign({ role: 'agent', agentId: '1000' }, 'test-secret') });
+    a.handlers['client:deauthenticate']();
+    expect(a.rooms.size).toBe(0);
+    const v = connect(); v.handlers['supervisor:authenticate']({ token: jwt.sign({ role: 'admin' }, 'test-secret') });
+    v.handlers['client:deauthenticate']();
+    expect(v.rooms.size).toBe(0);
+    expect(v.sent.at(-1).ev).toBe('client:deauthenticated');
   });
 });
 
