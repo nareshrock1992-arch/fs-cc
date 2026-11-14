@@ -13,3 +13,11 @@
 3. Continue roadmap cycle 2 (`IMPLEMENTATION_ROADMAP.md`).
 
 Do not redo: baseline, audit docs, SEC-1..4, BUG-001..003.
+
+## Update 2026-11-14 (end of day)
+DEV is on `90dfa38`. Done and live since the last update: T2/C1 verified by owner, UX-1 conference button, BUG-005, PERF-1, SEC-5, BUG-006 (per-queue service level target, migration 012), Live Operations redesign, shared admin look (design system doc), Dashboard = today's summary, BUG-007 (held-leg release + supervisor Force hang-up, migration 013).
+
+Owner checks still open: Force hang-up and consult-release on real calls; BUG-002 Wi-Fi drop; BUG-003 live pages after login.
+Owner decisions open: SEC-8 (779 listen-in, deferred), supervisor monitoring (beep, who may barge), wrap-up/dispositions, business hours, SEC-7.
+Next candidates: agent desktop redesign, Break Codes double title, DATA-1, OPS-2 (DEV host overloaded — owner to check WSL resources / what restarts services).
+Uncommitted: this file and the tracker line recording the BUG-007 deploy checks.
