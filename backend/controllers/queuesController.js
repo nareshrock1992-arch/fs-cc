@@ -44,14 +44,23 @@ export async function getQueue(req, res) {
 
   res.json({ ...rows[0], agents: tiers.rows });
 }
+/** Service level target in whole seconds, 1–3600. Returns an error string or null. */
+export function validateSlaSeconds(v) {
+  if (v === undefined || v === null) return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 && n <= 3600 ? null : 'slaSeconds must be a whole number of seconds between 1 and 3600';
+}
+
 export async function createQueue(req, res) {
   let { name, displayName, strategy = 'longest-idle-agent',
         maxWaitTime = 300, maxQueueSize = 50, mohSound,
-        agentNoAnswerStatus = 'On Break' } = req.body;
+        agentNoAnswerStatus = 'On Break', slaSeconds = 20 } = req.body;
 
   if (!name || !displayName) {
     return res.status(400).json({ error: 'name and displayName are required' });
   }
+  const slaErr = validateSlaSeconds(slaSeconds);
+  if (slaErr) return res.status(400).json({ error: slaErr });
   if (!QUEUE_NO_ANSWER_STATUSES.includes(agentNoAnswerStatus)) {
     return res.status(400).json({ error: `agentNoAnswerStatus must be one of: ${QUEUE_NO_ANSWER_STATUSES.join(', ')}` });
   }
@@ -61,9 +70,9 @@ export async function createQueue(req, res) {
   name = name.replace(/[^a-zA-Z0-9_\-@.]/g, '');
 
   const { rows } = await query(
-    `INSERT INTO queues (name, display_name, strategy, max_wait_time, max_queue_size, moh_sound, agent_no_answer_status)
-     VALUES ($1,$2,$3,$4,$5,COALESCE($6, 'local_stream://moh'),$7) RETURNING *`,
-    [name, displayName, strategy, maxWaitTime, maxQueueSize, mohSound, agentNoAnswerStatus]
+    `INSERT INTO queues (name, display_name, strategy, max_wait_time, max_queue_size, moh_sound, agent_no_answer_status, sla_seconds)
+     VALUES ($1,$2,$3,$4,$5,COALESCE($6, 'local_stream://moh'),$7,$8) RETURNING *`,
+    [name, displayName, strategy, maxWaitTime, maxQueueSize, mohSound, agentNoAnswerStatus, Number(slaSeconds)]
   );
 
   try {
@@ -84,7 +93,9 @@ export async function createQueue(req, res) {
 
 export async function updateQueue(req, res) {
   const { queueName } = req.params;
-  const { displayName, strategy, maxWaitTime, maxQueueSize, active, agentNoAnswerStatus } = req.body;
+  const { displayName, strategy, maxWaitTime, maxQueueSize, active, agentNoAnswerStatus, slaSeconds } = req.body;
+  const slaErr = validateSlaSeconds(slaSeconds);
+  if (slaErr) return res.status(400).json({ error: slaErr });
 
   if (agentNoAnswerStatus !== undefined && !QUEUE_NO_ANSWER_STATUSES.includes(agentNoAnswerStatus)) {
     return res.status(400).json({ error: `agentNoAnswerStatus must be one of: ${QUEUE_NO_ANSWER_STATUSES.join(', ')}` });
@@ -97,9 +108,10 @@ export async function updateQueue(req, res) {
        max_wait_time = COALESCE($4, max_wait_time),
        max_queue_size = COALESCE($5, max_queue_size),
        active = COALESCE($6, active),
-       agent_no_answer_status = COALESCE($7, agent_no_answer_status)
+       agent_no_answer_status = COALESCE($7, agent_no_answer_status),
+       sla_seconds = COALESCE($8, sla_seconds)
      WHERE name = $1 RETURNING *`,
-    [queueName, displayName, strategy, maxWaitTime, maxQueueSize, active, agentNoAnswerStatus ?? null]
+    [queueName, displayName, strategy, maxWaitTime, maxQueueSize, active, agentNoAnswerStatus ?? null, slaSeconds == null ? null : Number(slaSeconds)]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Queue not found' });
 

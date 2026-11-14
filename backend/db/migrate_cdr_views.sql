@@ -30,7 +30,7 @@ SELECT
   c.queue_name,
   COALESCE(q.display_name, c.queue_name) AS queue_display_name,
   q.strategy,
-  q.max_wait_time                         AS queue_sla_threshold,
+  q.sla_seconds                           AS queue_sla_threshold,  -- migration 012
   c.queue_enter_time,
   c.agent_answer_time,
   c.end_time,

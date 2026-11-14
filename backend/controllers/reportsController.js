@@ -53,7 +53,7 @@ export async function queuePerformance(req, res) {
          * COUNT(*) FILTER (
              WHERE ${answered('c')}
                AND c.wait_seconds <= COALESCE(
-                 (SELECT max_wait_time FROM queues WHERE name = c.queue_name LIMIT 1), 300)
+                 (SELECT sla_seconds FROM queues WHERE name = c.queue_name LIMIT 1), 20)
            )
          / NULLIF(
              COUNT(*) FILTER (WHERE ${answered('c')}) +
@@ -337,7 +337,7 @@ export async function exportReport(req, res) {
          COALESCE(100.0*COUNT(*) FILTER (WHERE c.abandoned=true)/NULLIF(COUNT(*),0),0)::NUMERIC(5,1) AS abandon_rate_pct,
          COALESCE(100.0
            * COUNT(*) FILTER (WHERE c.disposition='answered' AND c.wait_seconds <= COALESCE(
-               (SELECT max_wait_time FROM queues WHERE name=c.queue_name LIMIT 1),300))
+               (SELECT sla_seconds FROM queues WHERE name=c.queue_name LIMIT 1),20))
            / NULLIF(COUNT(*) FILTER (WHERE c.disposition='answered') +
                     COUNT(*) FILTER (WHERE c.abandoned=true), 0), 0)::NUMERIC(5,1) AS sla_pct
        FROM calls c WHERE c.start_time >= $1 AND c.start_time < $2 AND c.queue_name IS NOT NULL

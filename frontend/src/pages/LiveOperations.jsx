@@ -19,7 +19,7 @@ import { KpiSkeleton } from '../components/LoadingState.jsx';
 // model, on ONE shared clock, over the ONE existing Socket.IO connection.
 //   • GET /calls/live       → waiting + connected calls (callsController)
 //   • GET /stats/live-agents → agent operational_state + current_call + anchors
-//   • GET /stats/queues      → per-queue max_wait_time (the SLA threshold)
+//   • GET /stats/queues      → per-queue sla_seconds (service level target)
 // No new backend, no second state model, no per-row timers, no per-second fetch.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -446,7 +446,7 @@ export default function LiveOperations() {
     }
     if (qRes.status === 'fulfilled') {
       const map = {};
-      for (const q of (qRes.value || [])) map[qn(q.queue_name)] = q.max_wait_time;
+      for (const q of (qRes.value || [])) map[qn(q.queue_name)] = q.sla_seconds ?? null; // service level target (migration 012)
       setQueueMax(map);
     }
     if (ok) { setLastOk(Date.now()); setError(null); }
@@ -541,7 +541,8 @@ export default function LiveOperations() {
         durLabel: isConnected ? 'talk' : 'wait',
         _wait: waitSec ?? 0,
         _enter: c.queue_enter_time ? new Date(c.queue_enter_time).getTime() : 0,
-        sla: (!isConnected && max != null && waitSec != null && waitSec >= max) ? 'breached' : null,
+        // Breached = waiting longer than the queue's service level target (answered within N s).
+        sla: (!isConnected && max != null && max > 0 && waitSec != null && waitSec > max) ? 'breached' : null,
       });
     }
     // Ringing calls live on the agent side (calls.disposition has no 'ringing').

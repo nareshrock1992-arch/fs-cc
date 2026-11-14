@@ -53,3 +53,7 @@
 - SEC-8: owner chose not now (DEFERRED, risk accepted for now).
 - Owner real calls: consult + hold + conference + complete transfer all work → T2 and C1 VERIFIED (FS log 17:03: hold re-INVITE, REFER both legs to 3000).
 - UX-1: Conference tile now usable right after answering (opens "Add to conference" → Call colleague → Conference all three). +1 test. Not deployed.
+
+## 2026-11-14 — UI brief, step 0
+- Live Operations analysis written (FSCC_LIVE_OPERATIONS_REDESIGN.md) from owner screenshots.
+- BUG-006 found and fixed: SLA target now its own per-queue setting (`sla_seconds`, default 20 s, migration 012). Backend 422/422, agent desktop 190/190, builds ✓. Not committed / not deployed.

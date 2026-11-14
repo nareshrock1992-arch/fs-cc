@@ -322,6 +322,7 @@ export async function agentQueues(req, res) {
       q.display_name,
       q.strategy,
       q.max_wait_time,
+      q.sla_seconds,
       t.level,
       t.position,
 
@@ -376,7 +377,7 @@ export async function agentQueues(req, res) {
           * COUNT(*) FILTER (
               WHERE (c.start_time >= $2 AND c.start_time < $3)
                 AND c.disposition = 'answered'
-                AND c.wait_seconds <= q.max_wait_time
+                AND c.wait_seconds <= q.sla_seconds
             )
           / NULLIF(
               COUNT(*) FILTER (WHERE (c.start_time >= $2 AND c.start_time < $3) AND c.disposition = 'answered') +

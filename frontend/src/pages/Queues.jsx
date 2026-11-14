@@ -16,7 +16,7 @@ const STRATEGIES = [
   { value: 'ring-all',                    label: 'Ring All' }
 ];
 
-const EMPTY_FORM = { name: '', displayName: '', strategy: 'longest-idle-agent', maxWaitTime: 300, maxQueueSize: 50, agentNoAnswerStatus: 'On Break' };
+const EMPTY_FORM = { name: '', displayName: '', strategy: 'longest-idle-agent', maxWaitTime: 300, maxQueueSize: 50, agentNoAnswerStatus: 'On Break', slaSeconds: 20 };
 
 // Queue auto-action after max-no-answer → mod_callcenter agent-no-answer-status.
 const NO_ANSWER_STATUSES = ['Available', 'On Break', 'Logged Out'];
@@ -71,7 +71,7 @@ export default function Queues() {
     setEditingName(q.name);
     setForm({ name: q.name, displayName: q.display_name, strategy: q.strategy,
               maxWaitTime: q.max_wait_time, maxQueueSize: q.max_queue_size,
-              agentNoAnswerStatus: q.agent_no_answer_status || 'On Break' });
+              agentNoAnswerStatus: q.agent_no_answer_status || 'On Break', slaSeconds: q.sla_seconds ?? 20 });
     setFormError(null);
     setModalOpen(true);
   }
@@ -191,6 +191,7 @@ export default function Queues() {
               <tr className={`text-left border-b dark:border-panel-border border-gray-100`}>
                 <th className={thClass}>Queue</th>
                 <th className={thClass}>Strategy</th>
+                <th className={thClass}>Service Level</th>
                 <th className={thClass}>Max Wait</th>
                 <th className={thClass}>Max Size</th>
                 {isAdmin && <th className={`${thClass} text-right`}>Actions</th>}
@@ -206,7 +207,8 @@ export default function Queues() {
                   <td className="py-3 dark:text-ink-dim text-gray-500">
                     {STRATEGIES.find((s) => s.value === q.strategy)?.label || q.strategy}
                   </td>
-                  <td className="py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.max_wait_time}s</td>
+                  <td className="py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.sla_seconds != null ? `answer within ${q.sla_seconds}s` : '—'}</td>
+                  <td className="py-3 font-mono tnum dark:text-ink-dim text-gray-500">{Number(q.max_wait_time) === 0 ? 'no limit' : `${q.max_wait_time}s`}</td>
                   <td className="py-3 font-mono tnum dark:text-ink-dim text-gray-500">{q.max_queue_size}</td>
                   {isAdmin && (
                     <td className="py-3">
@@ -269,8 +271,13 @@ export default function Queues() {
               ))}
             </select>
           </FormField>
+          <FormField label="Service level target (sec)" hint="Calls answered within this time count as meeting the service level (common: 20).">
+            <input type="number" min="1" max="3600" step="1" required value={form.slaSeconds}
+              onChange={(e) => setForm({ ...form, slaSeconds: Number(e.target.value) })}
+              className={inputClass} aria-label="Service level target in seconds" />
+          </FormField>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-            <FormField label="Max Wait Time (sec)">
+            <FormField label="Max Wait Time (sec, 0 = no limit)">
               <input type="number" min="0" value={form.maxWaitTime}
                 onChange={(e) => setForm({ ...form, maxWaitTime: Number(e.target.value) })}
                 className={inputClass} />

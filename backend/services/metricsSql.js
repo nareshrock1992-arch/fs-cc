@@ -18,7 +18,7 @@
  *
  * WHAT IS **NOT** UNIFIED HERE (intentionally left in the controllers):
  *   • SLA — there are currently FOUR different implementations that differ in
- *     threshold source (q.max_wait_time vs COALESCE(subquery,300)), join
+ *     threshold source (q.sla_seconds vs COALESCE(subquery,20) — migration 012), join
  *     (INNER vs none), inline date predicates, and cast (::INT vs ::NUMERIC(5,1)):
  *       - statsController.getDashboardStats      (global, INNER JOIN, ::INT)
  *       - statsController.getQueueStats          (per-queue, date-in-FILTER)

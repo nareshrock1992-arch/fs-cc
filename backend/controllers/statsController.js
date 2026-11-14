@@ -45,7 +45,7 @@ export async function getDashboardStats(req, res) {
     query(
       `SELECT COALESCE(
          100.0
-         * COUNT(*) FILTER (WHERE c.wait_seconds <= q.max_wait_time AND ${answered('c')})
+         * COUNT(*) FILTER (WHERE c.wait_seconds <= q.sla_seconds AND ${answered('c')})
          / NULLIF(
              COUNT(*) FILTER (WHERE ${answered('c')}) +
              COUNT(*) FILTER (WHERE ${abandoned('c')}),
@@ -122,6 +122,7 @@ export async function getQueueStats(req, res) {
       q.display_name,
       q.strategy,
       q.max_wait_time,
+      q.sla_seconds,
 
       -- ── Call metrics (LATERAL, no agent_tiers join → no fan-out) ───────────
       cs.waiting,
@@ -199,7 +200,7 @@ export async function getQueueStats(req, res) {
           * COUNT(*) FILTER (
               WHERE (c.start_time >= $1 AND c.start_time < $2)
                 AND ${answered('c')}
-                AND c.wait_seconds <= q.max_wait_time
+                AND c.wait_seconds <= q.sla_seconds
             )
           / NULLIF(
               COUNT(*) FILTER (WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${answered('c')}) +
