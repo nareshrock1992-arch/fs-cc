@@ -29,7 +29,7 @@ const STATUS = {
 };
 const KIND = { queue: 'Queue call', direct: 'Direct call', outbound: 'Outbound call' };
 
-export default function InteractionWorkspace({ result, phone, agentStatus, recentCalls = [], recentLoading = false, onPickNumber }) {
+export default function InteractionWorkspace({ result, phone, agentStatus, queues = [], perf = null, recentCalls = [], recentLoading = false, onPickNumber }) {
   const { interaction, warning, queueCall } = result;
   const s = interaction?.status;
   return (
@@ -41,7 +41,7 @@ export default function InteractionWorkspace({ result, phone, agentStatus, recen
       )}
       {queueCall && <QueueCallStrip call={queueCall} />}
 
-      {!interaction && <IdleView agentStatus={agentStatus} recentCalls={recentCalls} recentLoading={recentLoading} onPickNumber={onPickNumber} />}
+      {!interaction && <IdleView agentStatus={agentStatus} queues={queues} perf={perf} recentCalls={recentCalls} recentLoading={recentLoading} onPickNumber={onPickNumber} />}
       {interaction && (s === 'ringing' || s === 'offering') && <IncomingView interaction={interaction} phone={phone} />}
       {interaction && s === 'ended' && <EndedView interaction={interaction} />}
       {interaction && !['ringing', 'offering', 'ended'].includes(s) && <ActiveView interaction={interaction} />}
@@ -49,8 +49,29 @@ export default function InteractionWorkspace({ result, phone, agentStatus, recen
   );
 }
 
-function IdleView({ agentStatus, recentCalls, recentLoading, onPickNumber }) {
+/** Totals across the agent's queues (from the 3-s /agent-desk/queues poll). Null when unknown. */
+export function queueLoad(queues) {
+  if (!Array.isArray(queues) || queues.length === 0) return null;
+  const n = (v) => Number(v) || 0;
+  return {
+    waiting: queues.reduce((s, q) => s + n(q.waiting), 0),
+    longest: queues.reduce((m, q) => Math.max(m, n(q.longest_wait_seconds)), 0),
+    available: Math.max(...queues.map((q) => n(q.available_agents))),
+  };
+}
+
+function Kpi({ label, value, tone }) {
+  return (
+    <div className="min-w-0 bg-panel-surface px-3 py-2.5">
+      <p className="text-[0.6875rem] text-ink-dim truncate">{label}</p>
+      <p className={`font-mono text-lg font-semibold tabular-nums ${tone || 'text-ink'}`}>{value}</p>
+    </div>
+  );
+}
+
+function IdleView({ agentStatus, queues, perf, recentCalls, recentLoading, onPickNumber }) {
   const ready = agentStatus === 'Available';
+  const load = queueLoad(queues);
   return (
     <section aria-label="Workspace idle" className="rounded-lg border border-panel-border bg-panel-surface">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-panel-border">
@@ -58,12 +79,36 @@ function IdleView({ agentStatus, recentCalls, recentLoading, onPickNumber }) {
           <Headset size={18} />
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink">{ready ? 'Waiting for the next interaction' : `You are ${agentStatus}`}</p>
+          <p className="text-sm font-semibold text-ink">{ready ? 'Ready for calls' : `You are ${agentStatus}`}</p>
           <p className="text-xs text-ink-dim">
             {ready ? 'Queue calls will appear here when they are offered to you.' : 'You will not receive queue calls until you are Available.'}
           </p>
         </div>
       </div>
+      {(load || perf) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-panel-border border-b border-panel-border">
+          <div aria-label="Queues now" className="bg-panel-surface">
+            <p className="px-3 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint">My queues now</p>
+            {load ? (
+              <div className="grid grid-cols-3 gap-px">
+                <Kpi label="Waiting" value={load.waiting} tone={load.waiting > 0 ? 'text-status-ringing' : undefined} />
+                <Kpi label="Longest wait" value={load.waiting > 0 ? formatDuration(load.longest) : '—'} />
+                <Kpi label="Agents free" value={load.available} />
+              </div>
+            ) : <p className="px-3 py-3 text-xs text-ink-dim">No queues assigned.</p>}
+          </div>
+          <div aria-label="My day" className="bg-panel-surface">
+            <p className="px-3 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint">My day</p>
+            {perf ? (
+              <div className="grid grid-cols-3 gap-px">
+                <Kpi label="Handled" value={perf.calls_handled ?? 0} />
+                <Kpi label="Missed" value={perf.calls_missed ?? 0} tone={perf.calls_missed > 0 ? 'text-status-error' : undefined} />
+                <Kpi label="Avg talk" value={formatDuration(perf.avg_talk_seconds ?? 0)} />
+              </div>
+            ) : <p className="px-3 py-3 text-xs text-ink-dim">Loading…</p>}
+          </div>
+        </div>
+      )}
       <div className="p-4">
         <RecentCalls calls={recentCalls} loading={recentLoading} onPick={onPickNumber} />
       </div>

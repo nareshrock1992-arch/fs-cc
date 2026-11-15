@@ -98,6 +98,8 @@ export default function Desk({ phone, data, actions, theme, nav }) {
               result={result}
               phone={phone}
               agentStatus={agentStatus}
+              queues={queues}
+              perf={perf}
               recentCalls={recentCalls}
               recentLoading={recentLoading}
               onPickNumber={(n) => setDialRequest({ number: n, at: Date.now() })}
@@ -112,7 +114,7 @@ export default function Desk({ phone, data, actions, theme, nav }) {
                 onReturn={onReturnFromBreak}
               />
             )}
-            <ActivityStrip perf={perf} />
+            {result.interaction && <ActivityStrip perf={perf} />}
             {/* Context panel moves here below 1280 px. */}
             <div className="xl:hidden rounded-lg border border-panel-border bg-panel-surface">{context}</div>
           </div>

@@ -55,3 +55,10 @@ Based on the owner's screenshot (DEV, 1280-wide browser) and the current code (`
 - Pre-existing bug fixed: on phones the phone card was 416 px in a 375 px screen (grid had no small-screen column).
 - Preview checked (agent signed in by owner, phone enabled with VITE_WEBRTC_ENABLED only): 1335, 1920, 375 px — no page overflow. Phone sign-in not possible in the preview (no HTTPS / SIP domain), so calls not exercised.
 - Tests 196/196, typecheck ✓, build ✓.
+
+## 7. Step 2 — done (2026-11-15), not deployed
+- Idle panel title "Ready for calls" (or "You are <status>").
+- "My queues now": total waiting, longest wait (— when nobody waits), agents free — from the existing 3-s `/agent-desk/queues` poll.
+- "My day": handled, missed, avg talk — from `/agent-desk/performance`.
+- Blocks are hidden when there is no data (no fake zeros). The one-line "Today" strip now shows only during a call.
+- Tests 198/198 (2 new), typecheck ✓, build ✓. Not yet checked in a signed-in preview.

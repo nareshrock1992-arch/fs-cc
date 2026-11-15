@@ -49,7 +49,7 @@ describe('call details (beside the phone console)', () => {
       recentCalls: [{ call_uuid: 'a', direction: 'inbound', ani: '1001', queue_name: 'RadioPAGA', agent_talk_seconds: 10 }],
       onPickNumber,
     }));
-    expect(host.textContent).toContain('Waiting for the next interaction');
+    expect(host.textContent).toContain('Ready for calls');
     act(() => q('[aria-label="Recent calls"] button').click());
     expect(onPickNumber).toHaveBeenCalledWith('1001');
   });
@@ -140,5 +140,27 @@ describe('context panels', () => {
     render(createElement(ActivityStrip, { perf: { calls_handled: 4, calls_missed: 1, avg_talk_seconds: 90, total_talk_seconds: 360 } }));
     expect(host.textContent).toMatch(/4handled/);
     expect(host.textContent).toContain('06:00');
+  });
+});
+
+describe('idle Ready panel (step 2)', () => {
+  it('shows queue load and my day from real data', () => {
+    render(ws(makePhone(), null, {
+      queues: [
+        { name: 'a', waiting: 2, longest_wait_seconds: 75, available_agents: 1 },
+        { name: 'b', waiting: 1, longest_wait_seconds: 20, available_agents: 3 },
+      ],
+      perf: { calls_handled: 6, calls_missed: 1, avg_talk_seconds: 90 },
+    }));
+    const now = q('[aria-label="Queues now"]').textContent;
+    expect(now).toContain('Waiting3');
+    expect(now).toContain('Agents free3');
+    expect(q('[aria-label="My day"]').textContent).toContain('Handled6');
+  });
+
+  it('no queues and no figures: no fake zeros', () => {
+    render(ws(makePhone(), null, { queues: [], perf: null }));
+    expect(q('[aria-label="Queues now"]')).toBeNull();
+    expect(q('[aria-label="My day"]')).toBeNull();
   });
 });
