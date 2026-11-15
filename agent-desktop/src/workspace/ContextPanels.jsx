@@ -113,7 +113,7 @@ export function QueueSummary({ queues }) {
               const free = Number(q.available_agents) || 0;
               return (
                 <tr key={q.name}>
-                  <td className="py-1.5 pr-2 text-ink break-words" title={q.name}>{q.display_name || q.name}</td>
+                  <td className="py-1.5 pr-2 text-ink [overflow-wrap:anywhere]" title={q.name}>{q.display_name || q.name}</td>
                   <td className={`py-1.5 text-right font-mono tabular-nums ${waiting > 0 ? 'font-semibold text-status-ringing' : 'text-ink-dim'}`}>{waiting}</td>
                   <td className="py-1.5 text-right font-mono tabular-nums text-ink-dim">{waiting > 0 ? formatDuration(q.longest_wait_seconds) : '—'}</td>
                   <td className={`py-1.5 text-right font-mono tabular-nums ${free === 0 ? 'text-status-error' : 'text-ink-dim'}`}>{free}</td>

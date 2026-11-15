@@ -92,8 +92,8 @@ function IdleView({ agentStatus, queues, perf, recentCalls, recentLoading, onPic
             {load ? (
               <div className="grid grid-cols-3 gap-px">
                 <Kpi label="Waiting" value={load.waiting} tone={load.waiting > 0 ? 'text-status-ringing' : undefined} />
-                <Kpi label="Longest wait" value={load.waiting > 0 ? formatDuration(load.longest) : '—'} />
-                <Kpi label="Agents free" value={load.available} />
+                <Kpi label="Longest" value={load.waiting > 0 ? formatDuration(load.longest) : '—'} />
+                <Kpi label="Free" value={load.available} />
               </div>
             ) : <p className="px-3 py-3 text-xs text-ink-dim">No queues assigned.</p>}
           </div>
@@ -103,7 +103,7 @@ function IdleView({ agentStatus, queues, perf, recentCalls, recentLoading, onPic
               <div className="grid grid-cols-3 gap-px">
                 <Kpi label="Handled" value={perf.calls_handled ?? 0} />
                 <Kpi label="Missed" value={perf.calls_missed ?? 0} tone={perf.calls_missed > 0 ? 'text-status-error' : undefined} />
-                <Kpi label="Avg talk" value={formatDuration(perf.avg_talk_seconds ?? 0)} />
+                <Kpi label="Avg talk" value={perf.calls_handled > 0 ? formatDuration(perf.avg_talk_seconds ?? 0) : "—"} />
               </div>
             ) : <p className="px-3 py-3 text-xs text-ink-dim">Loading…</p>}
           </div>

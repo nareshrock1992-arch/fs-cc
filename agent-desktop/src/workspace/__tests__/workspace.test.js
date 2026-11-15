@@ -154,7 +154,7 @@ describe('idle Ready panel (step 2)', () => {
     }));
     const now = q('[aria-label="Queues now"]').textContent;
     expect(now).toContain('Waiting3');
-    expect(now).toContain('Agents free3');
+    expect(now).toContain('Free3');
     expect(q('[aria-label="My day"]').textContent).toContain('Handled6');
   });
 

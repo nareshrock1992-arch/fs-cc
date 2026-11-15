@@ -68,3 +68,8 @@ Based on the owner's screenshot (DEV, 1280-wide browser) and the current code (`
 - Customer: a "N recent · M missed" line above this agent's previous calls with the number (date and time per call).
 - No new API; same 3-s queue poll and call-history search.
 - Tests 199/199, typecheck ✓, build ✓. Not yet checked in a signed-in preview.
+
+## 9. Step 4 — visual check on DEV (2026-11-15)
+- Owner signed in on DEV (https://192.168.1.124:8080). Checked 1280, 1920 and 375 px: no page overflow; Ready panel, My day and My queues table show real data.
+- Found and fixed (not yet deployed): tile labels cut at 1280 px ("Longest …", "Agents fr…") → "Longest", "Free"; long queue names without spaces were cut in the table → now wrap; Avg talk shows — when no calls handled.
+- Tests 199/199, typecheck ✓, build ✓.
