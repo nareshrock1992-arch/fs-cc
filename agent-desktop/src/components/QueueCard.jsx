@@ -6,14 +6,21 @@ function fmt(seconds) {
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }
 
-function SlaBar({ pct }) {
+function SlaBar({ pct, offered }) {
+  if (!offered) {
+    return (
+      <div className="mt-1 flex justify-between text-[0.6875rem] text-ink-faint">
+        <span>Service level</span><span>— no calls yet</span>
+      </div>
+    );
+  }
   const n   = Number(pct) || 0;
   const col = n >= 90 ? 'bg-lamp-available' : n >= 70 ? 'bg-lamp-live' : 'bg-lamp-alert';
   const textCol = n >= 90 ? 'text-lamp-available' : n >= 70 ? 'text-lamp-live' : 'text-lamp-alert';
   return (
     <div className="mt-1">
       <div className="flex justify-between text-[0.6875rem] text-ink-faint mb-1">
-        <span>SLA</span>
+        <span>Service level</span>
         <span className={textCol}>{n}%</span>
       </div>
       <div className="h-1 rounded-full bg-panel-raised overflow-hidden">
@@ -29,10 +36,10 @@ export default function QueueCard({ q }) {
   return (
     <div className="card p-4 flex flex-col gap-3">
       {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold text-ink leading-tight">{q.display_name}</h3>
-          <p className="text-[0.6875rem] text-ink-faint mt-0.5">{q.name}</p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-ink leading-tight [overflow-wrap:anywhere]">{q.display_name}</h3>
+          <p className="text-[0.6875rem] text-ink-faint mt-0.5 [overflow-wrap:anywhere]">{q.name}</p>
         </div>
         <span className="shrink-0 text-[0.6875rem] px-2 py-0.5 rounded-full
                          bg-panel-raised border border-panel-border text-ink-dim capitalize">
@@ -79,12 +86,12 @@ export default function QueueCard({ q }) {
         <Stat label="Answered"  value={q.answered_today}  color="text-lamp-available" />
         <Stat label="Abandoned" value={q.abandoned_today}
               color={q.abandoned_today > 0 ? 'text-lamp-alert' : undefined} />
-        <Stat label="Avg Wait"  value={fmt(q.avg_wait_today)} />
-        <Stat label="Longest"   value={fmt(q.longest_wait_seconds)} />
-        <Stat label="Max Wait"  value={fmt(q.max_wait_time)} />
+        <Stat label="Avg Wait"  value={q.answered_today > 0 ? fmt(q.avg_wait_today) : '—'} />
+        <Stat label="Longest now" value={q.waiting > 0 ? fmt(q.longest_wait_seconds) : '—'} />
+        <Stat label="Max Wait"  value={q.max_wait_time > 0 ? fmt(q.max_wait_time) : 'No limit'} />
       </div>
 
-      <SlaBar pct={q.sla_pct_today} />
+      <SlaBar pct={q.sla_pct_today} offered={q.offered_today} />
     </div>
   );
 }

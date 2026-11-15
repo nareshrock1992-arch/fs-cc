@@ -57,7 +57,7 @@ export default function PerformanceCard({ perf, loading }) {
         />
         <KpiTile
           label="Avg Talk"
-          value={fmt(perf.avg_talk_seconds)}
+          value={perf.calls_handled > 0 ? fmt(perf.avg_talk_seconds) : '—'}
           Icon={Clock}
           iconColor="text-ink-faint"
         />

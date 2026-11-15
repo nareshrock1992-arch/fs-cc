@@ -177,3 +177,12 @@ describe('right column (step 3)', () => {
     expect(rows[1]).toBe('Sales0—2');
   });
 });
+
+describe('call history result (agent pages)', () => {
+  it('a missed call says who handled it, not "answered"', async () => {
+    const { callResult } = await import('../../components/CallHistory.jsx');
+    expect(callResult({ missed: true, disposition: 'answered' })).toBe('Answered by another agent');
+    expect(callResult({ missed: true, disposition: null })).toBe('Not answered');
+    expect(callResult({ missed: false, disposition: 'answered' })).toBe('Answered');
+  });
+});

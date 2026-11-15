@@ -83,6 +83,13 @@ function DetailModal({ uuid, onClose }) {
   );
 }
 
+/** What happened to the call, from this agent's point of view. */
+export function callResult(c) {
+  if (c.missed) return c.disposition === 'answered' ? 'Answered by another agent' : 'Not answered';
+  if (c.abandoned) return 'Caller hung up';
+  return c.disposition ? c.disposition.charAt(0).toUpperCase() + c.disposition.slice(1) : '—';
+}
+
 export default function CallHistory() {
   const [rows, setRows]       = useState([]);
   const [total, setTotal]     = useState(0);
@@ -161,8 +168,8 @@ export default function CallHistory() {
                 <th className="py-2 pr-3 font-semibold">Caller</th>
                 <th className="py-2 pr-3 font-semibold">Queue</th>
                 <th className="py-2 pr-3 font-semibold">Started</th>
-                <th className="py-2 pr-3 font-semibold">Talk</th>
-                <th className="py-2 pr-3 font-semibold">Disposition</th>
+                <th className="py-2 pr-3 font-semibold" title="Your talk time on this call">Your talk</th>
+                <th className="py-2 pr-3 font-semibold">Result</th>
               </tr>
             </thead>
             <tbody>
@@ -178,8 +185,8 @@ export default function CallHistory() {
                   <td className="py-2 pr-3 text-ink-dim">{c.direction === 'outbound' ? c.dnis : (c.caller_name ? `${c.caller_name} (${c.ani || '—'})` : c.ani || 'Anonymous')}</td>
                   <td className="py-2 pr-3 text-ink-faint">{c.queue_name || '—'}</td>
                   <td className="py-2 pr-3 text-ink-faint">{formatDateTime(c.start_time)}</td>
-                  <td className="py-2 pr-3 text-ink-dim tabular-nums">{formatDuration(c.talk_seconds ?? c.agent_talk_seconds)}</td>
-                  <td className="py-2 pr-3 text-ink-faint">{c.disposition || '—'}</td>
+                  <td className="py-2 pr-3 text-ink-dim tabular-nums">{c.missed ? '—' : formatDuration(c.agent_talk_seconds ?? c.talk_seconds)}</td>
+                  <td className="py-2 pr-3 text-ink-faint">{callResult(c)}</td>
                 </tr>
               ))}
             </tbody>

@@ -73,3 +73,10 @@ Based on the owner's screenshot (DEV, 1280-wide browser) and the current code (`
 - Owner signed in on DEV (https://192.168.1.124:8080). Checked 1280, 1920 and 375 px: no page overflow; Ready panel, My day and My queues table show real data.
 - Found and fixed (not yet deployed): tile labels cut at 1280 px ("Longest …", "Agents fr…") → "Longest", "Free"; long queue names without spaces were cut in the table → now wrap; Avg talk shows — when no calls handled.
 - Tests 199/199, typecheck ✓, build ✓.
+
+## 10. Other agent pages (2026-11-15), not deployed
+Seen on DEV at 1280 px: Queues cards overlapped (3 fixed columns in a narrow main area; strategy chip cut); empty queues showed red "SLA 0%" and "0s" times; Calls page showed missed calls as "answered" with the other agent's talk time.
+- Queues: cards flow by available width (min 15 rem); names wrap; "Service level — no calls yet" when nothing offered; Avg wait / Longest now "—" when there is no data; Max wait 0 → "No limit". My performance: Avg talk "—" with no calls.
+- Calls: "Your talk" uses this agent's talk time ("—" when missed); "Result" column: Answered by another agent / Not answered / Caller hung up / Answered.
+- Breaks page already fine.
+- Tests 200/200, typecheck ✓, build ✓.

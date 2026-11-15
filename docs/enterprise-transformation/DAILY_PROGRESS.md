@@ -76,3 +76,4 @@
 - Agent desktop step 1 (folding keypad, layout widths, phone-width bug) built and previewed; not deployed.
 - 2026-11-15: Agent desktop step 2 (idle Ready panel) built; tests 198/198; not deployed.
 - 2026-11-15: Agent desktop step 3 (right column: queues table, previous-call summary) built; tests 199/199; not deployed.
+- 2026-11-15: Agent desktop Queues/Calls page fixes built; tests 200/200; not deployed.
