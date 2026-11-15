@@ -164,3 +164,16 @@ describe('idle Ready panel (step 2)', () => {
     expect(q('[aria-label="My day"]')).toBeNull();
   });
 });
+
+describe('right column (step 3)', () => {
+  it('my queues table: waiting, longest and free per queue', async () => {
+    const { QueueSummary } = await import('../ContextPanels.jsx');
+    render(createElement(QueueSummary, { queues: [
+      { name: 'RadioPAGA', waiting: 2, longest_wait_seconds: 65, available_agents: 0 },
+      { name: 'Sales', waiting: 0, longest_wait_seconds: 0, available_agents: 2 },
+    ] }));
+    const rows = [...host.querySelectorAll('tbody tr')].map((r) => r.textContent);
+    expect(rows[0]).toBe('RadioPAGA201:050');
+    expect(rows[1]).toBe('Sales0—2');
+  });
+});

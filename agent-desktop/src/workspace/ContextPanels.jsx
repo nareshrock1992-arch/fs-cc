@@ -56,6 +56,7 @@ export function CustomerPanel({ interaction }) {
             <p className="flex items-center gap-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint mb-1.5">
               <History size={12} /> Your previous calls with this number
             </p>
+            <PreviousSummary rows={history.loading ? [] : history.rows.filter((c) => c.call_uuid !== interaction.callUuid)} />
             {history.loading && <p className="text-xs text-ink-dim">Loading…</p>}
             {history.error && <p className="text-xs text-status-error">Could not load history: {history.error}</p>}
             {!history.loading && !history.error && history.rows.every((c) => c.call_uuid === interaction.callUuid) && (
@@ -78,7 +79,18 @@ export function CustomerPanel({ interaction }) {
   );
 }
 
-/** Compact queue list for the context panel (data from the existing 3-s queue poll). */
+/** "3 recent · 1 missed" above the previous-call list (hidden when there are none). */
+function PreviousSummary({ rows }) {
+  if (rows.length === 0) return null;
+  const missed = rows.filter((c) => c.missed).length;
+  return (
+    <p aria-label="Previous calls summary" className="text-xs text-ink mb-1">
+      {rows.length} recent{missed > 0 && <span className="text-status-error"> · {missed} missed</span>}
+    </p>
+  );
+}
+
+/** My queues as a small table for the context panel (data from the existing 3-s queue poll). */
 export function QueueSummary({ queues }) {
   return (
     <section aria-label="My queues" className="p-4 space-y-2">
@@ -86,17 +98,30 @@ export function QueueSummary({ queues }) {
       {queues.length === 0 ? (
         <p className="text-xs text-ink-dim">No queues assigned — ask your supervisor.</p>
       ) : (
-        <ul className="divide-y divide-panel-border">
-          {queues.map((q) => (
-            <li key={q.name} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 py-1.5 text-xs">
-              <span className="text-ink break-words min-w-0" title={q.name}>{q.display_name || q.name}</span>
-              <span className="flex items-center gap-2 shrink-0">
-                <span className={q.waiting > 0 ? 'font-semibold text-status-ringing' : 'text-ink-dim'}>{q.waiting ?? 0} waiting</span>
-                <span className="text-ink-faint">{q.available_agents ?? 0} avail.</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <table className="w-full text-xs table-fixed">
+          <thead>
+            <tr className="text-[0.6875rem] text-ink-faint">
+              <th className="text-left font-medium pb-1">Queue</th>
+              <th className="text-right font-medium pb-1 w-10" title="Callers waiting">Wait</th>
+              <th className="text-right font-medium pb-1 w-14" title="Longest current wait">Longest</th>
+              <th className="text-right font-medium pb-1 w-10" title="Agents available">Free</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-panel-border">
+            {queues.map((q) => {
+              const waiting = Number(q.waiting) || 0;
+              const free = Number(q.available_agents) || 0;
+              return (
+                <tr key={q.name}>
+                  <td className="py-1.5 pr-2 text-ink break-words" title={q.name}>{q.display_name || q.name}</td>
+                  <td className={`py-1.5 text-right font-mono tabular-nums ${waiting > 0 ? 'font-semibold text-status-ringing' : 'text-ink-dim'}`}>{waiting}</td>
+                  <td className="py-1.5 text-right font-mono tabular-nums text-ink-dim">{waiting > 0 ? formatDuration(q.longest_wait_seconds) : '—'}</td>
+                  <td className={`py-1.5 text-right font-mono tabular-nums ${free === 0 ? 'text-status-error' : 'text-ink-dim'}`}>{free}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
     </section>
   );

@@ -62,3 +62,9 @@ Based on the owner's screenshot (DEV, 1280-wide browser) and the current code (`
 - "My day": handled, missed, avg talk — from `/agent-desk/performance`.
 - Blocks are hidden when there is no data (no fake zeros). The one-line "Today" strip now shows only during a call.
 - Tests 198/198 (2 new), typecheck ✓, build ✓. Not yet checked in a signed-in preview.
+
+## 8. Step 3 — done (2026-11-15), not deployed
+- My queues is now a table: Queue · Wait · Longest (— when nobody waits) · Free (red when 0). Names wrap, never cut.
+- Customer: a "N recent · M missed" line above this agent's previous calls with the number (date and time per call).
+- No new API; same 3-s queue poll and call-history search.
+- Tests 199/199, typecheck ✓, build ✓. Not yet checked in a signed-in preview.
