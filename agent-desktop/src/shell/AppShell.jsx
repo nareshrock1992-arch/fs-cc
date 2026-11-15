@@ -79,11 +79,11 @@ export default function AppShell({
         </nav>
 
         <main className="flex-1 min-w-0 overflow-y-auto">
-          <div className="max-w-6xl mx-auto p-3 sm:p-4 space-y-4">{children}</div>
+          <div className="max-w-[100rem] mx-auto p-3 sm:p-4 space-y-4">{children}</div>
         </main>
 
         {aside && (
-          <aside className="hidden xl:block w-80 shrink-0 overflow-y-auto border-l border-panel-border bg-panel-surface">
+          <aside className="hidden xl:block w-72 2xl:w-80 shrink-0 overflow-y-auto overflow-x-hidden border-l border-panel-border bg-panel-surface">
             {aside}
           </aside>
         )}

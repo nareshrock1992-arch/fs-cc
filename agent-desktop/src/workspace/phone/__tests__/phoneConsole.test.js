@@ -11,6 +11,8 @@ const render = (el) => act(() => root.render(el));
 const q = (sel) => host.querySelector(sel);
 const btn = (text) => [...host.querySelectorAll('button')].find((b) => b.textContent.trim() === text || b.getAttribute('aria-label') === text);
 const key = (k) => q(`[role="group"] button[aria-label="${k}"]`);
+// The keypad folds away by default; tests that use it open it first.
+const openPad = () => { const b = q('button[aria-label="Show keypad"]'); if (b) act(() => b.click()); };
 function type(input, value) {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
   setter.call(input, value);
@@ -49,8 +51,11 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); host.remove(); });
 
 describe('PhoneConsole — idle', () => {
-  it('shows a complete keypad (0–9, *, #) without any click', () => {
+  it('keypad is folded by default; one click shows the complete keypad (0–9, *, #)', () => {
     render(console_(makePhone()));
+    expect(q('[aria-label="Dial keypad"]')).toBeNull();
+    expect(q('input[aria-label="Number to call"]')).not.toBeNull();
+    openPad();
     const keys = [...q('[aria-label="Dial keypad"]').querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
     expect(keys).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']);
     expect(q('[aria-label="Phone status"]').textContent).toContain('Phone ready');
@@ -59,7 +64,7 @@ describe('PhoneConsole — idle', () => {
 
   it('keypad, backspace and clear edit the number; Call dials once and clears', async () => {
     const phone = makePhone();
-    render(console_(phone));
+    render(console_(phone)); openPad();
     const input = q('input[aria-label="Number to call"]');
     expect(btn('Call').disabled).toBe(true);
     for (const k of ['1', '0', '0', '2']) act(() => key(k).click());
@@ -78,14 +83,14 @@ describe('PhoneConsole — idle', () => {
   });
 
   it('a number picked elsewhere is loaded into the display', () => {
-    render(console_(makePhone(), null, { dialRequest: { number: '0501234567', at: 1 } }));
+    render(console_(makePhone(), null, { dialRequest: { number: '0501234567', at: 1 } })); openPad();
     expect(q('input[aria-label="Number to call"]').value).toBe('0501234567');
   });
 
   it('not signed in: password sign-in, keypad visible but disabled, reason shown', async () => {
     const phone = makePhone({ account: undefined, registration: 'unregistered' });
     phone.indicator = { level: 'off', label: 'Phone off' };
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(key('5').disabled).toBe(true);
     expect(host.textContent).toContain('Sign in to the phone to make calls');
     act(() => type(q('input[type="password"]'), 'dummy-test-value'));
@@ -95,7 +100,7 @@ describe('PhoneConsole — idle', () => {
   });
 
   it('call controls are present but disabled when idle; conference says why', () => {
-    render(console_(makePhone()));
+    render(console_(makePhone())); openPad();
     expect(btn('Mute').disabled).toBe(true);
     expect(btn('Hold').disabled).toBe(true);
     expect(btn('Transfer').disabled).toBe(true);
@@ -105,7 +110,7 @@ describe('PhoneConsole — idle', () => {
 
   it('devices: selectors use the engine and list labels', () => {
     const phone = makePhone();
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(phone.refreshDevices).toHaveBeenCalled();
     const mic = q('select[aria-label="Microphone"]');
     expect(mic.textContent).toContain('Headset mic');
@@ -117,7 +122,7 @@ describe('PhoneConsole — idle', () => {
   });
 
   it('phone not built in', () => {
-    render(console_(null));
+    render(console_(null)); openPad();
     expect(host.textContent).toContain('built without the browser phone');
     expect(dialBlockedReason(null)).toMatch(/not enabled/);
   });
@@ -126,7 +131,7 @@ describe('PhoneConsole — idle', () => {
 describe('PhoneConsole — calls', () => {
   it('incoming: number, ringing timer, Answer/Reject; keypad disabled', () => {
     const phone = makePhone({ call: sip() });
-    render(console_(phone, { phase: 'ringing', callUuid: 'u1', ani: '1001', caller_name: 'Monday', queueName: 'RadioPAGA' }));
+    render(console_(phone, { phase: 'ringing', callUuid: 'u1', ani: '1001', caller_name: 'Monday', queueName: 'RadioPAGA' })); openPad();
     expect(q('[aria-label="Remote number"]').textContent).toBe('1001');
     expect(host.textContent).toContain('Monday · RadioPAGA');
     expect(q('[aria-label="Ringing for"]')).not.toBeNull();
@@ -139,7 +144,7 @@ describe('PhoneConsole — calls', () => {
 
   it('outgoing progress: Cancel call hangs up, no Call button', () => {
     const phone = makePhone({ call: sip({ direction: 'outbound', status: 'ringing-out', remoteIdentity: '1001' }) });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(host.textContent).toContain('Ringing…');
     expect(btn('Call')).toBeUndefined();
     act(() => btn('Cancel call').click());
@@ -148,7 +153,7 @@ describe('PhoneConsole — calls', () => {
 
   it('in call: timer, mute, hold, DTMF from keypad and keyboard, End call', () => {
     const phone = makePhone({ call: sip({ status: 'active', answeredAt: Date.now() - 30_000 }) });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(q('[aria-label="Call duration"]').textContent).toMatch(/^00:3[0-4]/);
     act(() => btn('Mute').click());
     act(() => btn('Hold').click());
@@ -164,20 +169,20 @@ describe('PhoneConsole — calls', () => {
   });
 
   it('held and muted states show Resume / Unmute pressed', () => {
-    render(console_(makePhone({ call: sip({ status: 'active', held: true, muted: true, answeredAt: Date.now() }) })));
+    render(console_(makePhone({ call: sip({ status: 'active', held: true, muted: true, answeredAt: Date.now() }) }))); openPad();
     expect(btn('Resume').getAttribute('aria-pressed')).toBe('true');
     expect(btn('Unmute').getAttribute('aria-pressed')).toBe('true');
     expect(host.textContent).toContain('On hold');
   });
 
   it('ended: last-call line with reason, keypad back to dialing', () => {
-    render(console_(makePhone({ call: sip({ direction: 'outbound', status: 'ended', endReason: 'Busy', remoteIdentity: '1001' }) })));
+    render(console_(makePhone({ call: sip({ direction: 'outbound', status: 'ended', endReason: 'Busy', remoteIdentity: '1001' }) }))); openPad();
     expect(q('[aria-label="Last call"]').textContent).toContain('Busy');
     expect(key('1').disabled).toBe(false);
   });
 
   it('queue call on another device: no call actions', () => {
-    render(console_(makePhone(), { phase: 'talking', callUuid: 'u1', ani: '1001' }));
+    render(console_(makePhone(), { phase: 'talking', callUuid: 'u1', ani: '1001' })); openPad();
     expect(btn('End call')).toBeUndefined();
     expect(host.textContent).toContain('Use the device handling this call');
   });
@@ -187,7 +192,7 @@ describe('PhoneConsole — errors are visible', () => {
   it('microphone missing at sign-in: error at the top, status "Sign-in failed", dismissable', () => {
     const phone = makePhone({ account: undefined, registration: 'unregistered', error: 'No microphone was found. Connect a microphone or headset.' });
     phone.indicator = { level: 'off', label: 'Phone off' };
-    render(console_(phone));
+    render(console_(phone)); openPad();
     const alert = q('[role="alert"]');
     expect(alert.textContent).toContain('No microphone was found');
     // the alert comes before the keypad in the document (top of the console)
@@ -199,7 +204,7 @@ describe('PhoneConsole — errors are visible', () => {
 
   it('audio notice with Enable audio is shown at the top', () => {
     const phone = makePhone({ notice: 'Click to enable audio' });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     act(() => btn('Enable audio').click());
     expect(phone.unlockAudio).toHaveBeenCalled();
   });
@@ -210,7 +215,7 @@ describe('PhoneConsole — blind transfer', () => {
 
   it('Transfer opens the panel; keypad enters the number (no DTMF); Transfer now calls the engine', async () => {
     const phone = makePhone({ call: activeCall() });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(q('form[aria-label="Transfer"]')).toBeNull();
     act(() => btn('Transfer').click());
     expect(q('form[aria-label="Transfer"]')).not.toBeNull();
@@ -224,7 +229,7 @@ describe('PhoneConsole — blind transfer', () => {
 
   it('Back to call closes the panel and the keypad sends tones again', () => {
     const phone = makePhone({ call: activeCall() });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     act(() => btn('Transfer').click());
     act(() => btn('Back to call').click());
     expect(q('form[aria-label="Transfer"]')).toBeNull();
@@ -233,7 +238,7 @@ describe('PhoneConsole — blind transfer', () => {
   });
 
   it('shows progress and locks the panel while transferring', () => {
-    render(console_(makePhone({ call: activeCall({ target: '1002', status: 'accepted' }) })));
+    render(console_(makePhone({ call: activeCall({ target: '1002', status: 'accepted' }) }))); openPad();
     expect(q('[aria-label="Transfer status"]').textContent).toContain('Connecting customer to 1002');
     expect(btn('Transfer now').disabled).toBe(true);
     expect(btn('Back to call').disabled).toBe(true);
@@ -242,14 +247,14 @@ describe('PhoneConsole — blind transfer', () => {
 
   it('a failed transfer says the customer is still on the call', () => {
     const phone = makePhone({ call: activeCall({ target: '1002', status: 'failed', reason: 'Busy' }) });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     act(() => btn('Transfer').click());
     expect(q('[aria-label="Transfer status"]').textContent).toContain('Transfer failed: Busy. Customer is still with you.');
     expect(btn('End call')).toBeDefined();
   });
 
   it('not offered while ringing', () => {
-    render(console_(makePhone({ call: sip() })));
+    render(console_(makePhone({ call: sip() }))); openPad();
     expect(btn('Transfer').disabled).toBe(true);
   });
 });
@@ -260,7 +265,7 @@ describe('PhoneConsole — consult transfer', () => {
 
   it('Consult first calls the colleague with the typed number', async () => {
     const phone = makePhone({ call: sip({ status: 'active', answeredAt: Date.now() }) });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     act(() => btn('Transfer').click());
     act(() => type(q('input[aria-label="Transfer to number"]'), '1002'));
     await act(async () => btn('Consult first').click());
@@ -270,7 +275,7 @@ describe('PhoneConsole — consult transfer', () => {
 
   it('while consulting: both parties shown, Complete / Swap / Cancel work; keypad, mute, hold, End call off', () => {
     const phone = makePhone({ call: held(), consult: consult() });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     const card = q('[aria-label="Consult call"]').textContent;
     expect(card).toContain('Customer');
     expect(card).toContain('On hold');
@@ -289,7 +294,7 @@ describe('PhoneConsole — consult transfer', () => {
   });
 
   it('colleague still ringing: Complete and Swap wait, Cancel allowed', () => {
-    render(console_(makePhone({ call: held(), consult: consult({ status: 'ringing-out', answeredAt: undefined }) })));
+    render(console_(makePhone({ call: held(), consult: consult({ status: 'ringing-out', answeredAt: undefined }) }))); openPad();
     expect(q('[aria-label="Consult status"]').textContent).toBe('Ringing…');
     expect(btn('Complete transfer').disabled).toBe(true);
     expect(btn('Talk to customer').disabled).toBe(true);
@@ -298,7 +303,7 @@ describe('PhoneConsole — consult transfer', () => {
 
   it('Conference all three (button and tile) merges the calls', () => {
     const phone = makePhone({ call: held(), consult: consult() });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(btn('Conference').disabled).toBe(false);
     act(() => btn('Conference all three').click());
     act(() => btn('Conference').click());
@@ -307,7 +312,7 @@ describe('PhoneConsole — consult transfer', () => {
 
   it('answered call: Conference opens the panel and Call colleague starts the consult', async () => {
     const phone = makePhone({ call: sip({ status: 'active', answeredAt: Date.now() }) });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(btn('Conference').disabled).toBe(false);
     act(() => btn('Conference').click());
     expect(q('label[for="xfer-number"]').textContent).toBe('Add to conference');
@@ -319,7 +324,7 @@ describe('PhoneConsole — consult transfer', () => {
   });
 
   it('while merging: status says joining, buttons wait', () => {
-    render(console_(makePhone({ call: held(), consult: consult({ completing: true }), conference: { room: '3001', status: 'merging' } })));
+    render(console_(makePhone({ call: held(), consult: consult({ completing: true }), conference: { room: '3001', status: 'merging' } }))); openPad();
     expect(q('[aria-label="Consult status"]').textContent).toBe('Joining conference…');
     expect(btn('Conference all three').disabled).toBe(true);
     expect(btn('Complete transfer').disabled).toBe(true);
@@ -327,20 +332,20 @@ describe('PhoneConsole — consult transfer', () => {
 
   it('in a conference: room shown and End call becomes Leave conference', () => {
     const phone = makePhone({ call: sip({ status: 'active', direction: 'outbound', remoteIdentity: '3001', answeredAt: Date.now() }), conference: { room: '3001', status: 'joined' } });
-    render(console_(phone));
+    render(console_(phone)); openPad();
     expect(q('[aria-label="Conference status"]').textContent).toContain('3001');
     act(() => btn('Leave conference').click());
     expect(phone.hangup).toHaveBeenCalled();
   });
 
   it('after swapping back to the customer the button offers the colleague', () => {
-    render(console_(makePhone({ call: sip({ status: 'active', held: false, answeredAt: Date.now() }), consult: consult({ held: true }) })));
+    render(console_(makePhone({ call: sip({ status: 'active', held: false, answeredAt: Date.now() }), consult: consult({ held: true }) }))); openPad();
     expect(btn('Talk to colleague')).toBeDefined();
     expect(q('[aria-label="Consult status"]').textContent).toBe('On hold');
   });
 
   it('completing: everything locked while FreeSWITCH joins the calls', () => {
-    render(console_(makePhone({ call: held(), consult: consult({ completing: true }) })));
+    render(console_(makePhone({ call: held(), consult: consult({ completing: true }) }))); openPad();
     expect(q('[aria-label="Consult status"]').textContent).toBe('Transferring…');
     expect(btn('Complete transfer').disabled).toBe(true);
     expect(btn('Cancel consult').disabled).toBe(true);

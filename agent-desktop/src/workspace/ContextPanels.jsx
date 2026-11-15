@@ -88,8 +88,8 @@ export function QueueSummary({ queues }) {
       ) : (
         <ul className="divide-y divide-panel-border">
           {queues.map((q) => (
-            <li key={q.name} className="flex items-center justify-between gap-2 py-1.5 text-xs">
-              <span className="text-ink truncate" title={q.name}>{q.display_name || q.name}</span>
+            <li key={q.name} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 py-1.5 text-xs">
+              <span className="text-ink break-words min-w-0" title={q.name}>{q.display_name || q.name}</span>
               <span className="flex items-center gap-2 shrink-0">
                 <span className={q.waiting > 0 ? 'font-semibold text-status-ringing' : 'text-ink-dim'}>{q.waiting ?? 0} waiting</span>
                 <span className="text-ink-faint">{q.available_agents ?? 0} avail.</span>

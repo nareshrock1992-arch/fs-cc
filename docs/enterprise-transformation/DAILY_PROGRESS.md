@@ -73,3 +73,4 @@
 ## 2026-11-14 — BUG-007 stuck call
 - Diagnosed from FreeSWITCH log: Wednesday's leg 724e107e held at 16:58:57, never hung up; customer 5bdcbcf7 left at 17:00:41; agent leg ended only at the 19:08 FreeSWITCH restart.
 - Fixes: phone release fallback (10 s after REFER accepted), supervisor Force hang-up (audited). Not committed / not deployed.
+- Agent desktop step 1 (folding keypad, layout widths, phone-width bug) built and previewed; not deployed.

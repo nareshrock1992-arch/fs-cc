@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Phone, PhoneOutgoing, PhoneOff, Mic, MicOff, Pause, Play, ArrowRightLeft, Users, Delete, X, Volume2, LogOut, AlertTriangle,
+  Phone, PhoneOutgoing, PhoneOff, Mic, MicOff, Pause, Play, ArrowRightLeft, Users, Delete, X, Volume2, LogOut, AlertTriangle, Keyboard,
 } from 'lucide-react';
 import { Button, IconButton } from '../../ui/primitives.jsx';
 import { useElapsed, useSince } from '../format.js';
@@ -42,6 +42,9 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   const [tones, setTones] = useState('');
   const [xferOpen, setXferOpen] = useState(false);
   const [xferNumber, setXferNumber] = useState('');
+  // Keypad folds away by default (number field + keyboard cover most dialling);
+  // one click opens it, e.g. for IVR tones during a call.
+  const [keypadOpen, setKeypadOpen] = useState(false);
   // 'transfer' or 'conference': the same number panel, opened from either tile.
   const [xferMode, setXferMode] = useState('transfer');
   const confMode = xferMode === 'conference';
@@ -172,7 +175,7 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
       )}
 
       {/* display */}
-      <div className="px-4 pt-4 pb-3 min-h-[7.25rem] flex flex-col justify-center" aria-live="polite">
+      <div className="px-4 pt-4 pb-3 min-h-[6rem] flex flex-col justify-center" aria-live="polite">
         {idle ? (
           <form onSubmit={call} aria-label="Dial pad">
             {status === 'ended' && <LastCallLine interaction={interaction} />}
@@ -240,13 +243,25 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
         )}
       </div>
 
-      {/* keypad — always visible */}
+      {/* keypad — folded by default, one click to open */}
       <div className="px-4">
-        <PhoneKeypad label={showXfer ? 'Transfer keypad' : inCall ? 'In-call keypad' : 'Dial keypad'} onKey={onKey}
-          disabled={!(inCall || canDial) || (showXfer && xferBusy) || consulting} />
-        <p className="mt-1.5 h-4 text-center text-[0.6875rem] font-mono text-ink-dim" aria-label="Tones sent">
-          {consulting ? '' : showXfer ? 'Keypad enters the transfer number' : inCall ? (tones ? `Tones sent: ${tones}` : 'Keypad sends tones (DTMF)') : ''}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <button type="button" onClick={() => setKeypadOpen((o) => !o)} aria-expanded={keypadOpen}
+            aria-label={keypadOpen ? 'Hide keypad' : 'Show keypad'}
+            className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-xs font-medium text-ink-dim hover:bg-panel-raised hover:text-ink">
+            <Keyboard size={14} aria-hidden="true" /> {keypadOpen ? 'Hide keypad' : 'Keypad'}
+          </button>
+          <p className="text-[0.6875rem] font-mono text-ink-dim truncate" aria-label="Tones sent">
+            {consulting ? '' : showXfer ? (keypadOpen ? 'Keypad enters the transfer number' : '')
+              : inCall ? (tones ? `Tones sent: ${tones}` : 'Keyboard digits send tones') : ''}
+          </p>
+        </div>
+        {keypadOpen && (
+          <div className="mt-2">
+            <PhoneKeypad label={showXfer ? 'Transfer keypad' : inCall ? 'In-call keypad' : 'Dial keypad'} onKey={onKey}
+              disabled={!(inCall || canDial) || (showXfer && xferBusy) || consulting} />
+          </div>
+        )}
       </div>
 
       {/* primary action */}
