@@ -77,3 +77,4 @@
 - 2026-11-15: Agent desktop step 2 (idle Ready panel) built; tests 198/198; not deployed.
 - 2026-11-15: Agent desktop step 3 (right column: queues table, previous-call summary) built; tests 199/199; not deployed.
 - 2026-11-15: Agent desktop Queues/Calls page fixes built; tests 200/200; not deployed.
+- 2026-11-16: OPS-2 check (read-only). Ubuntu-FS is WSL on the laptop: laptop 7.9 GB RAM / 4 CPUs (0.7 GB free); WSL gets 3.8 GB (default half), swap 1 GB. At check time load 0.7, 96% idle. Biggest users: 3 Vite dev servers + npm wrappers (~700 MB, CPU spikes on each page load), Piper TTS 220 MB, backends ~110 MB each. Earlier load spikes overlap with test/build runs on the same host. Services were stopped/started at 11:35 (not by this session). Backend logs slow queries 0.5–0.8 s. Options: serve built frontends instead of Vite dev (needs approval), run heavy tests less often, more laptop RAM or a separate host.

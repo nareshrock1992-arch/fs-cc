@@ -13,8 +13,9 @@ module.exports = {
     {
       name: "fs-frontend",
       cwd: "/opt/freeswitch-ui/fs-cc/frontend",
-      script: "npm",
-      args: "run dev -- --host 0.0.0.0 --port 8000",
+      // serves the built pages in dist/ (run scripts/dev-deploy.sh frontend to rebuild)
+      script: "node_modules/.bin/vite",
+      args: "preview --host 0.0.0.0 --port 8000 --strictPort",
       watch: false,
       env: {
         NODE_ENV: "development"
@@ -23,8 +24,9 @@ module.exports = {
     {
       name: "fs-agent",
       cwd: "/opt/freeswitch-ui/fs-cc/agent-desktop",
-      script: "npm",
-      args: "run dev -- --host 0.0.0.0 --port 8080",
+      // serves the built pages in dist/ over HTTPS (run scripts/dev-deploy.sh agent to rebuild)
+      script: "node_modules/.bin/vite",
+      args: "preview --host 0.0.0.0 --port 8080 --strictPort",
       watch: false,
       env: {
         NODE_ENV: "development"

@@ -29,3 +29,5 @@ Thumbs.db
 *.bak.*
 *.bak-*
 backups/
+dist.new/
+dist.old/
