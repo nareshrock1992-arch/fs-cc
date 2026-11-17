@@ -45,3 +45,9 @@ Backend deploys are unchanged. I would add a small script `scripts/dev-deploy.sh
 - ENRS frontend on :8100 (separate project, started outside this pm2 list) — same fix would save ~250 MB; needs its own approval.
 - Production setup (nginx etc.) — unchanged; this is DEV only.
 - Slow database queries (0.5–0.8 s) — separate small task.
+
+## Done (2026-11-16, commit 448dcdd)
+- DEV pulled, both apps built (admin 55 s, agent 25 s), pm2 entries switched and saved.
+- Checks: 8000 and 8080 answer 200; `/api` proxy works on both (8080 over HTTPS); agent desktop loads the built bundle (no dev client), stays signed in, status badge only "Warning (Phone)" = server, live updates and SIP engine OK; browser phone panel present.
+- Memory: the two page services now 130 + 134 MB (was 110 + 160 + 92 + 89 = 451 MB) → about 185 MB saved; no per-page recompiling.
+- From now on frontend deploys use `scripts/dev-deploy.sh frontend|agent|backend` on DEV.
