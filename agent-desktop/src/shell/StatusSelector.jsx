@@ -16,7 +16,7 @@ export function statusLevel(status) {
   return 'off';
 }
 
-export default function StatusSelector({ currentStatus, breakName, breakCodes, onStatusChange, onError }) {
+export default function StatusSelector({ currentStatus, breakName, breakCodes, onStatusChange, onError, availableBlockedReason = null }) {
   const [open, setOpen] = useState(false);
   const [changing, setChanging] = useState(null);
   const ref = useRef(null);
@@ -60,16 +60,22 @@ export default function StatusSelector({ currentStatus, breakName, breakCodes, o
                    text-sm font-medium text-ink hover:bg-panel-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         {changing ? <Loader2 size={14} className="animate-spin" /> : <StatusDot level={statusLevel(currentStatus)} />}
-        <span className="max-w-[11rem] truncate">{label}</span>
+        <span className="max-w-[6.5rem] sm:max-w-[11rem] truncate">{label}</span>
         <ChevronDown size={14} className={`text-ink-dim transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
         <div role="menu" className="absolute right-0 z-30 mt-1 w-64 rounded-lg border border-panel-border bg-panel-surface py-1 shadow-lg">
-          <button role="menuitem" className={item} disabled={currentStatus === 'Available'} onClick={() => post('Available')}>
+          <button role="menuitem" className={item} disabled={currentStatus === 'Available' || !!availableBlockedReason}
+            aria-describedby={availableBlockedReason ? 'available-blocked-reason' : undefined}
+            onClick={() => post('Available')}>
             <StatusDot level="ok" /> <span className="flex-1">Available</span>
             {currentStatus === 'Available' && <Check size={14} className="text-ink-dim" />}
           </button>
+          {/* Browser phone not ready: Available would ring a phone that is not there (CP3-E). */}
+          {availableBlockedReason && currentStatus !== 'Available' && (
+            <p id="available-blocked-reason" className="px-3 pb-1 text-[0.6875rem] text-status-error">{availableBlockedReason}</p>
+          )}
 
           <p className="px-3 pt-2 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-faint flex items-center gap-1.5">
             <Coffee size={12} /> {currentStatus === 'On Break' ? 'Change break' : 'Take a break'}

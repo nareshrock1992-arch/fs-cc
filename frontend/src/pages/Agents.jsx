@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, Search, KeyRound, Users, CheckCircle2, XCircle } from 'lucide-react';
-import { Agents as AgentsApi } from '../api/client.js';
+import { Agents as AgentsApi, Telephony as TelephonyApi } from '../api/client.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { useSocketEvent } from '../api/socket.js';
 import Panel from '../components/Panel.jsx';
@@ -18,6 +18,8 @@ const EMPTY_FORM = {
   fsAgentType: 'callback',
   // Per-agent ring timeout (seconds). '' = no override (backward compatible).
   ringTimeout: '',
+  // Browser phone (CP3). Only shown/sent when the installation's TELEPHONY_MODE allows it.
+  webrtcEnabled: false,
   maxNoAnswer: 3, wrapUpTime: 20, rejectDelayTime: 2, busyDelayTime: 60, noAnswerDelayTime: 10
 };
 
@@ -45,6 +47,13 @@ export default function Agents() {
   const [form,      setForm]      = useState(EMPTY_FORM);
   const [saving,    setSaving]    = useState(false);
   const [formError, setFormError] = useState(null);
+  // Customer telephony mode; null until loaded. Unknown/failed = browser phone hidden.
+  const [telephony, setTelephony] = useState(null);
+  const webrtcAvailable = telephony?.webrtc_available === true;
+
+  useEffect(() => {
+    TelephonyApi.config().then(setTelephony).catch(() => setTelephony(null));
+  }, []);
 
   // ── PIN modal ───────────────────────────────────────────────────────────────
   const [pinModal,     setPinModal]     = useState(false);
@@ -99,7 +108,9 @@ export default function Agents() {
 
   function openCreate() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    // FREESWITCH_WEBRTC: new internal agents start with the browser phone ticked.
+    // HYBRID: the administrator chooses per agent (starts unticked).
+    setForm({ ...EMPTY_FORM, webrtcEnabled: telephony?.mode === 'FREESWITCH_WEBRTC' });
     setFormError(null);
     setModalOpen(true);
   }
@@ -136,6 +147,7 @@ export default function Agents() {
       destination,
       fsAgentType:     agent.fs_agent_type || 'callback',
       ringTimeout:     agent.ring_timeout ?? '',
+      webrtcEnabled:   agent.webrtc_enabled === true,
       maxNoAnswer:     agent.max_no_answer,
       wrapUpTime:      agent.wrap_up_time,
       rejectDelayTime: agent.reject_delay_time,
@@ -161,10 +173,14 @@ export default function Agents() {
     setSaving(true);
     setFormError(null);
     try {
+      // The browser-phone setting is only sent when the installation allows it and
+      // the agent is internal; otherwise the backend keeps (or defaults) its value.
+      const { webrtcEnabled, ...rest } = form;
+      const payload = webrtcAvailable && form.agentType === 'internal' ? { ...rest, webrtcEnabled } : rest;
       if (editingId) {
-        await AgentsApi.update(editingId, form);
+        await AgentsApi.update(editingId, payload);
       } else {
-        await AgentsApi.create(form);
+        await AgentsApi.create(payload);
       }
       setModalOpen(false);
       await load();
@@ -510,6 +526,18 @@ export default function Agents() {
                   className={inputClass}
                   placeholder="1002"
                 />
+              </FormField>
+            )}
+            {form.agentType === 'internal' && webrtcAvailable && (
+              <FormField label="Browser phone" hint="Lets this agent use the softphone in the Agent Desktop. A change applies after the agent's current call ends.">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.webrtcEnabled === true}
+                    onChange={(e) => setForm({ ...form, webrtcEnabled: e.target.checked })}
+                  />
+                  Enable browser phone
+                </label>
               </FormField>
             )}
             {form.agentType === 'gateway' && (

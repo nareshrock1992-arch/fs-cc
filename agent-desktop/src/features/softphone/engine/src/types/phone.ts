@@ -63,6 +63,20 @@ export interface Credentials {
   domain: string;
   wssUrl: string;
   displayName?: string;
+  /**
+   * FS-CC relay (CP3-E): returns a FRESH single-use relay URL. Called before every
+   * reconnect so a spent ticket is never reused. Throw a TicketError with
+   * `fatal: true` when the server refuses (phone no longer allowed).
+   */
+  ticketProvider?: (kind: 'connect' | 'reconnect') => Promise<string>;
+}
+
+/** Error from a ticketProvider. `fatal` = do not retry (permission removed). */
+export class TicketError extends Error {
+  constructor(message: string, readonly fatal: boolean) {
+    super(message);
+    this.name = 'TicketError';
+  }
 }
 
 export interface DeviceOption {

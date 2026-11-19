@@ -14,11 +14,12 @@ const TONE = {
   connected: 'ok', held: 'break', 'connected-elsewhere': 'busy', ended: 'neutral',
 };
 
-export default function CallStrip({ interaction, phone, onOpenPhone }) {
+export default function CallStrip({ interaction, phone, onOpenPhone, hideRingActions = false }) {
   const s = interaction.status;
   const controllable = Boolean(interaction.controllable && phone);
   const inCall = controllable && (s === 'connected' || s === 'held');
-  const ringingHere = controllable && s === 'ringing';
+  // Answer/Reject live in the IncomingCallNotification when it is shown (no duplicates).
+  const ringingHere = controllable && s === 'ringing' && !hideRingActions;
   const progressing = controllable && ['dialing', 'ringing-out', 'connecting'].includes(s);
   const ringingNow = s === 'ringing' || s === 'offering';
   const since = useSince(ringingNow, interaction.id);

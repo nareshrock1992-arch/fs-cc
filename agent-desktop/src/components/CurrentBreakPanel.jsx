@@ -10,6 +10,8 @@ export default function CurrentBreakPanel({
   breakName, breakCode, breakStartedAt,
   maxDurationSeconds, warnThresholdSeconds,
   onReturn,
+  // CP3-E: why returning to Available is not possible now (browser phone not ready).
+  returnBlockedReason = null,
 }) {
   const [elapsed, setElapsed] = useState(() => elapsedSeconds(breakStartedAt));
   const [returning, setReturning] = useState(false);
@@ -64,7 +66,9 @@ export default function CurrentBreakPanel({
 
         <button
           onClick={handleReturn}
-          disabled={returning}
+          disabled={returning || !!returnBlockedReason}
+          title={returnBlockedReason || undefined}
+          aria-describedby={returnBlockedReason ? 'return-blocked-reason' : undefined}
           className="btn border text-sm font-semibold bg-lamp-available/10 border-lamp-available/30
                      hover:bg-lamp-available/20 text-lamp-available disabled:opacity-60"
         >
@@ -72,6 +76,10 @@ export default function CurrentBreakPanel({
           Return to Available
         </button>
       </div>
+
+      {returnBlockedReason && (
+        <p id="return-blocked-reason" className="mt-3 text-xs font-medium text-lamp-alert">{returnBlockedReason}</p>
+      )}
 
       {(warning || over) && (
         <div className={`mt-3 flex items-start gap-2 text-xs font-medium

@@ -2,6 +2,25 @@ import { query } from '../db/pool.js';
 import { cc, isConnected } from '../services/eslService.js';
 import { config } from '../config/index.js';
 import * as agentSession from '../services/agentSessionService.js';
+import { writeAudit, staffActor } from '../services/auditService.js';
+import { modeAllowsWebrtc, effectiveWebrtc } from '../utils/telephony.js';
+import { getPhonePresence } from '../services/phonePresenceService.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Browser phone (WebRTC) per-agent permission — CP3.
+// The customer mode (TELEPHONY_MODE) always wins: enabling is refused when the
+// mode prohibits WebRTC, and gateway agents can never be enabled (also enforced
+// by the DB constraint agents_webrtc_internal_only, migration 014).
+// Returns an error message, or null when the requested value is acceptable.
+// ─────────────────────────────────────────────────────────────────────────────
+export function validateWebrtcSetting({ webrtcEnabled, agentType, mode }) {
+  if (webrtcEnabled === undefined || webrtcEnabled === null) return null;
+  if (typeof webrtcEnabled !== 'boolean') return 'webrtcEnabled must be a boolean';
+  if (webrtcEnabled === false) return null;
+  if (!modeAllowsWebrtc(mode)) return 'The browser phone is disabled for this installation (TELEPHONY_MODE=EXTERNAL_PBX).';
+  if (agentType !== 'internal') return 'Only internal agents can use the browser phone; gateway agents cannot.';
+  return null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Contact builder — single canonical location for PAI prefix enforcement
@@ -125,6 +144,7 @@ export async function listAgents(req, res) {
       a.busy_delay_time,
       a.no_answer_delay_time,
       a.ring_timeout,
+      a.webrtc_enabled,
       a.active,
       a.created_at,
       a.updated_at,
@@ -212,7 +232,9 @@ export async function createAgent(req, res) {
     wrapUpTime     = 20,
     rejectDelayTime = 2,
     busyDelayTime   = 60,
-    noAnswerDelayTime = 10
+    noAnswerDelayTime = 10,
+    // Browser phone (CP3) — optional, default false
+    webrtcEnabled = false,
   } = req.body;
 
   if (!agentId || !fullName || !avayaExtension) {
@@ -233,16 +255,19 @@ export async function createAgent(req, res) {
 
   const resolvedType = agentType || (rawContact && rawContact.includes('sofia/gateway') ? 'gateway' : 'internal');
 
+  const webrtcErr = validateWebrtcSetting({ webrtcEnabled, agentType: resolvedType, mode: config.telephony?.mode });
+  if (webrtcErr) return res.status(400).json({ error: webrtcErr });
+
   const { rows } = await query(
     `INSERT INTO agents
        (agent_id, full_name, avaya_extension, agent_type, fs_agent_type, contact,
         max_no_answer, wrap_up_time, reject_delay_time, busy_delay_time,
-        no_answer_delay_time, ring_timeout)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        no_answer_delay_time, ring_timeout, webrtc_enabled)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
      RETURNING *`,
     [agentId, fullName, avayaExtension, resolvedType, fsAgentType, builtContact,
      maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime,
-     noAnswerDelayTime, (ringTimeout === '' ? null : ringTimeout)]
+     noAnswerDelayTime, (ringTimeout === '' ? null : ringTimeout), webrtcEnabled === true]
   );
 
   try {
@@ -274,7 +299,9 @@ export async function updateAgent(req, res) {
     // FreeSWITCH agent type + per-agent ring timeout
     fsAgentType, ringTimeout,
     // Call behavior
-    maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, noAnswerDelayTime, active
+    maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, noAnswerDelayTime, active,
+    // Browser phone (CP3)
+    webrtcEnabled,
   } = req.body;
 
   const cfgErrors = validateAgentConfig({
@@ -302,6 +329,19 @@ export async function updateAgent(req, res) {
     }
   }
 
+  // Browser phone permission. Switching an agent to gateway always turns it off.
+  let webrtcValue = null; // null = leave unchanged
+  let webrtcBefore = null;
+  if ((webrtcEnabled !== undefined && webrtcEnabled !== null) || agentType === 'gateway') {
+    const cur = await query(`SELECT agent_type, webrtc_enabled FROM agents WHERE agent_id = $1`, [agentId]);
+    if (!cur.rows[0]) return res.status(404).json({ error: 'Agent not found' });
+    webrtcBefore = cur.rows[0].webrtc_enabled === true;
+    const effType = agentType || cur.rows[0].agent_type;
+    const webrtcErr = validateWebrtcSetting({ webrtcEnabled, agentType: effType, mode: config.telephony?.mode });
+    if (webrtcErr) return res.status(400).json({ error: webrtcErr });
+    webrtcValue = effType === 'gateway' ? false : (typeof webrtcEnabled === 'boolean' ? webrtcEnabled : null);
+  }
+
   const normRingTimeout = ringTimeout === '' ? null : ringTimeout;
   const { rows } = await query(
     `UPDATE agents SET
@@ -319,16 +359,40 @@ export async function updateAgent(req, res) {
        -- ring_timeout is nullable-with-meaning: only overwrite when the key was
        -- present in the request body (so an omitted field never wipes it, and an
        -- explicit null clears the override).
-       ring_timeout         = CASE WHEN $14::bool THEN $13 ELSE ring_timeout END
+       ring_timeout         = CASE WHEN $14::bool THEN $13 ELSE ring_timeout END,
+       webrtc_enabled       = COALESCE($15::bool, webrtc_enabled)
      WHERE agent_id = $1
      RETURNING *`,
     [agentId, fullName, avayaExtension,
      agentType || null, builtContact || null,
      maxNoAnswer, wrapUpTime, rejectDelayTime, busyDelayTime, active,
      fsAgentType || null, noAnswerDelayTime,
-     normRingTimeout, Object.prototype.hasOwnProperty.call(req.body, 'ringTimeout')]
+     normRingTimeout, Object.prototype.hasOwnProperty.call(req.body, 'ringTimeout'),
+     webrtcValue]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Agent not found' });
+
+  if (webrtcValue !== null && webrtcBefore !== null && webrtcValue !== webrtcBefore) {
+    const { actor, actorRole } = staffActor(req);
+    await writeAudit({
+      actor, actorRole, action: 'AGENT_WEBRTC_CHANGED',
+      entityType: 'agent', entityId: agentId,
+      oldValue: { webrtc_enabled: webrtcBefore }, newValue: { webrtc_enabled: webrtcValue },
+    }).catch((e) => console.error('[agents] audit failed:', e.message));
+  }
+
+  // Browser-phone permission may have changed (flag, active, type or contact):
+  // tell phone presence (CP3-D). Never cuts an active call.
+  const presence = getPhonePresence();
+  const permissionTouched = webrtcValue !== null || active !== undefined || hasContactChange;
+  if (presence && permissionTouched) {
+    const allowed = effectiveWebrtc(rows[0], config.telephony?.mode).allowed;
+    const changed = webrtcValue !== null && webrtcBefore !== null && webrtcValue !== webrtcBefore;
+    if (changed || (!allowed && presence.isTracked(agentId))) {
+      presence.permissionChanged(agentId, allowed)
+        .catch((e) => console.error('[agents] phone permission update failed:', e.message));
+    }
+  }
 
   try {
     if (builtContact)                    await cc.agentSetParam(agentId, 'contact',              builtContact);
@@ -386,6 +450,7 @@ export async function setAgentStatus(req, res) {
   );
   try { await agentSession.handleStatusTransition(agentId, status, 'manual'); }
   catch (err) { console.error('[sessions] setAgentStatus transition failed:', err.message); }
+  if (status === 'Logged Out') getPhonePresence()?.agentLoggedOut(agentId);
   res.json({ agentId, status });
 }
 

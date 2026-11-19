@@ -15,7 +15,7 @@ import ThemeToggle from '../components/ThemeToggle.jsx';
  * shown from 1280 px; Phase 3 fills it.
  */
 export default function AppShell({
-  agent, queueNames = [], lamps, statusSelector, theme, onLogout,
+  agent, queueNames = [], lamps, statusSelector, phoneStatus = null, theme, onLogout,
   nav, activeView, onNavigate, aside, children,
 }) {
   return (
@@ -45,6 +45,8 @@ export default function AppShell({
           </span>
         </div>
 
+        {/* Phone connectivity and agent status are separate things, shown side by side. */}
+        {phoneStatus}
         {statusSelector}
 
         <ThemeToggle isDark={theme.isDark} onToggle={theme.toggle} />

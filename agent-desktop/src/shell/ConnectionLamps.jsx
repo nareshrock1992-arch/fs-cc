@@ -76,7 +76,7 @@ export default function ConnectionLamps({ lamps }) {
         className={`inline-flex items-center gap-1.5 h-7 rounded-md border border-transparent px-2 text-[0.75rem] font-medium hover:bg-surface-2 ${SUMMARY_TONE[health.level]}`}
       >
         <StatusDot level={health.level} />
-        <span>{health.label}</span>
+        <span className="hidden sm:inline">{health.label}</span>
         {problems.length > 0 && <span className="hidden sm:inline font-normal">· {problems.map((p) => p.label).join(', ')}</span>}
       </button>
 

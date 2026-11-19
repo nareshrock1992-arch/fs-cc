@@ -161,6 +161,11 @@ export async function createBreakCode(req, res) {
   }
 }
 
+// System-managed break codes (CP3). Applied only by the backend; cannot be edited,
+// deactivated or made agent-selectable through the admin API.
+export const SYSTEM_BREAK_CODES = new Set(['PHONE_OFFLINE']);
+const systemCodeRefusal = { error: 'This is a system break reason and cannot be changed.', code: 'SYSTEM_BREAK_CODE' };
+
 // ── PUT /api/break-codes/:id ─────────────────────────────────────────────────
 export async function updateBreakCode(req, res) {
   const id = parseId(req.params.id);
@@ -173,6 +178,8 @@ export async function updateBreakCode(req, res) {
 
   const before = await query(`SELECT * FROM break_codes WHERE id = $1`, [id]);
   if (!before.rows[0]) return res.status(404).json({ error: 'Break code not found' });
+  if (SYSTEM_BREAK_CODES.has(before.rows[0].code)) return res.status(403).json(systemCodeRefusal);
+  if (p.code && SYSTEM_BREAK_CODES.has(String(p.code).toUpperCase())) return res.status(403).json(systemCodeRefusal);
 
   // Re-validate cross-field rule against the MERGED result (partial updates).
   const merged = { ...before.rows[0], ...p };
@@ -221,6 +228,7 @@ export async function setBreakCodeStatus(req, res) {
 
   const before = await query(`SELECT * FROM break_codes WHERE id = $1`, [id]);
   if (!before.rows[0]) return res.status(404).json({ error: 'Break code not found' });
+  if (SYSTEM_BREAK_CODES.has(before.rows[0].code)) return res.status(403).json(systemCodeRefusal);
 
   const { actor, actorRole } = staffActor(req);
   const { rows } = await query(

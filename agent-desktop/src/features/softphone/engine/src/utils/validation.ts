@@ -46,6 +46,16 @@ export function validateWssUrl(value: string): ValidationResult {
   return { ok: true };
 }
 
+/**
+ * Hide single-use relay tickets (and any other query secrets) before a URL is
+ * logged, shown in an error or stored in UI state. Works on free text too, so it
+ * can clean SIP.js log lines such as "Connecting wss://host/path?ticket=…".
+ */
+export function redactUrl(text: string): string {
+  if (typeof text !== 'string') return text;
+  return text.replace(/([?&](?:ticket|token|password)=)[^&\s"'#]*/gi, '$1***');
+}
+
 /** Strips visual separators people commonly type, then validates. */
 export function normaliseDialString(value: string): string | undefined {
   const cleaned = value.replace(/[\s\-().]/g, '');

@@ -1,22 +1,24 @@
 /**
- * configAdapter — turns FS-CC configuration and the signed-in agent into the
- * engine's AppConfig and Credentials.
+ * configAdapter — browser-phone configuration and eligibility (CP3-E).
  *
- * Rules (Phase 2 plan R-3, decisions Q14/E-5):
- *  - SIP domain and WSS URL come from build configuration, never from what the agent types.
- *  - The extension is derived from the agent's existing internal contact
- *    ("user/<ext>@<domain>", optionally with a "{...}" variable prefix). No new DB field.
- *  - Gateway (and any non-internal) contacts are not eligible for WebRTC.
- *  - The password is passed in by the caller and only ever placed in the Credentials
+ * Rules:
+ *  - Whether an agent may use the browser phone is decided by the SERVER
+ *    (`/me.webrtc_allowed`, login `agent.webrtc.allowed`): customer telephony mode,
+ *    per-agent switch, internal-only, active. The browser never decides on its own.
+ *  - Extension and SIP domain come from the server's relay ticket, never from
+ *    what the agent types and never from build-time configuration.
+ *  - There is no direct FreeSWITCH WSS URL any more (VITE_SIP_WSS_URL and
+ *    VITE_SIP_DOMAIN are not used). The phone always goes through the FS-CC relay.
+ *  - The password is passed in by the caller and only placed in the Credentials
  *    object handed to the engine. It is never stored or logged here.
  */
 
-/** Same limits as the engine's EXTENSION_PATTERN (2–15 digits). */
-const INTERNAL_CONTACT = /^(?:\{[^}]*\})?user\/([0-9]{2,15})@([^\s,;{}]+)$/;
+/** Same limits as the engine's EXTENSION_PATTERN (2–15 digits); display only. */
+const INTERNAL_CONTACT = /^(?:\{[^}]*\})*user\/([0-9]{2,15})@([^\s,;{}]+)$/;
 
 /**
- * Parse an FS-CC agent contact string.
- * @param {unknown} contact e.g. "{sip_cid_type=pid}user/1000@192.168.1.124"
+ * Parse an FS-CC agent contact string (used only to SHOW the extension before sign-in).
+ * @param {unknown} contact e.g. "{sip_cid_type=pid}user/1000@pbx.example"
  * @returns {{ extension: string, domain: string } | null}
  */
 export function parseInternalContact(contact) {
@@ -25,48 +27,47 @@ export function parseInternalContact(contact) {
   return match ? { extension: match[1], domain: match[2] } : null;
 }
 
+/** The server's browser-phone permission for this agent (from /me or login). */
+export function serverAllowsWebrtc(agent) {
+  if (!agent) return false;
+  if (typeof agent.webrtc_allowed === 'boolean') return agent.webrtc_allowed;
+  return agent.webrtc?.allowed === true;
+}
+
 /**
- * Whether this agent may use the browser softphone.
- * @param {{ contact?: string } | null | undefined} agent
+ * Whether this agent may use the browser phone.
  * @returns {{ eligible: boolean, extension?: string, reason?: string }}
  */
 export function getSoftphoneEligibility(agent) {
   if (!agent) return { eligible: false, reason: 'Not signed in.' };
   const contact = agent.contact;
   if (typeof contact === 'string' && contact.includes('sofia/gateway/')) {
-    return { eligible: false, reason: 'Gateway agents cannot use the browser phone.' };
+    return { eligible: false, reason: 'Gateway agents use their desk phone, not the browser phone.' };
+  }
+  if (!serverAllowsWebrtc(agent)) {
+    return { eligible: false, reason: 'The browser phone is not enabled for you. Use your desk phone.' };
   }
   const parsed = parseInternalContact(contact);
-  if (!parsed) {
-    return { eligible: false, reason: 'This agent has no internal extension for the browser phone.' };
-  }
-  return { eligible: true, extension: parsed.extension };
-}
-
-/** Build-time feature flag (R-4). Anything other than the exact string "true" is off. */
-export function isWebrtcEnabled(env = import.meta.env) {
-  return env?.VITE_WEBRTC_ENABLED === 'true';
+  return { eligible: true, extension: parsed?.extension };
 }
 
 /**
- * Engine AppConfig from FS-CC build configuration.
- * Unlike the engine's own loadConfig(), there is NO fallback to the page host name:
- * a missing domain or WSS URL is reported as a configuration error.
- * @returns {{ config: object | null, error?: string }}
+ * Build-time kill switch. The browser phone is ON unless the build sets
+ * VITE_WEBRTC_ENABLED=false; the per-agent/customer decision is made at runtime.
  */
+export function isWebrtcEnabled(env = import.meta.env) {
+  return env?.VITE_WEBRTC_ENABLED !== 'false';
+}
+
+/** Engine AppConfig. No domain or WSS URL: both come from the relay ticket. */
 export function buildAppConfig(env = import.meta.env) {
-  const domain = (env?.VITE_SIP_DOMAIN || '').trim();
-  const wssUrl = (env?.VITE_SIP_WSS_URL || '').trim();
-  if (!domain || !wssUrl) {
-    return {
-      config: null,
-      error: 'Browser phone is not configured (VITE_SIP_DOMAIN / VITE_SIP_WSS_URL).',
-    };
+  if (!isWebrtcEnabled(env)) {
+    return { config: null, error: 'The browser phone is switched off in this installation.' };
   }
   return {
     config: {
-      defaultDomain: domain,
-      defaultWssUrl: wssUrl,
+      defaultDomain: '',
+      defaultWssUrl: '',
       registerExpires: 300, // Q13: registration renewal 300 s
       iceGatheringTimeoutMs: 1000,
       iceServers: [],
@@ -75,21 +76,20 @@ export function buildAppConfig(env = import.meta.env) {
 }
 
 /**
- * Engine Credentials for a login attempt.
- * @param {{ agent: object, password: string, config: object }} args
- * @returns {{ credentials: object | null, error?: string }}
+ * Engine Credentials from a relay ticket response.
+ * @param {{ ticket: object, password: string, displayName?: string, wssUrl: string, ticketProvider?: Function }} args
  */
-export function buildCredentials({ agent, password, config }) {
-  const eligibility = getSoftphoneEligibility(agent);
-  if (!eligibility.eligible) return { credentials: null, error: eligibility.reason };
-  if (!config) return { credentials: null, error: 'Browser phone is not configured.' };
+export function buildCredentials({ ticket, password, displayName, wssUrl, ticketProvider }) {
+  if (!ticket?.extension) return { credentials: null, error: 'The server did not return your phone extension.' };
+  if (!ticket?.sip_domain) return { credentials: null, error: 'The browser phone is not configured on the server (SIP domain missing).' };
   return {
     credentials: {
-      extension: eligibility.extension,
+      extension: String(ticket.extension),
       password: typeof password === 'string' ? password : '',
-      domain: config.defaultDomain,
-      wssUrl: config.defaultWssUrl,
-      displayName: agent.full_name || undefined,
+      domain: String(ticket.sip_domain),
+      wssUrl,
+      displayName: displayName || undefined,
+      ticketProvider,
     },
   };
 }

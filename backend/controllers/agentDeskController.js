@@ -6,6 +6,15 @@ import { cc, isConnected } from '../services/eslService.js';
 import * as agentSession from '../services/agentSessionService.js';
 import { parsePagination, applyDateRange } from '../utils/queryHelpers.js';
 import { businessTodayRange } from '../utils/timezone.js';
+import { effectiveWebrtc, modeAllowsWebrtc } from '../utils/telephony.js';
+import { getTicketStore, ticketHint } from '../services/relayTicketStore.js';
+import { getPhonePresence, PHONE_OFFLINE_CODE } from '../services/phonePresenceService.js';
+
+// Browser-phone permission for response bodies (no secrets).
+function webrtcInfo(agent) {
+  const eff = effectiveWebrtc(agent, config.telephony?.mode);
+  return { allowed: eff.allowed };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/agent-desk/login
@@ -25,7 +34,8 @@ export async function agentLogin(req, res) {
   // as defence-in-depth we still reject an ambiguous (>1 row) match rather than
   // silently authenticating an arbitrary account.
   const { rows } = await query(
-    `SELECT id, agent_id, full_name, avaya_extension, contact, status, state, pin_hash
+    `SELECT id, agent_id, full_name, avaya_extension, contact, status, state, pin_hash,
+            agent_type, webrtc_enabled, active
      FROM agents WHERE LOWER(agent_id) = LOWER($1) AND active = true`,
     [String(agent_id).trim()]
   );
@@ -70,6 +80,7 @@ export async function agentLogin(req, res) {
       contact:         agent.contact,
       status:          agent.status,
       state:           agent.state,
+      webrtc:          webrtcInfo(agent),
     }
   });
 }
@@ -85,14 +96,68 @@ export async function agentMe(req, res) {
   // break); historical snapshots come from agent_state_events instead.
   const { rows } = await query(
     `SELECT a.agent_id, a.full_name, a.avaya_extension, a.contact, a.status, a.state, a.updated_at,
-            a.break_code, a.break_started_at, bc.name AS break_name
+            a.break_code, a.break_started_at, bc.name AS break_name,
+            a.agent_type, a.webrtc_enabled, a.active, a.wrap_up_time
        FROM agents a
        LEFT JOIN break_codes bc ON bc.code = a.break_code
       WHERE a.agent_id = $1`,
     [req.agentId]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Agent not found' });
-  res.json(rows[0]);
+  const { webrtc_enabled, active, ...me } = rows[0];
+  const webrtcAllowed = webrtcInfo(rows[0]).allowed;
+  res.json({
+    ...me,
+    webrtc_allowed: webrtcAllowed,
+    // Browser-phone connectivity, separate from status/break (CP3-D).
+    phone_status: webrtcAllowed ? (getPhonePresence()?.getPhoneStatus(req.agentId) ?? 'none') : 'none',
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/agent-desk/webrtc/page-reload   (CP3-E)
+// Sent by the Agent Desktop (fetch keepalive on 'pagehide') so a browser refresh
+// does not count as a lost phone while the agent signs the phone in again.
+// Grants a one-time longer grace; rate-limited inside phone presence.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function agentWebrtcPageReload(req, res) {
+  const presence = getPhonePresence();
+  const granted = presence ? presence.expectReload(req.agentId) : false;
+  res.json({ ok: true, granted });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/agent-desk/webrtc/ticket   body: { kind?: 'connect' | 'reconnect' }
+// Issues a single-use, short-lived relay ticket bound to this agent and the
+// extension in their internal contact. Only registered when TELEPHONY_MODE allows
+// WebRTC (routes/agentDesk.js); the mode is re-checked here as defence in depth.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function agentWebrtcTicket(req, res) {
+  const mode = config.telephony?.mode;
+  if (!modeAllowsWebrtc(mode)) return res.status(404).json({ error: 'Not found' });
+  const kind = req.body?.kind === 'reconnect' ? 'reconnect' : 'connect';
+  const { rows } = await query(
+    `SELECT agent_id, agent_type, webrtc_enabled, active, contact FROM agents WHERE agent_id = $1`,
+    [req.agentId]
+  );
+  const eff = effectiveWebrtc(rows[0] || null, mode);
+  if (!eff.allowed) {
+    return res.status(403).json({ error: 'Browser phone is not enabled for this agent.', code: 'WEBRTC_NOT_ALLOWED' });
+  }
+  const store = getTicketStore(config.telephony.ticketTtlMs);
+  const { ticket, expiresInMs } = store.issue({ agentId: rows[0].agent_id, extension: eff.extension, kind });
+  console.log(`[webrtc] ${kind} ${ticketHint(ticket)} issued for ${rows[0].agent_id}`);
+  res.set?.('Cache-Control', 'no-store');
+  res.json({
+    ticket,
+    kind,
+    expires_in: Math.floor(expiresInMs / 1000),
+    extension: eff.extension,
+    sip_domain: config.fs?.sipDomain || null,
+    relay_path: '/api/sip-relay',
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -119,6 +184,11 @@ export async function agentSetStatus(req, res) {
   const rawCode = req.body?.break_code;
   if (status === 'On Break' && rawCode != null && String(rawCode).trim() !== '') {
     const code = String(rawCode).trim().toUpperCase();
+    // System break reasons are applied only by the backend, never chosen by an
+    // agent — even if an installation's own row of that name were selectable.
+    if (code === PHONE_OFFLINE_CODE) {
+      return res.status(400).json({ error: 'Invalid, inactive, or non-selectable break code' });
+    }
     const { rows } = await query(
       `SELECT code, name FROM break_codes
         WHERE code = $1 AND active = true AND agent_selectable = true`,
@@ -128,6 +198,16 @@ export async function agentSetStatus(req, res) {
       return res.status(400).json({ error: 'Invalid, inactive, or non-selectable break code' });
     }
     breakInfo = { break_code: rows[0].code, break_name: rows[0].name };
+  }
+
+  // CP3-D: an agent whose browser phone is offline cannot become Available until
+  // the phone is back (calls would ring a dead phone). A short interruption
+  // (grace period) does not block anything.
+  if (status === 'Available' && getPhonePresence()?.getPhoneStatus(req.agentId) === 'offline') {
+    return res.status(409).json({
+      error: 'Your browser phone is offline. Reconnect the phone before becoming Available.',
+      code: 'PHONE_OFFLINE',
+    });
   }
 
   try { await cc.agentSetStatus(req.agentId, status); } catch { /* ESL offline — DB is still updated */ }
@@ -147,6 +227,12 @@ export async function agentSetStatus(req, res) {
     `INSERT INTO agent_state_log (agent_id, status, reason, break_code) VALUES ($1,$2,'agent_self',$3)`,
     [req.agentId, status, breakInfo?.break_code ?? null]
   );
+  if (status === 'Logged Out' && modeAllowsWebrtc(config.telephony?.mode)) {
+    // Invalidate any unused browser-phone tickets, forget phone presence and
+    // close the agent's relay session on logout.
+    getTicketStore(config.telephony.ticketTtlMs).revokeAgent(req.agentId);
+    getPhonePresence()?.agentLoggedOut(req.agentId);
+  }
   try { await agentSession.handleStatusTransition(req.agentId, status, 'agent_self', breakInfo); }
   catch (err) { console.error('[sessions] agentSetStatus transition failed:', err.message); }
 
@@ -169,8 +255,9 @@ export async function agentBreakCodes(_req, res) {
     `SELECT code, name, description, color, icon,
             max_duration_seconds, warn_threshold_seconds
        FROM break_codes
-      WHERE active = true AND agent_selectable = true
-      ORDER BY display_order ASC, name ASC`
+      WHERE active = true AND agent_selectable = true AND code <> $1
+      ORDER BY display_order ASC, name ASC`,
+    [PHONE_OFFLINE_CODE]
   );
   res.json(rows);
 }

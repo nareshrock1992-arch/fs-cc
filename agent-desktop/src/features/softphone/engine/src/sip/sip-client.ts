@@ -10,6 +10,7 @@ import {
 import type { AppConfig } from '../config/config';
 import type { Credentials } from '../types/phone';
 import { log, type LogLevel } from '../utils/logger';
+import { redactUrl } from '../utils/validation';
 
 /**
  * Thin wrapper around SIP.js 0.21 UserAgent + Registerer.
@@ -57,8 +58,10 @@ export class SipClient {
       userAgentString: 'FS-WebRTC/0.1 (SIP.js 0.21.2)',
       logBuiltinEnabled: false,
       logLevel: import.meta.env.DEV ? 'debug' : 'warn',
+      // SIP.js logs the server URL ("Connecting wss://…?ticket=…"): never let a
+      // relay ticket reach the console or any log sink.
       logConnector: (level, category, label, content) =>
-        log(SIP_JS_LEVEL[level] ?? 'info', label ? `${category}|${label}` : category, content),
+        log(SIP_JS_LEVEL[level] ?? 'info', label ? `${category}|${label}` : category, redactUrl(content)),
       noAnswerTimeout: 60,
       sessionDescriptionHandlerFactoryOptions: {
         iceGatheringTimeout: config.iceGatheringTimeoutMs,
@@ -84,8 +87,18 @@ export class SipClient {
     return this.ua.start();
   }
 
-  /** Re-opens a dropped WSS connection. Rejects on failure. */
-  reconnect(): Promise<void> {
+  /**
+   * Re-opens a dropped WSS connection on the SAME UserAgent (so existing call
+   * dialogs survive). With the FS-CC relay a fresh single-use URL is passed in:
+   * SIP.js 0.21.2 reads `transport.configuration.server` on every connect.
+   * Rejects on failure.
+   */
+  reconnect(serverUrl?: string): Promise<void> {
+    if (serverUrl) {
+      const transport = this.ua.transport as unknown as { configuration?: { server?: string } };
+      if (!transport.configuration) throw new Error('SIP transport does not support changing the server.');
+      transport.configuration.server = serverUrl;
+    }
     return this.ua.reconnect();
   }
 

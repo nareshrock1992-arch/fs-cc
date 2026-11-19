@@ -28,15 +28,20 @@ const BUTTON_SIZES = {
   lg: 'h-11 px-4 text-sm',
 };
 
-export function Button({ variant = 'secondary', size = 'md', className, type = 'button', ...props }) {
+// forwardRef so a caller can move keyboard focus to a button (e.g. Answer on an
+// incoming call). Behaviour for existing callers is unchanged.
+export const Button = React.forwardRef(function Button(
+  { variant = 'secondary', size = 'md', className, type = 'button', ...props }, ref,
+) {
   return (
     <button
+      ref={ref}
       type={type}
       className={cx(BUTTON_BASE, BUTTON_VARIANTS[variant], BUTTON_SIZES[size], className)}
       {...props}
     />
   );
-}
+});
 
 /** Square icon-only button. `label` is required: it becomes aria-label and the tooltip. */
 export function IconButton({ label, variant = 'ghost', className, type = 'button', ...props }) {

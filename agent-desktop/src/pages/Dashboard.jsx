@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { LayoutDashboard, PhoneCall, Coffee, ListOrdered } from 'lucide-react';
-import { api }            from '../api/client.js';
+import { api, notifyPageReload } from '../api/client.js';
 import { socket }         from '../api/socket.js';
 import Desk               from '../workspace/Desk.jsx';
 
 // ── Browser phone (WebRTC) ──────────────────────────────────────────────────
-// Off unless the build sets VITE_WEBRTC_ENABLED=true. Vite replaces the env value at
-// build time, so when off the softphone code (and sip.js) is not part of the build.
-// PhoneBridge hands the live phone object (usePhone) to the whole desk.
-const WEBRTC_ENABLED = import.meta.env.VITE_WEBRTC_ENABLED === 'true';
+// CP3-E: the SERVER decides per agent (customer TELEPHONY_MODE, per-agent switch,
+// internal agents only): /me.webrtc_allowed. The phone code (and sip.js) is loaded
+// lazily and ONLY for an allowed agent, so EXTERNAL_PBX customers and desk-phone
+// agents never load it, never request relay tickets and never connect.
+// VITE_WEBRTC_ENABLED=false remains as an installation-wide kill switch.
+const WEBRTC_ENABLED = import.meta.env.VITE_WEBRTC_ENABLED !== 'false';
 const PhoneBridge = WEBRTC_ENABLED
   ? lazy(() => import('../features/softphone/ui/PhoneBridge.jsx'))
   : null;
@@ -22,6 +24,18 @@ const NAV = [
 async function stopSoftphone() {
   if (!WEBRTC_ENABLED) return;
   try { await (await import('../features/softphone/index.js')).stopSoftphoneIfActive(); } catch {}
+}
+
+/** Fields from GET /agent-desk/me that the desk keeps on the agent object. */
+function mePatch(fresh) {
+  return {
+    status: fresh.status, state: fresh.state,
+    break_code: fresh.break_code ?? null,
+    break_name: fresh.break_name ?? null,
+    break_started_at: fresh.break_started_at ?? null,
+    webrtc_allowed: fresh.webrtc_allowed === true,
+    wrap_up_time: fresh.wrap_up_time ?? null,
+  };
 }
 
 const QUEUE_INTERVAL = 3_000;
@@ -63,6 +77,11 @@ export default function Dashboard({ auth, theme }) {
 
   const agentId     = agent?.agent_id;
   const agentStatus = agent?.status || 'Logged Out';
+  // Browser phone permission from the server (login response, then /me).
+  const webrtcAllowed = WEBRTC_ENABLED && (agent?.webrtc_allowed ?? agent?.webrtc?.allowed) === true;
+  // CP3-D server phone state ('none'|'online'|'grace'|'offline') and supervisor switch-off.
+  const [serverPhone,   setServerPhone]   = useState('none');
+  const [webrtcRevoked, setWebrtcRevoked] = useState(false);
 
   // Configured break codes (active + selectable) — source of truth for the
   // break menu, current-break thresholds, and history filters.
@@ -164,12 +183,7 @@ export default function Dashboard({ auth, theme }) {
     let mounted = true;
     api.me()
       .then(fresh => {
-        if (mounted) updateAgent({
-          status: fresh.status, state: fresh.state,
-          break_code: fresh.break_code ?? null,
-          break_name: fresh.break_name ?? null,
-          break_started_at: fresh.break_started_at ?? null,
-        });
+        if (mounted) { updateAgent(mePatch(fresh)); setServerPhone(fresh.phone_status || 'none'); }
       })
       .catch(err => console.warn('[agent-desktop] mount status sync failed — keeping existing status:', err.message));
     return () => { mounted = false; };
@@ -191,12 +205,7 @@ export default function Dashboard({ auth, theme }) {
       // localStorage after a backend restart that doesn't emit agent:status.
       try {
         const fresh = await api.me();
-        updateAgent({
-          status: fresh.status, state: fresh.state,
-          break_code: fresh.break_code ?? null,
-          break_name: fresh.break_name ?? null,
-          break_started_at: fresh.break_started_at ?? null,
-        });
+        updateAgent(mePatch(fresh)); setServerPhone(fresh.phone_status || "none");
       } catch { /* ignore — mount sync or next agent:status event will correct */ }
     };
 
@@ -280,6 +289,17 @@ export default function Dashboard({ auth, theme }) {
     socket.on('agent:state',     onAgentState);
     socket.on('call:enqueued',   onQueueUpdate);
     socket.on('call:abandoned',  onAbandoned);
+    // CP3-D phone presence (browser phone connectivity, separate from agent status).
+    const onAgentPhone = ({ agentId: evtAgent, phone } = {}) => {
+      if (evtAgent === agentId && phone) setServerPhone(phone);
+    };
+    const onWebrtcChanged = ({ agentId: evtAgent, allowed } = {}) => {
+      if (evtAgent !== agentId) return;
+      if (allowed) { setWebrtcRevoked(false); updateAgent({ webrtc_allowed: true }); }
+      else setWebrtcRevoked(true); // Desk signs the phone out once no call is active
+    };
+    socket.on('agent:phone',          onAgentPhone);
+    socket.on('agent:webrtc-changed', onWebrtcChanged);
 
     return () => {
       socket.off('connect',         onConnect);
@@ -293,6 +313,8 @@ export default function Dashboard({ auth, theme }) {
       socket.off('agent:state',     onAgentState);
       socket.off('call:enqueued',   onQueueUpdate);
       socket.off('call:abandoned',  onAbandoned);
+      socket.off('agent:phone',          onAgentPhone);
+      socket.off('agent:webrtc-changed', onWebrtcChanged);
     };
   }, [agentId, fetchQueues, fetchCalls, fetchPerf, updateAgent, enrichOffer]);
 
@@ -301,13 +323,24 @@ export default function Dashboard({ auth, theme }) {
   const syncMe = useCallback(async () => {
     try {
       const fresh = await api.me();
-      updateAgent({
-        status: fresh.status, state: fresh.state,
-        break_code: fresh.break_code ?? null,
-        break_name: fresh.break_name ?? null,
-        break_started_at: fresh.break_started_at ?? null,
-      });
+      updateAgent(mePatch(fresh));
     } catch { /* keep existing */ }
+  }, [updateAgent]);
+
+  // Browser refresh: tell the backend the page is reloading, so the time needed to
+  // sign the phone in again is not counted as a lost phone (CP3-E). Desk-phone
+  // agents send nothing.
+  useEffect(() => {
+    if (!webrtcAllowed) return undefined;
+    const onPageHide = () => notifyPageReload();
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
+  }, [webrtcAllowed]);
+
+  const onPhoneDisabled = useCallback(() => {
+    setWebrtcRevoked(false);
+    setServerPhone('none');
+    updateAgent({ webrtc_allowed: false });
   }, [updateAgent]);
 
   async function handleLogout() {
@@ -336,14 +369,16 @@ export default function Dashboard({ auth, theme }) {
   const deskData = {
     agent, agentStatus, view, queues, perf, perfLoading, callState, apiOk, socketUp, eslConn,
     breakCodes, currentBreakCfg, toast, recentCalls, recentLoading, dialRequest,
+    webrtcAllowed, serverPhone, webrtcRevoked, wrapUpSeconds: agent?.wrap_up_time ?? null,
   };
   const deskActions = {
     setView, setToast, setDialRequest,
     onLogout: handleLogout, onStatusChange: handleStatusChange, onReturnFromBreak: handleReturnFromBreak,
+    onPhoneDisabled,
   };
   const renderDesk = (phone) => <Desk phone={phone} data={deskData} actions={deskActions} theme={theme} nav={NAV} />;
 
-  if (!PhoneBridge) return renderDesk(null);
+  if (!PhoneBridge || !webrtcAllowed) return renderDesk(null);
   return (
     <Suspense fallback={renderDesk(null)}>
       <PhoneBridge agent={agent}>{renderDesk}</PhoneBridge>

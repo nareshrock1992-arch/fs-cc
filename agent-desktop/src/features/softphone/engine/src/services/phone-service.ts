@@ -19,11 +19,12 @@ import {
   switchMicrophone,
 } from '../sip/call-session';
 import { SipClient } from '../sip/sip-client';
-import type { ConsultInfo, Credentials, PhoneState } from '../types/phone';
+import { TicketError, type ConsultInfo, type Credentials, type PhoneState } from '../types/phone';
 import { log } from '../utils/logger';
 import {
   isDtmfTone,
   normaliseDialString,
+  redactUrl,
   validateDomain,
   validateExtension,
   validatePassword,
@@ -86,7 +87,33 @@ export class PhoneService {
     this.reconnector = new ReconnectScheduler(
       async () => {
         if (!this.client) return;
-        await this.client.reconnect();
+        // FS-CC relay: every reconnect needs a NEW single-use ticket. A spent
+        // ticket is never reused; without a provider (standalone use) the
+        // original URL is used as before.
+        const provider = this.creds?.ticketProvider;
+        let url: string | undefined;
+        if (provider) {
+          try {
+            url = await provider('reconnect');
+          } catch (err) {
+            if (err instanceof TicketError && err.fatal) {
+              this.reconnector.cancel();
+              log('warn', 'phone', `reconnect refused by the server: ${err.message}`);
+              if (this.session) {
+                // Never cut a live call from here; the server closes the phone after the call.
+                this.store.update({ error: err.message });
+              } else {
+                this.store.update({ error: err.message });
+                await this.logout();
+                this.store.update({ error: err.message });
+              }
+              return;
+            }
+            throw err; // temporary: the scheduler retries with back-off
+          }
+          if (!this.client) return; // logged out while fetching
+        }
+        await this.client.reconnect(url);
       },
       (attempt, delay) => {
         this.store.update({ connection: 'reconnecting', reconnectAttempt: attempt });
@@ -150,19 +177,20 @@ export class PhoneService {
       onInvite: (invitation) => this.handleIncoming(invitation),
     });
     this.store.update({
-      account: { extension: creds.extension, domain: creds.domain, wssUrl: creds.wssUrl },
+      // Never keep a relay ticket in UI state.
+      account: { extension: creds.extension, domain: creds.domain, wssUrl: redactUrl(creds.wssUrl) },
     });
 
     try {
       await this.client.start();
     } catch (err) {
-      log('warn', 'phone', `WSS connect failed: ${String(err)}`);
+      log('warn', 'phone', `WSS connect failed: ${redactUrl(String(err))}`);
       await this.teardownClient();
       this.store.update({
         connection: 'disconnected',
         account: undefined,
         error:
-          `Could not open the secure WebSocket (${creds.wssUrl}). ` +
+          `Could not open the secure WebSocket (${redactUrl(creds.wssUrl)}). ` +
           'Check that the server is running and that its certificate is trusted by this computer.',
       });
     }
@@ -175,6 +203,13 @@ export class PhoneService {
     if (this.session) await this.hangup();
     await this.teardownClient();
     this.store.update({
+      // Store.update merges, so optional fields must be cleared explicitly;
+      // otherwise the UI would still show the old account after signing out.
+      account: undefined,
+      call: undefined,
+      consult: undefined,
+      conference: undefined,
+      notice: undefined,
       ...initialPhoneState(),
       devices: this.store.get().devices,
       online: this.store.get().online,
@@ -216,7 +251,7 @@ export class PhoneService {
       this.store.update({ connection: 'disconnected' });
       return;
     }
-    log('warn', 'phone', `transport lost: ${error?.message ?? 'closed'}`);
+    log('warn', 'phone', `transport lost: ${redactUrl(error?.message ?? "closed")}`);
     this.store.update({
       error: 'Connection to the phone server was lost. Reconnecting…',
     });

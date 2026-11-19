@@ -49,6 +49,11 @@ export const Users = {
 };
 
 // ---- Agents ----
+// Customer telephony mode (CP3) — read-only.
+export const Telephony = {
+  config: () => api.get('/telephony/config').then(r => r.data),
+};
+
 export const Agents = {
   list:      ()              => api.get('/agents').then(r => r.data),
   get:       (id)            => api.get(`/agents/${id}`).then(r => r.data),

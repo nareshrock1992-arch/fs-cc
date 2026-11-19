@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Phone, PhoneOutgoing, PhoneOff, Mic, MicOff, Pause, Play, ArrowRightLeft, Users, Delete, X, Volume2, LogOut, AlertTriangle, Keyboard,
+  Phone, PhoneOutgoing, PhoneOff, ArrowRightLeft, Users, Delete, X, Volume2, LogOut, AlertTriangle, Keyboard,
 } from 'lucide-react';
 import { Button, IconButton } from '../../ui/primitives.jsx';
 import { useElapsed, useSince } from '../format.js';
 import PhoneKeypad from './PhoneKeypad.jsx';
 import {
-  PhoneStatusBar, PhoneSignIn, CallDisplay, LastCallLine, ControlTile, AudioDevices,
+  PhoneStatusBar, PhoneSignIn, CallDisplay, LastCallLine, AudioDevices,
 } from './PhoneParts.jsx';
+import CallControls from './CallControls.jsx';
 
 /**
  * PhoneConsole — the agent's telephony console (centre of the Workspace page).
@@ -27,16 +28,16 @@ const DIAL_CHARS = /[^0-9*#+]/g;
 const TONE = /^[0-9*#]$/;
 
 /** Why the agent cannot dial now (null = can dial). Real phone state only. */
-export function dialBlockedReason(phone) {
+export function dialBlockedReason(phone, presence = null) {
   if (!phone) return 'The browser phone is not enabled on this desktop.';
   if (phone.configError) return phone.configError;
   if (!phone.eligibility?.eligible) return phone.eligibility?.reason || 'Browser phone not available for this agent.';
   if (!phone.state?.account) return 'Sign in to the phone to make calls.';
-  if (phone.state.registration !== 'registered') return phone.indicator?.label || 'Phone not registered.';
+  if (phone.state.registration !== 'registered') return presence?.label || phone.indicator?.label || 'Phone not registered.';
   return null;
 }
 
-export default function PhoneConsole({ phone, interaction, dialRequest }) {
+export default function PhoneConsole({ phone, interaction, dialRequest, presence = null }) {
   const [number, setNumber] = useState('');
   const [placing, setPlacing] = useState(false);
   const [tones, setTones] = useState('');
@@ -55,7 +56,7 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   const ringingHere = controllable && status === 'ringing';
   const progressing = controllable && ['dialing', 'ringing-out', 'connecting'].includes(status);
   const idle = !interaction || status === 'ended';
-  const blocked = dialBlockedReason(phone);
+  const blocked = dialBlockedReason(phone, presence);
   const canDial = idle && !blocked;
   const clean = number.replace(DIAL_CHARS, '');
   const signedIn = Boolean(phone?.state?.account);
@@ -138,9 +139,11 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
   // A failed sign-in (microphone missing/denied, WSS refused, wrong password) leaves no
   // account; show it as a failure instead of a neutral "Phone off".
   const signInFailed = !signedIn && Boolean(state?.error);
-  const level = configError || !eligibility.eligible ? 'off' : signInFailed ? 'error' : indicator.level;
+  // One phone status for the whole desk (CP3-E): the shared presence (engine +
+  // server) when provided, so the console and the top bar never disagree.
+  const level = configError || !eligibility.eligible ? 'off' : presence?.level ? presence.level : signInFailed ? 'error' : indicator.level;
   const label = configError ? 'Not configured' : !eligibility.eligible ? 'Not available'
-    : signInFailed ? 'Sign-in failed' : indicator.label;
+    : presence?.label ? presence.label : signInFailed ? 'Sign-in failed' : indicator.label;
 
   return (
     <section aria-label="Phone" onKeyDown={onKeyDown}
@@ -327,22 +330,17 @@ export default function PhoneConsole({ phone, interaction, dialRequest }) {
       </div>
 
       {/* in-call controls (stable layout; enabled only during a call) */}
-      <div className="px-4 pb-3 grid grid-cols-4 gap-2" role="toolbar" aria-label="Call controls">
-        <ControlTile label={interaction?.muted ? 'Unmute' : 'Mute'} icon={interaction?.muted ? MicOff : Mic}
-          pressed={!!interaction?.muted} disabled={!inCall || consulting} onClick={() => phone.toggleMute()} />
-        <ControlTile label={interaction?.held ? 'Resume' : 'Hold'} icon={interaction?.held ? Play : Pause}
-          pressed={!!interaction?.held} disabled={!inCall || consulting} onClick={() => phone.toggleHold()} />
-        <ControlTile label="Transfer" icon={ArrowRightLeft} pressed={(showXfer && !confMode) || (consulting && !confMode)} disabled={!inCall || xferBusy || consulting}
-          onClick={() => { setXferOpen((o) => !(o && !confMode)); setXferMode('transfer'); }} />
-        {/* Answered call: opens the panel to call a colleague. During a consult: merges all three. */}
-        <ControlTile label="Conference" icon={Users}
-          pressed={conference?.status === 'joined' || (showXfer && confMode)}
-          disabled={consulting ? (consult?.status !== 'active' || consult?.completing) : (!inCall || xferBusy)}
-          onClick={() => {
-            if (consulting) { phone.mergeConference(); return; }
-            setXferOpen((o) => !(o && confMode)); setXferMode('conference');
-          }} />
-      </div>
+      <CallControls
+        interaction={interaction} inCall={inCall} consulting={consulting} consult={consult} conference={conference}
+        showXfer={showXfer} confMode={confMode} xferBusy={xferBusy}
+        onMute={() => phone.toggleMute()}
+        onHold={() => phone.toggleHold()}
+        onTransfer={() => { setXferOpen((o) => !(o && !confMode)); setXferMode('transfer'); }}
+        onConference={() => {
+          if (consulting) { phone.mergeConference(); return; }
+          setXferOpen((o) => !(o && confMode)); setXferMode('conference');
+        }}
+      />
 
       {signedIn && state?.devices && (
         <AudioDevices devices={state.devices} onSelectInput={(id) => phone.selectInput(id)} onSelectOutput={(id) => phone.selectOutput(id)} />

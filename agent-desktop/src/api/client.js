@@ -13,8 +13,35 @@ async function request(method, path, body) {
   });
 
   const data = await res.json().catch(() => ({ error: res.statusText }));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    // Same message as before; status and server error code are attached so callers
+    // can tell e.g. "browser phone not allowed" (403) from "too many requests" (429).
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = data.code;
+    throw err;
+  }
   return data;
+}
+
+/** The API base (e.g. "/api" or "/cc/api"); the SIP relay lives next to it. */
+export function apiBase() {
+  return API_BASE;
+}
+
+/**
+ * Tell the backend this page is reloading so a browser refresh does not count as
+ * a lost browser phone (CP3-E). Fire-and-forget during 'pagehide'; keepalive lets
+ * the request outlive the page. Uses the same agent JWT header as every call.
+ */
+export function notifyPageReload() {
+  try {
+    fetch(`${API_BASE}/agent-desk/webrtc/page-reload`, {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: '{}',
+    }).catch(() => {});
+  } catch { /* page is going away */ }
 }
 
 // Build a query string from a params object, skipping empty/undefined values.
@@ -39,6 +66,8 @@ export const api = {
   calls:       ()              => request('GET',  '/agent-desk/calls'),
   performance: ()              => request('GET',  '/agent-desk/performance'),
   eslStatus:   ()              => request('GET',  '/agent-desk/esl-status'),
+  // Browser phone (CP3): single-use SIP relay ticket. Never stored anywhere.
+  webrtcTicket: (kind = 'connect') => request('POST', '/agent-desk/webrtc/ticket', { kind }),
 
   // ── Break management ──────────────────────────────────────────────────────
   breakCodes:   ()        => request('GET', '/agent-desk/break-codes'),

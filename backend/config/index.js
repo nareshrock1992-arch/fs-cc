@@ -9,6 +9,7 @@
  */
 
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
 
 export const config = {
   env:  process.env.NODE_ENV || 'development',
@@ -68,7 +69,72 @@ export const config = {
   // There is NO default and NO country-specific value baked in: it must be supplied
   // by the deployment (fs-cp) and is validated at startup (see assertBusinessTimezone).
   businessTimezone: process.env.BUSINESS_TIMEZONE || null,
+
+  // Customer telephony mode (CP3). One FS-CC installation = one customer, so this
+  // is deployment configuration like BUSINESS_TIMEZONE, not a database setting.
+  //   EXTERNAL_PBX      — Avaya/Cisco/other PBX desk phones; browser phone prohibited.
+  //   FREESWITCH_WEBRTC — FreeSWITCH browser softphones (per-agent enable).
+  //   HYBRID            — desk phones and browser softphones side by side (per-agent enable).
+  // Default EXTERNAL_PBX keeps every existing installation exactly as before.
+  telephony: {
+    mode: (process.env.TELEPHONY_MODE || 'EXTERNAL_PBX').trim().toUpperCase(),
+    // Upstream FreeSWITCH WSS for the backend SIP relay (CP3-C). Required in WebRTC modes.
+    relayUpstreamUrl: (process.env.SIP_RELAY_UPSTREAM_URL || '').trim(),
+    ticketTtlMs:      Number(process.env.WEBRTC_TICKET_TTL_MS || 30_000),
+    graceMs:          Number(process.env.WEBRTC_GRACE_MS || 15_000),
+    // Relay → FreeSWITCH TLS (CP3-C). Optional extra CA (PEM) to trust the
+    // FreeSWITCH WSS certificate; certificate checks are never disabled in production.
+    relayCaFile:      (process.env.SIP_RELAY_CA_FILE || '').trim() || null,
+    relayTlsInsecure: process.env.SIP_RELAY_TLS_INSECURE === 'true',
+    relayMaxConnections: Number(process.env.SIP_RELAY_MAX_CONNECTIONS || 500),
+  },
 };
+
+export const TELEPHONY_MODES = ['EXTERNAL_PBX', 'FREESWITCH_WEBRTC', 'HYBRID'];
+
+// Returns a list of configuration problems (empty = valid). Pure, for tests.
+export function telephonyConfigErrors(t = config.telephony, env = config.env) {
+  const errors = [];
+  if (!TELEPHONY_MODES.includes(t.mode)) {
+    errors.push(`TELEPHONY_MODE="${t.mode}" is invalid. Use one of: ${TELEPHONY_MODES.join(', ')}.`);
+    return errors;
+  }
+  if (t.mode !== 'EXTERNAL_PBX') {
+    if (!t.relayUpstreamUrl) {
+      errors.push(`SIP_RELAY_UPSTREAM_URL is required when TELEPHONY_MODE=${t.mode} (the FreeSWITCH WSS address, e.g. wss://<freeswitch-host>:7443).`);
+    } else if (!/^wss?:\/\//i.test(t.relayUpstreamUrl)) {
+      errors.push('SIP_RELAY_UPSTREAM_URL must start with wss:// (or ws:// for a lab).');
+    }
+  }
+  if (!Number.isInteger(t.ticketTtlMs) || t.ticketTtlMs < 5_000 || t.ticketTtlMs > 120_000) {
+    errors.push('WEBRTC_TICKET_TTL_MS must be an integer between 5000 and 120000.');
+  }
+  if (!Number.isInteger(t.graceMs) || t.graceMs < 5_000 || t.graceMs > 300_000) {
+    errors.push('WEBRTC_GRACE_MS must be an integer between 5000 and 300000.');
+  }
+  if (t.relayMaxConnections !== undefined
+      && (!Number.isInteger(t.relayMaxConnections) || t.relayMaxConnections < 1 || t.relayMaxConnections > 10_000)) {
+    errors.push('SIP_RELAY_MAX_CONNECTIONS must be an integer between 1 and 10000.');
+  }
+  if (t.relayTlsInsecure && env === 'production') {
+    errors.push('SIP_RELAY_TLS_INSECURE=true is not allowed in production. Use SIP_RELAY_CA_FILE to trust the FreeSWITCH certificate.');
+  }
+  if (t.relayCaFile && t.mode !== 'EXTERNAL_PBX') {
+    try { readFileSync(t.relayCaFile); } catch { errors.push(`SIP_RELAY_CA_FILE "${t.relayCaFile}" cannot be read.`); }
+  }
+  return errors;
+}
+
+// Fail-fast startup guard, same style as assertBusinessTimezone().
+export function assertTelephonyConfig() {
+  const errors = telephonyConfigErrors();
+  if (errors.length) {
+    errors.forEach((e) => console.error(`[config] FATAL: ${e}`));
+    console.error('[config] Refusing to start.');
+    process.exit(1);
+  }
+  console.log(`[config] telephony mode: ${config.telephony.mode}`);
+}
 
 // True if `tz` is a valid IANA timezone name accepted by the Intl engine.
 export function isValidTimeZone(tz) {

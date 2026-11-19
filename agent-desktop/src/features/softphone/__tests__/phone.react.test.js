@@ -24,8 +24,10 @@ const { getPhoneService, __resetPhoneServiceForTests } = await import('../phoneS
 const { PhoneProvider } = await import('../PhoneProvider');
 const { usePhone } = await import('../usePhone');
 
-const ENV = { VITE_SIP_DOMAIN: '192.168.1.124', VITE_SIP_WSS_URL: 'wss://192.168.1.124:7443' };
-const AGENT = { contact: '{sip_cid_type=pid}user/1000@172.21.20.57', full_name: 'Agent One' };
+const ENV = {};
+const AGENT = { contact: '{sip_cid_type=pid}user/1000@172.21.20.57', full_name: 'Agent One', webrtc_allowed: true };
+const TICKET = { ticket: 'test-ticket-1', extension: '1000', sip_domain: '192.168.1.124', relay_path: '/api/sip-relay' };
+const fetchTicket = vi.fn(async (kind) => ({ ...TICKET, ticket: `test-ticket-${kind}` }));
 
 let host;
 let root;
@@ -37,7 +39,7 @@ function Probe() {
 }
 
 function render(props, strict = false) {
-  const tree = createElement(PhoneProvider, props, createElement(Probe));
+  const tree = createElement(PhoneProvider, { fetchTicket, apiBase: 'https://cc.example/cc/api', ...props }, createElement(Probe));
   act(() => root.render(strict ? createElement(StrictMode, null, tree) : tree));
 }
 
@@ -81,46 +83,77 @@ describe('PhoneProvider + usePhone', () => {
       constructed[0].store.update({
         connection: 'connected',
         registration: 'registered',
-        account: { extension: '1000', domain: '192.168.1.124', wssUrl: 'wss://192.168.1.124:7443' },
+        account: { extension: '1000', domain: '192.168.1.124', wssUrl: 'wss://cc.example/cc/api/sip-relay?ticket=***' },
       }),
     );
     expect(latest.state.registration).toBe('registered');
     expect(latest.indicator).toEqual({ level: 'ok', label: 'Phone ready' });
   });
 
-  it('login passes only the typed password; extension/domain/WSS come from contact and config', async () => {
+  it('login: a relay ticket is fetched first; extension/domain come from the SERVER; URL is the FS-CC relay', async () => {
+    fetchTicket.mockClear();
     render({ agent: AGENT, env: ENV });
     let result;
     await act(async () => {
       result = await latest.login('dummy-test-value');
     });
     expect(result).toEqual({ ok: true });
-    expect(constructed[0].login).toHaveBeenCalledWith({
+    expect(fetchTicket).toHaveBeenCalledWith('connect');
+    const creds = constructed[0].login.mock.calls[0][0];
+    expect(creds).toMatchObject({
       extension: '1000',
       password: 'dummy-test-value',
       domain: '192.168.1.124',
-      wssUrl: 'wss://192.168.1.124:7443',
+      wssUrl: 'wss://cc.example/cc/api/sip-relay?ticket=test-ticket-connect',
       displayName: 'Agent One',
     });
+    // No direct FreeSWITCH WSS (:7443) anywhere in the integrated path.
+    expect(creds.wssUrl).not.toMatch(/:7443/);
+    // Reconnects get a NEW ticket each time.
+    await expect(creds.ticketProvider('reconnect')).resolves.toBe('wss://cc.example/cc/api/sip-relay?ticket=test-ticket-reconnect');
+    expect(fetchTicket).toHaveBeenLastCalledWith('reconnect');
   });
 
-  it('gateway agent: not available and login is refused without touching the engine', async () => {
-    render({ agent: { contact: 'sofia/gateway/gw/0501234567' }, env: ENV });
+  it('login: the server refuses the ticket (403) → clear message, engine untouched', async () => {
+    const refuse = vi.fn(async () => { const e = new Error('Browser phone is not enabled for this agent.'); e.status = 403; throw e; });
+    render({ agent: AGENT, env: ENV, fetchTicket: refuse });
+    let result;
+    await act(async () => { result = await latest.login('x'); });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/not enabled for you/);
+    expect(constructed[0].login).not.toHaveBeenCalled();
+  });
+
+  it('agent the server does not allow (EXTERNAL_PBX / switch off): no engine, no ticket request', async () => {
+    fetchTicket.mockClear();
+    render({ agent: { ...AGENT, webrtc_allowed: false }, env: ENV });
+    expect(constructed).toHaveLength(0);
+    expect(latest.available).toBe(false);
+    let result;
+    await act(async () => { result = await latest.login('x'); });
+    expect(result.ok).toBe(false);
+    expect(fetchTicket).not.toHaveBeenCalled();
+  });
+
+  it('gateway agent: not available and login is refused without creating the engine', async () => {
+    fetchTicket.mockClear();
+    render({ agent: { contact: 'sofia/gateway/gw/0501234567', webrtc_allowed: true }, env: ENV });
     expect(latest.available).toBe(false);
     let result;
     await act(async () => {
       result = await latest.login('x');
     });
     expect(result.ok).toBe(false);
-    expect(constructed[0].login).not.toHaveBeenCalled();
+    expect(constructed).toHaveLength(0);
+    expect(fetchTicket).not.toHaveBeenCalled();
   });
 
   it('missing configuration: no engine is created and the error is reported', async () => {
-    render({ agent: AGENT, env: {} });
+    render({ agent: AGENT, env: { VITE_WEBRTC_ENABLED: 'false' } });
     expect(constructed).toHaveLength(0);
     expect(latest.available).toBe(false);
     expect(latest.state).toBeNull();
-    expect(latest.configError).toMatch(/not configured/);
+    expect(latest.configError).toMatch(/switched off/);
     let result;
     await act(async () => {
       result = await latest.login('x');

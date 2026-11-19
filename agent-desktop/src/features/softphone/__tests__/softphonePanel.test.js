@@ -24,14 +24,17 @@ const { PhoneProvider } = await import('../PhoneProvider');
 const { SoftphoneCard, formatDuration, displayNumber } = await import('../ui/SoftphonePanel');
 const { stopSoftphoneIfActive } = await import('../index');
 
-const ENV = { VITE_SIP_DOMAIN: '192.168.1.124', VITE_SIP_WSS_URL: 'wss://192.168.1.124:7443' };
-const AGENT = { contact: '{sip_cid_type=pid}user/1000@172.21.20.57', full_name: 'Agent One' };
+// CP3-E: no build-time SIP domain/WSS; the server allows the agent (webrtc_allowed) and
+// the relay ticket supplies extension + domain. Test-only values.
+const ENV = {};
+const AGENT = { contact: '{sip_cid_type=pid}user/1000@172.21.20.57', full_name: 'Agent One', webrtc_allowed: true };
+const fetchTicket = vi.fn(async (kind) => ({ ticket: `test-ticket-${kind}`, kind, extension: '1000', sip_domain: '192.168.1.124', relay_path: '/api/sip-relay' }));
 
 let host;
 let root;
 
 function render(agent, env = ENV) {
-  act(() => root.render(createElement(PhoneProvider, { agent, env }, createElement(SoftphoneCard))));
+  act(() => root.render(createElement(PhoneProvider, { agent, env, fetchTicket, apiBase: '/api' }, createElement(SoftphoneCard))));
 }
 const q = (sel) => host.querySelector(sel);
 const button = (text) => [...host.querySelectorAll('button')].find((b) => b.textContent.includes(text));
@@ -87,9 +90,9 @@ describe('SoftphonePanel', () => {
   });
 
   it('missing configuration is reported', () => {
-    render(AGENT, {});
+    render(AGENT, { VITE_WEBRTC_ENABLED: 'false' });
     expect(q('input')).toBeNull();
-    expect(host.textContent).toMatch(/not configured/);
+    expect(host.textContent).toMatch(/switched off/);
   });
 
   it('incoming call shows Answer / Reject, active call shows Mute / Hang up', () => {

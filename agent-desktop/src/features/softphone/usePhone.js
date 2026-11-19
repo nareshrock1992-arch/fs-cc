@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo, useSyncExternalStore } from 'react';
 import { PhoneContext } from './PhoneProvider';
 import { buildCredentials } from './adapters/configAdapter';
-import { resolveWssUrl } from './adapters/authAdapter';
+import { createTicketProvider, relayUrlFor, requestTicket } from './adapters/authAdapter';
 import { describePhoneIndicator } from './adapters/agentStateAdapter';
 
 const noopSubscribe = () => () => {};
@@ -16,22 +16,36 @@ const getNull = () => null;
 export function usePhone() {
   const ctx = useContext(PhoneContext);
   if (!ctx) throw new Error('usePhone() must be used inside <PhoneProvider>.');
-  const { service, config, configError, agent, eligibility } = ctx;
+  const { service, config, configError, agent, eligibility, fetchTicket, apiBase } = ctx;
 
   const subscribe = service ? service.store.subscribe.bind(service.store) : noopSubscribe;
   const getSnapshot = service ? service.store.get.bind(service.store) : getNull;
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
+  // Sign-in (CP3-E): ask the FS-CC backend for a single-use relay ticket with the
+  // agent's own session, then connect to the FS-CC relay. Extension and SIP domain
+  // come from the server; the agent types only the SIP password (memory only).
+  // Every later reconnect fetches a NEW ticket through ticketProvider.
   const login = useCallback(
     async (password) => {
-      if (!service) return { ok: false, error: configError };
-      const { credentials, error } = buildCredentials({ agent, password, config });
+      if (!service) return { ok: false, error: configError || eligibility.reason };
+      let ticket;
+      try {
+        ticket = await requestTicket(fetchTicket, 'connect');
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+      let wssUrl;
+      try { wssUrl = relayUrlFor(ticket, apiBase); } catch (err) { return { ok: false, error: err.message }; }
+      const ticketProvider = createTicketProvider({ fetchTicket, apiBase, extension: String(ticket.extension) });
+      const { credentials, error } = buildCredentials({
+        ticket, password, wssUrl, ticketProvider, displayName: agent?.full_name,
+      });
       if (!credentials) return { ok: false, error };
-      const wssUrl = await resolveWssUrl(config);
-      await service.login({ ...credentials, wssUrl });
+      await service.login(credentials);
       return { ok: true };
     },
-    [service, agent, config, configError],
+    [service, agent, configError, eligibility, fetchTicket, apiBase],
   );
 
   const actions = useMemo(() => {
