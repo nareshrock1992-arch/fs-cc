@@ -351,9 +351,11 @@ export async function agentCallHistory(req, res) {
         ah.call_uuid, c.direction, c.ani, c.cid_name AS caller_name, c.dnis, c.queue_name, ah.agent_id,
         c.start_time, c.queue_enter_time, c.agent_answer_time, c.end_time,
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
-        ah.ring_seconds, ah.talk_seconds AS agent_talk_seconds, ah.missed
+        ah.ring_seconds, ah.talk_seconds AS agent_talk_seconds, ah.missed,
+        w.disposition_code AS outcome_code, w.disposition_name AS outcome_name, w.source AS outcome_source
        FROM agent_history ah
        LEFT JOIN calls c ON c.call_uuid = ah.call_uuid
+       LEFT JOIN call_wrapups w ON w.call_uuid = ah.call_uuid AND w.agent_id = ah.agent_id
        ${where}
        ORDER BY COALESCE(c.start_time, ah.ring_start) DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -384,9 +386,12 @@ export async function agentCallHistoryDetail(req, res) {
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
         ah.ring_start, ah.ring_end, ah.ring_seconds,
         ah.talk_start, ah.talk_end, ah.talk_seconds AS agent_talk_seconds, ah.missed,
-        EXTRACT(EPOCH FROM (c.end_time - c.start_time))::INT AS total_seconds
+        EXTRACT(EPOCH FROM (c.end_time - c.start_time))::INT AS total_seconds,
+        w.disposition_code AS outcome_code, w.disposition_name AS outcome_name,
+        w.notes AS outcome_notes, w.source AS outcome_source, w.updated_at AS outcome_saved_at
        FROM agent_history ah
        LEFT JOIN calls c ON c.call_uuid = ah.call_uuid
+       LEFT JOIN call_wrapups w ON w.call_uuid = ah.call_uuid AND w.agent_id = ah.agent_id
       WHERE ah.call_uuid = $1 AND ah.agent_id = $2`,
     [callUuid, req.agentId]
   );

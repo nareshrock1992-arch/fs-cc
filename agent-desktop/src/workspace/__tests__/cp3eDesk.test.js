@@ -10,7 +10,8 @@ import { createRoot } from 'react-dom/client';
 import { LayoutDashboard, ListOrdered } from 'lucide-react';
 
 vi.mock('../../api/client.js', () => ({
-  api: { callHistory: vi.fn(async () => ({ data: [] })), breakHistory: vi.fn(async () => ({ data: [] })), setStatus: vi.fn() },
+  api: { callHistory: vi.fn(async () => ({ data: [] })), breakHistory: vi.fn(async () => ({ data: [] })), setStatus: vi.fn(),
+         wrapups: vi.fn(async () => ({ calls: [] })), saveWrapup: vi.fn(), readyNow: vi.fn() },
 }));
 
 const { default: Desk } = await import('../Desk.jsx');
@@ -192,22 +193,23 @@ describe('incoming call notification', () => {
   });
 });
 
-describe('wrap-up (real mod_callcenter state, no disposition)', () => {
-  it('shows after a queue call while Available+Idle, counts down from wrap_up_time, then hides', () => {
-    vi.useFakeTimers();
+describe('wrap-up on the desk (M1: follows the latest answered call, not an Idle state)', () => {
+  it('after a queue call ends (state returns to Waiting) the desk shows the outcome form', async () => {
+    const { api } = await import('../../api/client.js');
+    api.wrapups.mockResolvedValue({ calls: [{ call_uuid: 'c-1', queue_name: 'support@default', ani: '0501234567',
+      caller_name: null, ended_at: null, wrapup: null, options: [{ code: 'RESOLVED', name: 'Resolved' }] }] });
     const base = { phone: makePhone(), data: { webrtcAllowed: true, serverPhone: 'online', wrapUpSeconds: 20 } };
-    render(desk({ ...base, agent: { status: 'Available', state: 'In a queue call' } }));
+    await act(async () => { root.render(desk({ ...base, agent: { status: 'Available', state: 'In a queue call' } })); });
     expect(q('[aria-label="Wrap-up"]')).toBeNull();
-    render(desk({ ...base, agent: { status: 'Available', state: 'Idle' } }));
+    await act(async () => { root.render(desk({ ...base, agent: { status: 'Available', state: 'Waiting' } })); });
+    await act(async () => { await Promise.resolve(); });
     expect(q('[aria-label="Wrap-up"]')).not.toBeNull();
-    act(() => { vi.advanceTimersByTime(5_000); });
-    expect(q('[aria-label="Wrap-up time left"]').textContent).toContain('00:15');
-    render(desk({ ...base, agent: { status: 'Available', state: 'Waiting' } }));
-    expect(q('[aria-label="Wrap-up"]')).toBeNull();
+    expect(q('#wrapup-outcome')).not.toBeNull();
+    api.wrapups.mockResolvedValue({ calls: [] });
   });
 
-  it('Idle right after login is not wrap-up', () => {
-    render(desk({ phone: makePhone(), agent: { status: 'Available', state: 'Idle' }, data: { webrtcAllowed: true, wrapUpSeconds: 20 } }));
+  it('no wrap-up panel right after login when there is no call to wrap up', async () => {
+    await act(async () => { root.render(desk({ phone: makePhone(), agent: { status: 'Available', state: 'Waiting' }, data: { webrtcAllowed: true, wrapUpSeconds: 20 } })); });
     expect(q('[aria-label="Wrap-up"]')).toBeNull();
   });
 });

@@ -35,6 +35,8 @@ export const PHONE_OFFLINE_CODE = 'PHONE_OFFLINE';
  * @param {object} [deps.logger]
  * @param {() => number} [deps.now]
  * @param {{ setTimeout: Function, clearTimeout: Function }} [deps.timers]
+ * @param {(agentId:string) => Promise<void>} [deps.onCallDisconnected]  the phone dropped during a
+ *        call and that call has now ended (M1: records the SYSTEM_DISCONNECTED outcome)
  */
 export const RELOAD_GRACE_MS = 60_000;
 export const RELOAD_COOLDOWN_MS = 5 * 60_000;
@@ -43,7 +45,7 @@ export function createPhonePresence({
   getMode, graceMs, startupGraceMs = 60_000, reloadGraceMs = RELOAD_GRACE_MS, reloadCooldownMs = RELOAD_COOLDOWN_MS,
   loadAgent, applyPhoneOffline,
   emit = () => {}, relay = null, logger = console, now = Date.now,
-  timers = { setTimeout, clearTimeout },
+  timers = { setTimeout, clearTimeout }, onCallDisconnected = null,
 }) {
   const agents = new Map(); // agentId -> { phone, since, timer, pendingOffline, pendingClose }
   const reloads = new Map(); // agentId -> { until, lastAt } — page-reload allowance (CP3-E)
@@ -94,6 +96,7 @@ export function createPhonePresence({
     }
     if (IN_CALL_STATES.has(agent.state)) {
       e.pendingOffline = true;
+      e.outcomeRecorded = false;   // M1: one system outcome per dropped call
       log('info', `${agentId} phone offline during a call; PHONE_OFFLINE deferred until the call ends`);
       return;
     }
@@ -173,6 +176,13 @@ export function createPhonePresence({
       return;
     }
     if (e.pendingOffline && e.phone === 'offline') {
+      // The phone dropped during the call that just ended: record a system outcome
+      // for that call (M1). Never blocks or changes the PHONE_OFFLINE handling below.
+      if (onCallDisconnected && !e.outcomeRecorded) {
+        e.outcomeRecorded = true;
+        Promise.resolve(onCallDisconnected(agentId))
+          .catch((err) => log('error', `${agentId} system outcome: ${err.message}`));
+      }
       const agent = await loadAgent(agentId);
       if (!e.pendingOffline || e.phone !== 'offline') return;
       if (!effectiveWebrtc(agent, getMode()).allowed || agent.status !== 'Available') { e.pendingOffline = false; return; }

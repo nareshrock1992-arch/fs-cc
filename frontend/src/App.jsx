@@ -16,6 +16,7 @@ const Reports = lazy(() => import('./pages/Reports.jsx'));
 const AgentPerformanceDashboard = lazy(() => import('./pages/AgentPerformanceDashboard.jsx'));
 const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
 const BreakCodes = lazy(() => import('./pages/BreakCodes.jsx'));
+const DispositionCodes = lazy(() => import('./pages/DispositionCodes.jsx'));
 const BreakHistoryReport = lazy(() => import('./pages/reports/BreakHistoryReport.jsx'));
 const CallHistoryReport = lazy(() => import('./pages/reports/CallHistoryReport.jsx'));
 
@@ -47,6 +48,16 @@ function BreakCodesRoute({ children }) {
   const canManage =
     user?.role === 'admin' ||
     (Array.isArray(user?.permissions) && user.permissions.includes('manage_break_codes'));
+  if (!canManage) return <Navigate to="/" replace />;
+  return children;
+}
+
+function OutcomesRoute({ children }) {
+  const { user, isAuth } = useAuth();
+  if (!isAuth) return <Navigate to="/login" replace />;
+  const canManage =
+    user?.role === 'admin' ||
+    (Array.isArray(user?.permissions) && user.permissions.includes('manage_dispositions'));
   if (!canManage) return <Navigate to="/" replace />;
   return children;
 }
@@ -110,6 +121,14 @@ export default function App() {
             <BreakCodesRoute>
               <BreakCodes />
             </BreakCodesRoute>
+          }
+        />
+        <Route
+          path="disposition-codes"
+          element={
+            <OutcomesRoute>
+              <DispositionCodes />
+            </OutcomesRoute>
           }
         />
         <Route

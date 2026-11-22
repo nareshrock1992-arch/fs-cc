@@ -62,21 +62,38 @@ function AgentCell({ agent, missedBy, disposition }) {
   );
 }
 
+// Wrap-up outcome (M1): answered calls show the saved outcome or "Not set".
+function OutcomeCell({ row }) {
+  if (row.outcome_name) {
+    return (
+      <span className="text-ink dark:text-ink-dim" title={row.outcome_notes || undefined}>
+        {row.outcome_name}
+        {row.outcome_source === 'system' && <span className="ml-1 text-[0.6875rem] text-ink-faint">(system)</span>}
+        {row.outcome_notes && <span className="ml-1 text-[0.6875rem] text-ink-faint">· note</span>}
+      </span>
+    );
+  }
+  if (row.disposition === 'answered') return <span className="text-ink-faint">Not set</span>;
+  return <span className="text-ink-faint">—</span>;
+}
+
 // ── Client-side CSV export ────────────────────────────────────────────────────
 
 async function downloadCSV(from, to) {
   const cols = [
     'call_uuid', 'ani', 'dnis', 'queue_name', 'agent',
     'queue_wait_seconds', 'ring_seconds', 'talk_seconds', 'abandoned_seconds',
-    'disposition', 'start_time', 'end_time'
+    'disposition', 'outcome_code', 'outcome_name', 'outcome_notes', 'start_time', 'end_time'
   ];
   const rows = await ReportsApi.cdr({ from, to, limit: 5000, offset: 0 });
   const header = cols.join(',');
   const body   = rows.map(r =>
     cols.map(c => {
-      const v = r[c] ?? '';
-      return typeof v === 'string' && (v.includes(',') || v.includes('"'))
-        ? `"${v.replace(/"/g, '""')}"` : v;
+      let v = r[c] ?? '';
+      if (typeof v !== 'string') return v;
+      // Free text (agent notes) must not run as a spreadsheet formula.
+      if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
+      return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
     }).join(',')
   ).join('\n');
   const blob = new Blob([`${header}\n${body}`], { type: 'text/csv' });
@@ -218,6 +235,7 @@ export default function CDRTable({ from, to }) {
               <TH>Talk</TH>
               <TH>Abandoned</TH>
               <TH>Disposition</TH>
+              <TH>Outcome</TH>
               <TH>Start Time</TH>
               <TH>End Time</TH>
             </tr>
@@ -225,7 +243,7 @@ export default function CDRTable({ from, to }) {
           <tbody className="divide-y divide-border dark:divide-panel-border">
             {loading && rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm text-ink-faint">
+                <td colSpan={12} className="py-12 text-center text-sm text-ink-faint">
                   <RefreshCw size={18} className="animate-spin mx-auto mb-2 text-blue-400" />
                   Loading records…
                 </td>
@@ -233,7 +251,7 @@ export default function CDRTable({ from, to }) {
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm text-ink-faint">
+                <td colSpan={12} className="py-12 text-center text-sm text-ink-faint">
                   No records found for the selected date range and filter.
                 </td>
               </tr>
@@ -276,6 +294,9 @@ export default function CDRTable({ from, to }) {
                 </td>
                 <td className="td">
                   <DispositionBadge value={r.disposition} />
+                </td>
+                <td className="td">
+                  <OutcomeCell row={r} />
                 </td>
                 <td className="td text-ink-dim whitespace-nowrap">
                   {fmtTs(r.start_time)}

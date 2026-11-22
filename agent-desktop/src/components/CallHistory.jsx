@@ -73,6 +73,8 @@ function DetailModal({ uuid, onClose }) {
               <Row label="Talk" value={formatDuration(row.talk_seconds ?? row.agent_talk_seconds)} />
               <Row label="Total" value={formatDuration(row.total_seconds)} />
               <Row label="Disposition" value={row.disposition} />
+              <Row label="Outcome" value={outcomeText(row)} />
+              {row.outcome_notes && <Row label="Notes" value={<span className="whitespace-pre-wrap">{row.outcome_notes}</span>} />}
               <Row label="Abandoned" value={row.abandoned ? 'Yes' : 'No'} />
               <Row label="Call UUID" value={<code className="text-[0.6875rem]">{row.call_uuid}</code>} />
             </div>
@@ -81,6 +83,13 @@ function DetailModal({ uuid, onClose }) {
       </div>
     </div>
   );
+}
+
+/** Wrap-up outcome (M1): saved outcome, "Not set" for an answered queue call without one. */
+export function outcomeText(c) {
+  if (c.outcome_name) return c.outcome_source === 'system' ? `${c.outcome_name} (system)` : c.outcome_name;
+  if (!c.missed && c.queue_name && c.agent_answer_time) return 'Not set';
+  return '—';
 }
 
 /** What happened to the call, from this agent's point of view. */
@@ -170,6 +179,7 @@ export default function CallHistory() {
                 <th className="py-2 pr-3 font-semibold">Started</th>
                 <th className="py-2 pr-3 font-semibold" title="Your talk time on this call">Your talk</th>
                 <th className="py-2 pr-3 font-semibold">Result</th>
+                <th className="py-2 pr-3 font-semibold">Outcome</th>
               </tr>
             </thead>
             <tbody>
@@ -187,6 +197,7 @@ export default function CallHistory() {
                   <td className="py-2 pr-3 text-ink-faint">{formatDateTime(c.start_time)}</td>
                   <td className="py-2 pr-3 text-ink-dim tabular-nums">{c.missed ? '—' : formatDuration(c.agent_talk_seconds ?? c.talk_seconds)}</td>
                   <td className="py-2 pr-3 text-ink-faint">{callResult(c)}</td>
+                  <td className="py-2 pr-3 text-ink-dim">{outcomeText(c)}</td>
                 </tr>
               ))}
             </tbody>

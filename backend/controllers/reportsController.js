@@ -591,9 +591,17 @@ export async function getCDRReport(req, res) {
        ch.start_time,
        ch.end_time,
        ch.ivr_path,
-       COALESCE(q.display_name, ch.queue_name) AS queue_display_name
+       COALESCE(q.display_name, ch.queue_name) AS queue_display_name,
+
+       -- ── Wrap-up outcome (M1) — NULL until the agent (or system) saves one ──
+       w.disposition_code AS outcome_code,
+       w.disposition_name AS outcome_name,
+       w.notes            AS outcome_notes,
+       w.source           AS outcome_source
 
      FROM call_history ch
+
+     LEFT JOIN call_wrapups w ON w.call_uuid = ch.call_uuid
 
      -- Agent who answered: join directly on calls.agent_id (most reliable source)
      LEFT JOIN agents a_ans ON a_ans.agent_id = ch.agent_id

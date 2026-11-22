@@ -212,6 +212,51 @@ describe('active calls', () => {
     expect(db.alice.status).toBe('On Break');
   });
 
+  it('M1: phone dropped during the call → system outcome recorded once when the call ends', async () => {
+    const onCallDisconnected = vi.fn().mockResolvedValue(true);
+    presence.stop();
+    relayEvents = new EventEmitter(); ccEvents = new EventEmitter();
+    presence = createPhonePresence({
+      getMode: () => mode, graceMs: GRACE,
+      loadAgent: vi.fn(async (id) => (db[id] ? { ...db[id] } : null)),
+      applyPhoneOffline, relay, logger: { info() {}, warn() {}, error() {} },
+      onCallDisconnected,
+    });
+    presence.attach({ relayEvents, ccEvents });
+    db.alice.state = 'In a queue call';
+    registered(); closed();
+    await advance(GRACE);
+    expect(onCallDisconnected).not.toHaveBeenCalled();          // never during the call
+    db.alice.state = 'Waiting';
+    ccEvents.emit('agent:state', { agentId: 'alice', status: 'Available', state: 'Waiting' });
+    ccEvents.emit('agent:state', { agentId: 'alice', status: 'Available', state: 'Waiting' });
+    await flush();
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+    expect(onCallDisconnected).toHaveBeenCalledWith('alice');
+    expect(applyPhoneOffline).toHaveBeenCalledTimes(1);          // PHONE_OFFLINE unchanged
+  });
+
+  it('M1: a phone that recovered during the call records no system outcome', async () => {
+    const onCallDisconnected = vi.fn();
+    presence.stop();
+    relayEvents = new EventEmitter(); ccEvents = new EventEmitter();
+    presence = createPhonePresence({
+      getMode: () => mode, graceMs: GRACE,
+      loadAgent: vi.fn(async (id) => (db[id] ? { ...db[id] } : null)),
+      applyPhoneOffline, relay, logger: { info() {}, warn() {}, error() {} },
+      onCallDisconnected,
+    });
+    presence.attach({ relayEvents, ccEvents });
+    db.alice.state = 'In a queue call';
+    registered(); closed();
+    await advance(GRACE);
+    registered();
+    db.alice.state = 'Waiting';
+    ccEvents.emit('agent:state', { agentId: 'alice', state: 'Waiting' });
+    await flush();
+    expect(onCallDisconnected).not.toHaveBeenCalled();
+  });
+
   it('ringing (Receiving) counts as a call too', async () => {
     db.alice.state = 'Receiving';
     registered(); closed();
