@@ -19,7 +19,8 @@ export FS_ESL_HOST=127.0.0.1 FS_ESL_PORT=65021 FS_ESL_PASSWORD=closed-port FS_SI
 export CORS_ORIGIN=http://localhost:18000,http://localhost:18080,http://127.0.0.1:18000,http://127.0.0.1:18080
 unset TELEPHONY_MODE SIP_RELAY_UPSTREAM_URL
 export VITE_BACKEND_DEV_URL=http://127.0.0.1:14000
-export E2E_ADMIN_USER=e2e_admin E2E_ADMIN_PASS=$(openssl rand -hex 12)
+export E2E_ADMIN_USER=e2e_admin E2E_ADMIN_PASS=$(openssl rand -hex 12) E2E_SUP_PASS=$(openssl rand -hex 12)
+export E2E_API_URL=http://127.0.0.1:14000
 export E2E_AGENT_ID=e2e_agent@default E2E_AGENT_PIN=$(shuf -i 100000-999999 -n 1)
 export E2E_ADMIN_URL=http://127.0.0.1:18000 E2E_AGENT_URL=http://127.0.0.1:18080
 
