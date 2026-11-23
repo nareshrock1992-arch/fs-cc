@@ -10,6 +10,7 @@ import { effectiveWebrtc, modeAllowsWebrtc } from '../utils/telephony.js';
 import { getTicketStore, ticketHint } from '../services/relayTicketStore.js';
 import { getPhonePresence, PHONE_OFFLINE_CODE } from '../services/phonePresenceService.js';
 import { slaPct } from '../services/metricsSql.js';
+import { writeAudit, staffActor } from '../services/auditService.js';
 
 // Browser-phone permission for response bodies (no secrets).
 function webrtcInfo(agent) {
@@ -611,5 +612,7 @@ export async function setAgentPin(req, res) {
   );
   if (!rowCount) return res.status(404).json({ error: 'Agent not found' });
 
+  // Activity log (M2): the fact only, never the PIN.
+  await writeAudit({ ...staffActor(req), action: 'AGENT_PIN_SET', entityType: 'agent', entityId: agentId });
   res.json({ ok: true, message: `PIN updated for ${agentId}` });
 }

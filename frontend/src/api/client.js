@@ -130,6 +130,10 @@ export const BreakCodes = {
 };
 
 // ---- Call outcomes / dispositions (requires manage_dispositions; admin implicit) ----
+export const Activity = {
+  list: (params) => api.get('/activity', { params }).then(r => r.data),
+};
+
 export const DispositionCodes = {
   list:      ()                 => api.get('/disposition-codes').then(r => r.data),
   create:    (payload)          => api.post('/disposition-codes', payload).then(r => r.data),

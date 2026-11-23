@@ -17,6 +17,7 @@ const AgentPerformanceDashboard = lazy(() => import('./pages/AgentPerformanceDas
 const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
 const BreakCodes = lazy(() => import('./pages/BreakCodes.jsx'));
 const DispositionCodes = lazy(() => import('./pages/DispositionCodes.jsx'));
+const ActivityLog = lazy(() => import('./pages/ActivityLog.jsx'));
 const BreakHistoryReport = lazy(() => import('./pages/reports/BreakHistoryReport.jsx'));
 const CallHistoryReport = lazy(() => import('./pages/reports/CallHistoryReport.jsx'));
 
@@ -59,6 +60,16 @@ function OutcomesRoute({ children }) {
     user?.role === 'admin' ||
     (Array.isArray(user?.permissions) && user.permissions.includes('manage_dispositions'));
   if (!canManage) return <Navigate to="/" replace />;
+  return children;
+}
+
+function ActivityRoute({ children }) {
+  const { user, isAuth } = useAuth();
+  if (!isAuth) return <Navigate to="/login" replace />;
+  const canView =
+    user?.role === 'admin' ||
+    (Array.isArray(user?.permissions) && user.permissions.includes('view_activity_log'));
+  if (!canView) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -129,6 +140,14 @@ export default function App() {
             <OutcomesRoute>
               <DispositionCodes />
             </OutcomesRoute>
+          }
+        />
+        <Route
+          path="activity-log"
+          element={
+            <ActivityRoute>
+              <ActivityLog />
+            </ActivityRoute>
           }
         />
         <Route

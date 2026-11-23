@@ -26,6 +26,7 @@ export const PAGE_META = {
   '/break-codes':            { title: 'Break Codes',     description: 'Configurable agent break reasons' },
   '/disposition-codes':      { title: 'Call Outcomes',   description: 'Wrap-up outcomes agents choose after a call' },
   '/users':                  { title: 'User Management', description: 'Admin and supervisor accounts' },
+  '/activity-log':           { title: 'Activity Log',    description: 'Who changed what, and when' },
 };
 
 /** Resolve meta for a pathname, with a safe generic fallback (no more "Switchboard"). */

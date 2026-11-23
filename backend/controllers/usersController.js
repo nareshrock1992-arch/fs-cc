@@ -1,9 +1,14 @@
 import bcrypt from 'bcryptjs';
 import { query } from '../db/pool.js';
+import { writeAudit, staffActor } from '../services/auditService.js';
 
 const SAFE_COLS = `id, username, role, permissions, created_at`;
 
-const VALID_PERMISSIONS = ['view_reports', 'change_agent_state', 'manage_break_codes', 'manage_dispositions', 'view_caller_id'];
+const VALID_PERMISSIONS = ['view_reports', 'change_agent_state', 'manage_break_codes', 'manage_dispositions', 'view_caller_id', 'view_activity_log'];
+
+// Activity log (M2): who changed which account. Never records passwords or hashes.
+const auditUser = (req, action, user, oldValue, newValue) =>
+  writeAudit({ ...staffActor(req), action, entityType: 'user', entityId: user?.username ?? user?.id, oldValue, newValue });
 
 export async function listUsers(_req, res) {
   const { rows } = await query(`SELECT ${SAFE_COLS} FROM users ORDER BY created_at`);
@@ -24,6 +29,7 @@ export async function createUser(req, res) {
      RETURNING ${SAFE_COLS}`,
     [username.trim().toLowerCase(), hash, role]
   );
+  await auditUser(req, 'USER_CREATED', rows[0], null, { username: rows[0].username, role: rows[0].role });
   res.status(201).json(rows[0]);
 }
 
@@ -34,11 +40,13 @@ export async function updateUser(req, res) {
   if (!['admin', 'supervisor'].includes(role)) {
     return res.status(400).json({ error: 'role must be admin or supervisor' });
   }
+  const { rows: before } = await query(`SELECT username, role FROM users WHERE id=$1`, [id]);
   const { rows } = await query(
     `UPDATE users SET username=$1, role=$2 WHERE id=$3 RETURNING ${SAFE_COLS}`,
     [username.trim().toLowerCase(), role, id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+  await auditUser(req, 'USER_UPDATED', rows[0], before[0] ?? null, { username: rows[0].username, role: rows[0].role });
   res.json(rows[0]);
 }
 
@@ -48,11 +56,12 @@ export async function deleteUser(req, res) {
   const { rows: admins } = await query(
     `SELECT id FROM users WHERE role='admin' AND id <> $1`, [id]
   );
-  const { rows: target } = await query(`SELECT role FROM users WHERE id=$1`, [id]);
+  const { rows: target } = await query(`SELECT username, role FROM users WHERE id=$1`, [id]);
   if (target[0]?.role === 'admin' && admins.length === 0) {
     return res.status(400).json({ error: 'Cannot delete the last admin account' });
   }
   await query(`DELETE FROM users WHERE id=$1`, [id]);
+  if (target[0]) await auditUser(req, 'USER_DELETED', target[0], { username: target[0].username, role: target[0].role }, null);
   res.status(204).end();
 }
 
@@ -66,11 +75,13 @@ export async function updatePermissions(req, res) {
   if (invalid.length) {
     return res.status(400).json({ error: `Unknown permissions: ${invalid.join(', ')}` });
   }
+  const { rows: before } = await query(`SELECT permissions FROM users WHERE id=$1`, [id]);
   const { rows } = await query(
     `UPDATE users SET permissions=$1 WHERE id=$2 RETURNING ${SAFE_COLS}`,
     [permissions, id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+  await auditUser(req, 'USER_PERMISSIONS_SET', rows[0], { permissions: before[0]?.permissions ?? [] }, { permissions: rows[0].permissions });
   res.json(rows[0]);
 }
 
@@ -86,5 +97,6 @@ export async function resetPassword(req, res) {
     [hash, id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+  await auditUser(req, 'USER_PASSWORD_RESET', rows[0], null, null);   // the fact only, never the password
   res.json({ ok: true });
 }

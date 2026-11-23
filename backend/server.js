@@ -26,6 +26,7 @@ import reportsRoutes   from './routes/reports.js';
 import breakCodesRoutes from './routes/breakCodes.js';
 import agentDeskRoutes from './routes/agentDesk.js';
 import dispositionCodesRoutes from './routes/dispositionCodes.js';
+import activityRoutes  from './routes/activity.js';
 import { attachWrapupRestore, recordSystemDisconnect } from './services/wrapupService.js';
 
 const app    = express();
@@ -70,6 +71,7 @@ app.use('/api/stats',   statsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/break-codes', breakCodesRoutes);
 app.use('/api/disposition-codes', dispositionCodesRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Customer telephony mode (CP3) — read-only, lets the admin UI show or hide the
 // per-agent browser-phone setting. Admin JWT required (requireAuth above).

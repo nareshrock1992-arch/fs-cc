@@ -282,6 +282,8 @@ export async function createAgent(req, res) {
     console.error('[agents] FreeSWITCH sync failed on create:', err.message);
   }
 
+  await writeAudit({ ...staffActor(req), action: 'AGENT_CREATED', entityType: 'agent', entityId: agentId,
+    newValue: { full_name: rows[0]?.full_name, contact: rows[0]?.contact } });
   res.status(201).json(rows[0]);
 }
 
@@ -421,6 +423,7 @@ export async function deleteAgent(req, res) {
   } catch (err) {
     console.error('[agents] FreeSWITCH sync failed on delete:', err.message);
   }
+  await writeAudit({ ...staffActor(req), action: 'AGENT_DELETED', entityType: 'agent', entityId: agentId });
   res.status(204).end();
 }
 
@@ -433,6 +436,7 @@ export async function setAgentStatus(req, res) {
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
   }
+  const { rows: before } = await query(`SELECT status FROM agents WHERE agent_id = $1`, [agentId]);
   try { await cc.agentSetStatus(agentId, status); } catch (e) { /* ESL offline */ }
   // Admin-forced status changes carry no break reason. Keep the agent's current
   // break_code / break_started_at consistent: cleared unless forced On Break.
@@ -453,6 +457,8 @@ export async function setAgentStatus(req, res) {
   try { await agentSession.handleStatusTransition(agentId, status, 'manual'); }
   catch (err) { console.error('[sessions] setAgentStatus transition failed:', err.message); }
   if (status === 'Logged Out') getPhonePresence()?.agentLoggedOut(agentId);
+  await writeAudit({ ...staffActor(req), action: 'AGENT_STATUS_SET', entityType: 'agent', entityId: agentId,
+    oldValue: before[0] ? { status: before[0].status } : null, newValue: { status } });
   res.json({ agentId, status });
 }
 

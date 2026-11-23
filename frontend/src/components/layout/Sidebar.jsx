@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, PhoneCall, Users, Layers,
-  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones, Gauge, X, ClipboardCheck,
+  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones, Gauge, X, ClipboardCheck, ScrollText,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
@@ -17,7 +17,7 @@ const BASE_NAV = [
   { to: '/queues',         label: 'Queues',          icon: Layers },
 ];
 
-const MANAGEMENT_PATHS = ['/reports', '/agent-performance', '/reports/break-history', '/reports/call-history', '/break-codes', '/disposition-codes', '/users'];
+const MANAGEMENT_PATHS = ['/reports', '/agent-performance', '/reports/break-history', '/reports/call-history', '/break-codes', '/disposition-codes', '/activity-log', '/users'];
 
 const REPORTS_ITEM       = { to: '/reports',                label: 'Reports',         icon: BarChart3 };
 const AGENT_PERF_ITEM    = { to: '/agent-performance',      label: 'Agent Performance', icon: Gauge };
@@ -25,6 +25,7 @@ const BREAK_HISTORY_ITEM = { to: '/reports/break-history',  label: 'Break Histor
 const CALL_HISTORY_ITEM  = { to: '/reports/call-history',   label: 'Call History',    icon: PhoneCall };
 const BREAK_CODES_ITEM   = { to: '/break-codes',            label: 'Break Codes',     icon: Coffee };
 const OUTCOMES_ITEM      = { to: '/disposition-codes',      label: 'Call Outcomes',   icon: ClipboardCheck };
+const ACTIVITY_ITEM      = { to: '/activity-log',           label: 'Activity Log',    icon: ScrollText };
 const USERS_ITEM         = { to: '/users',                  label: 'User Management', icon: ShieldCheck };
 
 // ── Navigation item styling (semantic tokens, theme-aware) ───────────────────
@@ -114,12 +115,14 @@ function SidebarContent({ onNavigate }) {
   const canViewReports    = isAdmin || perms.includes('view_reports');
   const canManageBreaks   = isAdmin || perms.includes('manage_break_codes');
   const canManageOutcomes = isAdmin || perms.includes('manage_dispositions');
+  const canViewActivity   = isAdmin || perms.includes('view_activity_log');
 
   const navItems = [
     ...BASE_NAV,
     ...(canViewReports  ? [REPORTS_ITEM, AGENT_PERF_ITEM, BREAK_HISTORY_ITEM, CALL_HISTORY_ITEM] : []),
     ...(canManageBreaks ? [BREAK_CODES_ITEM] : []),
     ...(canManageOutcomes ? [OUTCOMES_ITEM] : []),
+    ...(canViewActivity ? [ACTIVITY_ITEM] : []),
     ...(isAdmin         ? [USERS_ITEM] : []),
   ];
 
@@ -155,7 +158,7 @@ function SidebarContent({ onNavigate }) {
           ))}
         </div>
 
-        {(canViewReports || canManageBreaks || canManageOutcomes || isAdmin) && (
+        {(canViewReports || canManageBreaks || canManageOutcomes || canViewActivity || isAdmin) && (
           <>
             <p className="px-3 pt-4 pb-1 text-[0.6875rem] font-semibold text-ink-faint">
               Management
