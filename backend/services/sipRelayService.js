@@ -37,6 +37,8 @@ export const DEFAULTS = Object.freeze({
   authFailMax: 5,
   authFailWindowMs: 5 * 60_000,
   shutdownGraceMs: 5_000,
+  maxDialogs: 64,          // calls remembered per phone connection
+  dialogLingerMs: 32_000,  // keep a call after BYE/CANCEL for late responses (SIP Timer B/F)
 });
 
 // Close codes sent to the browser (4xxx = application specific).
@@ -158,6 +160,8 @@ export function createSipRelay({
   function closeSession(s, code, reason) {
     if (s.closed) return;
     s.closed = true;
+    for (const t of s.dialogs.values()) if (t) clearTimeout(t);
+    s.dialogs.clear();
     sessions.delete(s.id);
     if (byAgent.get(s.agentId) === s) byAgent.delete(s.agentId);
     const safeReason = String(reason || '').slice(0, 100);
@@ -178,6 +182,7 @@ export function createSipRelay({
       id: randomBytes(6).toString('hex'), agentId: binding.agentId, extension: binding.extension, ip,
       browser, upstream: null, queue: [], queuedBytes: 0, closed: false, registered: false,
       tokens: L.frameBurst, lastRefill: now(), framesUp: 0, framesDown: 0, lastRegisterHadAuth: false,
+      dialogs: new Map(),   // Call-IDs of calls that belong to this phone (see trackDialog)
       alive: { browser: { pingAt: 0, waiting: false }, upstream: { pingAt: 0, waiting: false } },
     };
     sessions.set(s.id, s);
@@ -265,11 +270,13 @@ export function createSipRelay({
       return closeSession(s, CLOSE.POLICY, 'too many messages');
     }
     const text = data.toString('utf8');
-    const verdict = checkOutboundFrame(text, s.extension);
+    const verdict = checkOutboundFrame(text, s.extension, (callId) => s.dialogs.has(callId));
     if (!verdict.allow) {
       log('warn', `blocked frame: ${verdict.reason}`, s);
       return closeSession(s, verdict.code, verdict.reason);
     }
+    // A call this phone starts (passed the identity check above) belongs to it.
+    if (verdict.parsed?.kind === 'request') trackDialog(s, verdict.parsed);
     if (verdict.parsed?.kind === 'request' && verdict.parsed.method === 'REGISTER') {
       s.lastRegisterHadAuth = Boolean(verdict.parsed.headers.authorization);
     }
@@ -291,9 +298,37 @@ export function createSipRelay({
     if (!isKeepAlive(text)) {
       const p = parseSipFrame(text);
       if (p.ok && p.kind === 'response' && p.cseqMethod === 'REGISTER') trackRegister(s, p);
+      // A call FreeSWITCH sends to this phone belongs to it.
+      if (p.ok && p.kind === 'request') trackDialog(s, p);
     }
     s.framesDown++;
     if (s.browser.readyState === WebSocket.OPEN) s.browser.send(text);
+  }
+
+  /**
+   * Remember the calls (Call-IDs) that belong to this phone, so its in-dialog
+   * requests (BYE, re-INVITE, UPDATE, INFO, REFER…) are allowed even though, on a
+   * call FreeSWITCH sent to it, neither From nor To carries the extension.
+   * Only INVITEs create entries: from FreeSWITCH (inbound calls) or from this phone
+   * after the identity check. A BYE or CANCEL lets the entry go after a short delay
+   * (late responses/retransmissions); the list is bounded and dies with the session.
+   */
+  function trackDialog(s, p) {
+    const callId = p.headers['call-id']?.[0];
+    if (!callId) return;
+    if (p.method === 'INVITE') {
+      if (s.dialogs.has(callId)) return;
+      if (s.dialogs.size >= L.maxDialogs) {
+        const [oldest, timer] = s.dialogs.entries().next().value;
+        if (timer) clearTimeout(timer);
+        s.dialogs.delete(oldest);
+      }
+      s.dialogs.set(callId, null);
+    } else if ((p.method === 'BYE' || p.method === 'CANCEL') && s.dialogs.has(callId) && !s.dialogs.get(callId)) {
+      const t = setTimeout(() => s.dialogs.delete(callId), L.dialogLingerMs);
+      t.unref?.();
+      s.dialogs.set(callId, t);
+    }
   }
 
   function trackRegister(s, p) {

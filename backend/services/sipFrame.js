@@ -75,9 +75,14 @@ export function parseSipFrame(text) {
 
 /**
  * Decide whether a browser → FreeSWITCH frame may be forwarded for this extension.
+ * @param {string} text
+ * @param {string} extension  the ticket-bound extension
+ * @param {(callId: string) => boolean} [isKnownDialog]  true for a call this relay
+ *        session has seen (an INVITE FreeSWITCH sent to this phone, or one this phone
+ *        sent after passing the identity check)
  * @returns {{ allow: true, parsed?: object } | { allow: false, code: number, reason: string }}
  */
-export function checkOutboundFrame(text, extension) {
+export function checkOutboundFrame(text, extension, isKnownDialog = () => false) {
   if (isKeepAlive(text)) return { allow: true };
   const p = parseSipFrame(text);
   if (!p.ok) return { allow: false, code: 4400, reason: `invalid SIP frame (${p.error})` };
@@ -96,7 +101,10 @@ export function checkOutboundFrame(text, extension) {
   if (identity) {
     if (from !== extension) return { allow: false, code: 4403, reason: 'From user mismatch' };
     if (p.method === 'REGISTER' && to !== extension) return { allow: false, code: 4403, reason: 'To user mismatch' };
-  } else if (from !== extension && to !== extension) {
+  } else if (from !== extension && to !== extension && !isKnownDialog(p.headers['call-id'][0])) {
+    // In-dialog request. On a call FreeSWITCH sent to this phone, the browser's side
+    // is addressed by its random contact user (e.g. "i5gk7ss1"), not the extension,
+    // so ownership is proven by the dialog being one this relay session has seen.
     return { allow: false, code: 4403, reason: 'in-dialog request not owned by this extension' };
   }
   return { allow: true, parsed: p };

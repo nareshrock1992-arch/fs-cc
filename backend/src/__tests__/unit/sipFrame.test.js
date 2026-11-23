@@ -59,6 +59,18 @@ describe('checkOutboundFrame — identity binding', () => {
     expect(checkOutboundFrame(sipRequest('BYE', { from: '0500000000', to: '1001', toTag: true }), '1001').allow).toBe(true);
     expect(checkOutboundFrame(sipRequest('BYE', { from: '0500000000', to: '1002', toTag: true }), '1001').allow).toBe(false);
   });
+  it('in-dialog request on a call sent to the random contact user passes only for a known Call-ID', () => {
+    const bye = sipRequest('BYE', { from: 'i5gk7ss1', to: '1002', toTag: true, callId: 'in-1' });
+    expect(checkOutboundFrame(bye, '1003')).toMatchObject({ allow: false, code: 4403 });
+    expect(checkOutboundFrame(bye, '1003', (id) => id === 'in-1').allow).toBe(true);
+    expect(checkOutboundFrame(bye, '1003', (id) => id === 'other').allow).toBe(false);
+  });
+  it('a known Call-ID never relaxes identity checks', () => {
+    const known = () => true;
+    expect(checkOutboundFrame(sipRequest('REGISTER', { from: '1002' }), '1003', known).allow).toBe(false);
+    expect(checkOutboundFrame(sipRequest('INVITE', { from: '1002', to: '5000' }), '1003', known).allow).toBe(false);
+    expect(checkOutboundFrame(sipRequest('BYE', { from: 'x', to: '1002', toTag: true, auth: '1002' }), '1003', known).allow).toBe(false);
+  });
   it('responses (e.g. 200 OK to an inbound INVITE) pass', () => {
     expect(checkOutboundFrame('SIP/2.0 200 OK\r\nCSeq: 1 INVITE\r\nCall-ID: c\r\n\r\n', '1001').allow).toBe(true);
   });
