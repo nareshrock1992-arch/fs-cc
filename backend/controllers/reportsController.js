@@ -1,7 +1,10 @@
 import { query } from '../db/pool.js';
 import { config } from '../config/index.js';
 import { businessToday, businessDayRange, shiftDate, toBusinessDateStr } from '../utils/timezone.js';
-import { answered, abandoned, agentMissedExists } from '../services/metricsSql.js';
+import { answered, abandoned, agentMissedExists, slaPct } from '../services/metricsSql.js';
+
+// Threshold for per-queue SLA in reports: the queue's service level target (20 s if the queue row is gone).
+const SLA_THRESHOLD_BY_QUEUE = 'COALESCE((SELECT sla_seconds FROM queues WHERE name = c.queue_name LIMIT 1), 20)';
 
 // Half-open UTC range for a report request. `from`/`to` are business CALENDAR
 // dates (YYYY-MM-DD) interpreted in BUSINESS_TIMEZONE, not UTC and not the
@@ -48,19 +51,7 @@ export async function queuePerformance(req, res) {
          0
        )::NUMERIC(5,1)                                                            AS abandon_rate_pct,
        -- SLA: answered-within-threshold / (answered + abandoned)
-       COALESCE(
-         100.0
-         * COUNT(*) FILTER (
-             WHERE ${answered('c')}
-               AND c.wait_seconds <= COALESCE(
-                 (SELECT sla_seconds FROM queues WHERE name = c.queue_name LIMIT 1), 20)
-           )
-         / NULLIF(
-             COUNT(*) FILTER (WHERE ${answered('c')}) +
-             COUNT(*) FILTER (WHERE ${abandoned('c')}),
-             0),
-         0
-       )::NUMERIC(5,1)                                                            AS sla_pct
+       ${slaPct({ thr: SLA_THRESHOLD_BY_QUEUE })}                                 AS sla_pct
      FROM calls c
      WHERE c.start_time >= $1 AND c.start_time < $2 AND c.queue_name IS NOT NULL
      GROUP BY c.queue_name
@@ -335,11 +326,7 @@ export async function exportReport(req, res) {
          COALESCE(AVG(c.wait_seconds) FILTER (WHERE c.disposition='answered'),0)::INT AS asa_seconds,
          COALESCE(AVG(c.talk_seconds) FILTER (WHERE c.disposition='answered'),0)::INT AS aht_seconds,
          COALESCE(100.0*COUNT(*) FILTER (WHERE c.abandoned=true)/NULLIF(COUNT(*),0),0)::NUMERIC(5,1) AS abandon_rate_pct,
-         COALESCE(100.0
-           * COUNT(*) FILTER (WHERE c.disposition='answered' AND c.wait_seconds <= COALESCE(
-               (SELECT sla_seconds FROM queues WHERE name=c.queue_name LIMIT 1),20))
-           / NULLIF(COUNT(*) FILTER (WHERE c.disposition='answered') +
-                    COUNT(*) FILTER (WHERE c.abandoned=true), 0), 0)::NUMERIC(5,1) AS sla_pct
+         ${slaPct({ thr: SLA_THRESHOLD_BY_QUEUE })} AS sla_pct
        FROM calls c WHERE c.start_time >= $1 AND c.start_time < $2 AND c.queue_name IS NOT NULL
        GROUP BY c.queue_name ORDER BY offered DESC`,
       [from, to]

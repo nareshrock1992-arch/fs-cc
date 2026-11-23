@@ -2,7 +2,7 @@ import { query } from '../db/pool.js';
 import { config } from '../config/index.js';
 import { isConnected } from '../services/eslService.js';
 import { businessTodayRange, businessToday } from '../utils/timezone.js';
-import { answered, abandoned, agentMissedExists } from '../services/metricsSql.js';
+import { answered, abandoned, agentMissedExists, slaPct } from '../services/metricsSql.js';
 import { getStateDurations, getCallMetrics } from '../services/agentReportService.js';
 
 // GET /api/stats/business-date — the server-authoritative business calendar date
@@ -43,15 +43,7 @@ export async function getDashboardStats(req, res) {
     ),
 
     query(
-      `SELECT COALESCE(
-         100.0
-         * COUNT(*) FILTER (WHERE c.wait_seconds <= q.sla_seconds AND ${answered('c')})
-         / NULLIF(
-             COUNT(*) FILTER (WHERE ${answered('c')}) +
-             COUNT(*) FILTER (WHERE ${abandoned('c')}),
-             0),
-         0
-       )::INT AS sla_pct
+      `SELECT ${slaPct({ thr: 'q.sla_seconds' })} AS sla_pct
        FROM calls c
        JOIN queues q ON q.name = c.queue_name
        WHERE c.start_time >= $1 AND c.start_time < $2`,
@@ -91,15 +83,18 @@ export async function getDashboardStats(req, res) {
   const agentStatusMap = { Available: 0, 'On Break': 0, 'Logged Out': 0 };
   agentCounts.rows.forEach(r => (agentStatusMap[r.status] = r.count));
 
+  // Service level: one decimal, null (shown as "—") when there are no answered/abandoned calls.
+  const slaRaw = sla.rows[0]?.sla_pct;
+  const slaNum = slaRaw == null ? null : Number(slaRaw);
   res.json({
     eslConnected:     isConnected(),
     agents:           agentStatusMap,
     callsToday:       callsToday.rows[0],
     queueSnapshot:    queueSnapshot.rows,
-    slaPct:           sla.rows[0]?.sla_pct ?? 0,
+    slaPct:           slaNum,
     // Phase 3B-A additive: snake_case name alias of slaPct — identical value,
     // no SLA formula/threshold/join/cast change.
-    sla_pct:          sla.rows[0]?.sla_pct ?? 0,
+    sla_pct:          slaNum,
     queueDistribution: queueDist.rows,
   });
 }
@@ -194,20 +189,8 @@ export async function getQueueStats(req, res) {
             AND c.wait_seconds >= 0
         ), 0)::INT AS avg_wait_today,
 
-        -- SLA %: answered-within-threshold / (answered + abandoned)
-        COALESCE(
-          100.0
-          * COUNT(*) FILTER (
-              WHERE (c.start_time >= $1 AND c.start_time < $2)
-                AND ${answered('c')}
-                AND c.wait_seconds <= q.sla_seconds
-            )
-          / NULLIF(
-              COUNT(*) FILTER (WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${answered('c')}) +
-              COUNT(*) FILTER (WHERE (c.start_time >= $1 AND c.start_time < $2) AND ${abandoned('c')}),
-              0),
-          0
-        )::NUMERIC(5,1) AS sla_pct_today,
+        -- Service level % (one definition: services/metricsSql.js slaPct)
+        ${slaPct({ thr: 'q.sla_seconds', where: 'c.start_time >= $1 AND c.start_time < $2' })} AS sla_pct_today,
 
         -- longest current wait (seconds)
         COALESCE(MAX(

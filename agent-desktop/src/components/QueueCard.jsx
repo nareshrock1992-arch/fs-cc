@@ -7,7 +7,8 @@ function fmt(seconds) {
 }
 
 function SlaBar({ pct, offered }) {
-  if (!offered) {
+  // pct is null until a call has been answered or abandoned (e.g. only waiting calls).
+  if (!offered || pct == null) {
     return (
       <div className="mt-1 flex justify-between text-[0.6875rem] text-ink-faint">
         <span>Service level</span><span>— no calls yet</span>

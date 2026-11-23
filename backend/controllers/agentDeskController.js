@@ -9,6 +9,7 @@ import { businessTodayRange } from '../utils/timezone.js';
 import { effectiveWebrtc, modeAllowsWebrtc } from '../utils/telephony.js';
 import { getTicketStore, ticketHint } from '../services/relayTicketStore.js';
 import { getPhonePresence, PHONE_OFFLINE_CODE } from '../services/phonePresenceService.js';
+import { slaPct } from '../services/metricsSql.js';
 
 // Browser-phone permission for response bodies (no secrets).
 function webrtcInfo(agent) {
@@ -464,19 +465,7 @@ export async function agentQueues(req, res) {
           WHERE (c.start_time >= $2 AND c.start_time < $3) AND c.disposition = 'answered'
         ), 0)::INT AS avg_wait_today,
 
-        COALESCE(
-          100.0
-          * COUNT(*) FILTER (
-              WHERE (c.start_time >= $2 AND c.start_time < $3)
-                AND c.disposition = 'answered'
-                AND c.wait_seconds <= q.sla_seconds
-            )
-          / NULLIF(
-              COUNT(*) FILTER (WHERE (c.start_time >= $2 AND c.start_time < $3) AND c.disposition = 'answered') +
-              COUNT(*) FILTER (WHERE (c.start_time >= $2 AND c.start_time < $3) AND c.abandoned = true),
-              0),
-          0
-        )::NUMERIC(5,1) AS sla_pct_today,
+        ${slaPct({ thr: 'q.sla_seconds', where: 'c.start_time >= $2 AND c.start_time < $3' })} AS sla_pct_today,
 
         COALESCE(MAX(
           EXTRACT(EPOCH FROM (now() - c.queue_enter_time))::INT

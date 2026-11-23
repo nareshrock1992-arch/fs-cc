@@ -33,5 +33,31 @@ await pool.query(
 await pool.query(
   `INSERT INTO queues (name, display_name) VALUES ('e2e_q@default', 'E2E Queue')`,
 );
+
+// M2 service level fixture: queue e2e_sla (target 20 s) with known calls today.
+// Expected service level = answered within 20 s / (answered + ALL abandoned) = 3 / (4 + 2) = 50.0 %.
+await pool.query(
+  `INSERT INTO queues (name, display_name, sla_seconds) VALUES ('e2e_sla@default', 'E2E SLA Queue', 20)`,
+);
+await pool.query(
+  `INSERT INTO agent_tiers (agent_id, queue_id)
+   SELECT a.id, q.id FROM agents a, queues q WHERE a.agent_id = $1 AND q.name = 'e2e_sla@default'`,
+  [process.env.E2E_AGENT_ID],
+);
+const calls = [
+  // [wait_seconds, disposition, abandoned, ended]
+  [5, 'answered', false, true], [10, 'answered', false, true], [20, 'answered', false, true],   // within target (20 s counts)
+  [30, 'answered', false, true],                                                              // late
+  [3, 'abandoned', true, true], [40, 'abandoned', true, true],                                // both count (owner decision)
+  [null, null, false, false],                                                                 // still waiting: not counted
+];
+for (const [i, [wait, disp, ab, ended]] of calls.entries()) {
+  await pool.query(
+    `INSERT INTO calls (call_uuid, queue_name, start_time, queue_enter_time, end_time, wait_seconds, abandoned, disposition)
+     VALUES ($1, 'e2e_sla@default', now() - interval '10 minutes', now() - interval '10 minutes',
+             CASE WHEN $2 THEN now() - interval '5 minutes' END, $3, $4, $5)`,
+    [`e2e-sla-${i}`, ended, wait, ab, disp],
+  );
+}
 await pool.end();
 console.log('seed: database migrated and seeded');

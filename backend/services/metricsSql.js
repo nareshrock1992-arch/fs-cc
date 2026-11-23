@@ -16,17 +16,12 @@
  *   • abandonedAgent / abandonedQueue → the mutually-exclusive split over
  *                               abandoned=true, keyed on missed (NOT bare EXISTS)
  *
+ *   • slaPct(...)             → the ONE service-level formula (M2, owner decision
+ *                               2026-11-23), used by the dashboard, queue stats,
+ *                               queue-performance report + export and the Agent
+ *                               Desktop queue cards.
+ *
  * WHAT IS **NOT** UNIFIED HERE (intentionally left in the controllers):
- *   • SLA — there are currently FOUR different implementations that differ in
- *     threshold source (q.sla_seconds vs COALESCE(subquery,20) — migration 012), join
- *     (INNER vs none), inline date predicates, and cast (::INT vs ::NUMERIC(5,1)):
- *       - statsController.getDashboardStats      (global, INNER JOIN, ::INT)
- *       - statsController.getQueueStats          (per-queue, date-in-FILTER)
- *       - reportsController.queuePerformance     (per-queue, COALESCE(...,300))
- *       - agentDeskController.agentQueues        (per-queue, date-in-FILTER)
- *     These are NOT the same formula. Unifying them is a business decision and is
- *     deferred to Phase 3E. They still consume the shared answered/abandoned
- *     predicates below, but their surrounding structure is left untouched.
  *   • ASA / avg-wait — the `wait_seconds >= 0` refilter exists on the dashboard
  *     and queue-stats variants but NOT on queue-performance. That discrepancy is
  *     preserved (not normalized) per the Phase 2 audit.
@@ -44,6 +39,25 @@ export const answered = (c = 'c') => `${c}.disposition = 'answered'`;
 
 /** "caller abandoned" — the direct caller-abandonment predicate. */
 export const abandoned = (c = 'c') => `${c}.abandoned = true`;
+
+/**
+ * Service level % — the single definition (M2, owner decision 2026-11-23):
+ *   calls answered within the queue's service level target
+ *   ÷ (answered calls + ALL abandoned calls)          (no short-abandon exclusion)
+ * Rounded to one decimal. NULL when there are no answered or abandoned calls, so
+ * screens show "—" instead of a fake 0 %. Must be used inside a grouped query.
+ * @param {{ c?: string, thr: string, where?: string }} o
+ *   thr   SQL expression for the threshold in seconds (e.g. 'q.sla_seconds')
+ *   where optional extra condition applied to every count (e.g. a date range)
+ */
+export const slaPct = ({ c = 'c', thr, where } = {}) => {
+  if (!thr) throw new Error('slaPct: thr is required');
+  const w = where ? ` AND (${where})` : '';
+  return `ROUND(100.0
+    * COUNT(*) FILTER (WHERE ${answered(c)} AND ${c}.wait_seconds <= ${thr}${w})
+    / NULLIF(COUNT(*) FILTER (WHERE ${answered(c)}${w})
+           + COUNT(*) FILTER (WHERE ${abandoned(c)}${w}), 0), 1)`;
+};
 
 /**
  * "an agent was offered this call and did not answer" existence test.
