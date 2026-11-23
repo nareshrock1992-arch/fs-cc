@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import { Navigate, Routes, Route } from 'react-router-dom';
 // PERF-1: pages are loaded on demand (code splitting); Login and Layout stay in the main bundle.
 import { useAuth } from './hooks/useAuth.js';
@@ -18,6 +18,7 @@ const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
 const BreakCodes = lazy(() => import('./pages/BreakCodes.jsx'));
 const DispositionCodes = lazy(() => import('./pages/DispositionCodes.jsx'));
 const ActivityLog = lazy(() => import('./pages/ActivityLog.jsx'));
+const Wallboard = lazy(() => import('./pages/Wallboard.jsx'));
 const BreakHistoryReport = lazy(() => import('./pages/reports/BreakHistoryReport.jsx'));
 const CallHistoryReport = lazy(() => import('./pages/reports/CallHistoryReport.jsx'));
 
@@ -77,6 +78,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Full-screen wallboard for a TV (M2): any signed-in admin/supervisor, no sidebar. */}
+      <Route path="/wallboard" element={
+        <ProtectedRoute>
+          <Suspense fallback={<p className="p-4 text-sm text-ink-dim" role="status">Loading…</p>}><Wallboard /></Suspense>
+        </ProtectedRoute>
+      } />
 
       <Route
         element={

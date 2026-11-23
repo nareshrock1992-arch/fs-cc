@@ -4,7 +4,10 @@
 
 export const qn = (name) => (name ? String(name).split('@')[0] : '');
 
-/** Today's service level across queues: Σ within-target ÷ Σ (answered + abandoned). null when no calls. */
+/**
+ * Today's service level across queues: Σ within-target ÷ Σ (answered + ALL abandoned)
+ * (owner decision 2026-11-23), one decimal like every other screen. null when no calls.
+ */
 export function overallServiceLevel(queueStats) {
   let within = 0, base = 0;
   for (const q of queueStats || []) {
@@ -13,7 +16,7 @@ export function overallServiceLevel(queueStats) {
     within += (Number(q.sla_pct_today) / 100) * b;
     base += b;
   }
-  return base ? Math.round((100 * within) / base) : null;
+  return base ? Math.round((1000 * within) / base) / 10 : null;
 }
 
 /** Sum of a today counter across queues; null when stats are not loaded. */

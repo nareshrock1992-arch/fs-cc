@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, PhoneCall, Users, Layers,
-  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones, Gauge, X, ClipboardCheck, ScrollText,
+  Activity, BarChart3, Radio, ShieldCheck, Coffee, History, Headphones, Gauge, X, ClipboardCheck, ScrollText, Tv,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth.js';
 
@@ -13,6 +13,7 @@ const BASE_NAV = [
   { to: '/',               label: 'Dashboard',       icon: LayoutDashboard, end: true },
   { to: '/live-operations',label: 'Live Operations', icon: Radio },
   { to: '/queue-stats',    label: 'Queue Stats',     icon: Activity },
+  { to: '/wallboard',      label: 'Wallboard',       icon: Tv },
   { to: '/agents',         label: 'Agents',          icon: Users },
   { to: '/queues',         label: 'Queues',          icon: Layers },
 ];
