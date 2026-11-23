@@ -23,7 +23,8 @@ export default defineConfig(({ mode }) => {
       port:  Number(env.VITE_DEV_PORT) || 8080,
       https: devHttps(env),
       proxy: {
-        '/api':       { target: backendTarget, changeOrigin: true },
+        // ws: true carries the browser-phone SIP relay WebSocket (/api/sip-relay).
+        '/api':       { target: backendTarget, changeOrigin: true, ws: true },
         '/socket.io': { target: backendTarget, changeOrigin: true, ws: true },
       },
     },
