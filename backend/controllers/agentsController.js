@@ -440,9 +440,11 @@ export async function setAgentStatus(req, res) {
     `UPDATE agents
         SET status           = $2,
             break_code       = NULL,
-            break_started_at = CASE WHEN $2 = 'On Break' THEN now() ELSE NULL END
+            break_started_at = CASE WHEN $3::bool THEN now() ELSE NULL END
       WHERE agent_id = $1`,
-    [agentId, status]
+    // $3 is separate on purpose: reusing $2 in "$2 = 'On Break'" made PostgreSQL deduce two
+    // types for $2 (varchar column vs text literal) and every call failed with HTTP 500.
+    [agentId, status, status === 'On Break']
   );
   await query(
     `INSERT INTO agent_state_log (agent_id, status, reason) VALUES ($1,$2,'manual')`,
