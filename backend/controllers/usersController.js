@@ -40,14 +40,19 @@ export async function updateUser(req, res) {
   if (!['admin', 'supervisor'].includes(role)) {
     return res.status(400).json({ error: 'role must be admin or supervisor' });
   }
-  const { rows: before } = await query(`SELECT username, role FROM users WHERE id=$1`, [id]);
+  // One statement: read the previous name/role (for the activity log) and update.
   const { rows } = await query(
-    `UPDATE users SET username=$1, role=$2 WHERE id=$3 RETURNING ${SAFE_COLS}`,
+    `WITH prev AS (SELECT username, role FROM users WHERE id=$3)
+     UPDATE users SET username=$1, role=$2 WHERE id=$3
+     RETURNING ${SAFE_COLS}, (SELECT username FROM prev) AS previous_username, (SELECT role FROM prev) AS previous_role`,
     [username.trim().toLowerCase(), role, id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'User not found' });
-  await auditUser(req, 'USER_UPDATED', rows[0], before[0] ?? null, { username: rows[0].username, role: rows[0].role });
-  res.json(rows[0]);
+  const { previous_username, previous_role, ...user } = rows[0];
+  await auditUser(req, 'USER_UPDATED', user,
+    previous_username ? { username: previous_username, role: previous_role } : null,
+    { username: user.username, role: user.role });
+  res.json(user);
 }
 
 export async function deleteUser(req, res) {
@@ -75,14 +80,17 @@ export async function updatePermissions(req, res) {
   if (invalid.length) {
     return res.status(400).json({ error: `Unknown permissions: ${invalid.join(', ')}` });
   }
-  const { rows: before } = await query(`SELECT permissions FROM users WHERE id=$1`, [id]);
+  // One statement: read the previous rights (for the activity log) and update.
   const { rows } = await query(
-    `UPDATE users SET permissions=$1 WHERE id=$2 RETURNING ${SAFE_COLS}`,
+    `WITH prev AS (SELECT permissions FROM users WHERE id=$2)
+     UPDATE users SET permissions=$1 WHERE id=$2
+     RETURNING ${SAFE_COLS}, (SELECT permissions FROM prev) AS previous_permissions`,
     [permissions, id]
   );
   if (!rows[0]) return res.status(404).json({ error: 'User not found' });
-  await auditUser(req, 'USER_PERMISSIONS_SET', rows[0], { permissions: before[0]?.permissions ?? [] }, { permissions: rows[0].permissions });
-  res.json(rows[0]);
+  const { previous_permissions: prev, ...user } = rows[0];
+  await auditUser(req, 'USER_PERMISSIONS_SET', user, { permissions: prev ?? [] }, { permissions: user.permissions });
+  res.json(user);
 }
 
 export async function resetPassword(req, res) {

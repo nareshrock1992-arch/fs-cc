@@ -34,7 +34,11 @@ test.describe.serial('Activity log', () => {
     const c = await request.post(`${API}/users`, { ...admin, data: { ...AUDITOR, role: 'supervisor' } });
     expect(c.status()).toBe(201);
     const { id } = await c.json();
-    expect((await request.patch(`${API}/users/${id}/permissions`, { ...admin, data: { permissions: ['view_activity_log'] } })).status()).toBe(200);
+    const p = await request.patch(`${API}/users/${id}/permissions`, { ...admin, data: { permissions: ['view_activity_log'] } });
+    expect(p.status()).toBe(200);
+    const updated = await p.json();
+    expect(updated.permissions).toEqual(['view_activity_log']);
+    expect(updated).not.toHaveProperty('previous_permissions');   // helper column never leaks
     const auditor = await login(request, AUDITOR.username, AUDITOR.password);
     const rows = await activity(request, auditor, AUDITOR.username);
     const actions = rows.map((r) => r.action);
@@ -42,6 +46,7 @@ test.describe.serial('Activity log', () => {
     const grant = rows.find((r) => r.action === 'USER_PERMISSIONS_SET');
     expect(grant.actor).toBe(process.env.E2E_ADMIN_USER);
     expect(grant.new_value.permissions).toEqual(['view_activity_log']);
+    expect(grant.old_value.permissions).toEqual([]);                // "before" read in the same statement
   });
 
   test('settings changes appear with who and before → after', async ({ request }) => {
