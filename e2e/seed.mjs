@@ -1,0 +1,25 @@
+// Migrate and seed the DISPOSABLE e2e database (called by e2e/run.sh).
+// Credentials come from the environment (generated per run by run.sh) and are never written to disk.
+import { createRequire } from 'node:module';
+
+const need = ['DB_NAME', 'E2E_ADMIN_USER', 'E2E_ADMIN_PASS', 'E2E_AGENT_ID', 'E2E_AGENT_PIN'];
+for (const k of need) if (!process.env[k]) { console.error(`seed: ${k} missing`); process.exit(1); }
+if (!/_e2e$/.test(process.env.DB_NAME)) { console.error('seed: refusing a database not ending in _e2e'); process.exit(1); }
+
+const require = createRequire(new URL('../backend/package.json', import.meta.url));
+const bcrypt = require('bcryptjs');
+const { runMigrations } = await import('../backend/db/migrationRunner.js');
+const { pool } = await import('../backend/db/pool.js');
+
+await runMigrations();
+await pool.query(
+  `INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'admin')`,
+  [process.env.E2E_ADMIN_USER, await bcrypt.hash(process.env.E2E_ADMIN_PASS, 10)],
+);
+await pool.query(
+  `INSERT INTO agents (agent_id, full_name, avaya_extension, contact, agent_type, pin_hash)
+   VALUES ($1, 'E2E Agent', '5999', '{sip_cid_type=pid}user/1999@127.0.0.1', 'internal', $2)`,
+  [process.env.E2E_AGENT_ID, await bcrypt.hash(process.env.E2E_AGENT_PIN, 10)],
+);
+await pool.end();
+console.log('seed: database migrated and seeded');
