@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { Reports as ReportsApi } from '../../api/client.js';
+import { buildCdrCsv, fetchForExport, exportNotice } from '../../lib/cdrCsv.js';
 
 const PAGE_SIZE = 50;
 
@@ -77,32 +78,18 @@ function OutcomeCell({ row }) {
   return <span className="text-ink-faint">—</span>;
 }
 
-// ── Client-side CSV export ────────────────────────────────────────────────────
+// ── Client-side CSV export (M2 Part D: says so when the limit cuts the period) ──
 
 async function downloadCSV(from, to) {
-  const cols = [
-    'call_uuid', 'ani', 'dnis', 'queue_name', 'agent',
-    'queue_wait_seconds', 'ring_seconds', 'talk_seconds', 'abandoned_seconds',
-    'disposition', 'outcome_code', 'outcome_name', 'outcome_notes', 'start_time', 'end_time'
-  ];
-  const rows = await ReportsApi.cdr({ from, to, limit: 5000, offset: 0 });
-  const header = cols.join(',');
-  const body   = rows.map(r =>
-    cols.map(c => {
-      let v = r[c] ?? '';
-      if (typeof v !== 'string') return v;
-      // Free text (agent notes) must not run as a spreadsheet formula.
-      if (/^[=+\-@\t\r]/.test(v)) v = `'${v}`;
-      return /[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-    }).join(',')
-  ).join('\n');
-  const blob = new Blob([`${header}\n${body}`], { type: 'text/csv' });
+  const { rows, truncated } = await fetchForExport(ReportsApi.cdr, { from, to });
+  const blob = new Blob([buildCdrCsv(rows)], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
   a.download = `cdr-${from}-${to}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+  return { count: rows.length, truncated };
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -114,6 +101,7 @@ export default function CDRTable({ from, to }) {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [exporting,  setExporting]  = useState(false);
+  const [exportNote, setExportNote] = useState(null);   // { text, truncated }
   const [dispFilter, setDispFilter] = useState('');
 
   const load = useCallback(async (pg = 0, disp = dispFilter) => {
@@ -142,7 +130,11 @@ export default function CDRTable({ from, to }) {
 
   async function handleExport() {
     setExporting(true);
-    try { await downloadCSV(from, to); }
+    setExportNote(null);
+    try {
+      const result = await downloadCSV(from, to);
+      setExportNote({ text: exportNotice(result), truncated: result.truncated });
+    }
     catch (err) { setError('CSV export failed: ' + err.message); }
     finally { setExporting(false); }
   }
@@ -213,6 +205,16 @@ export default function CDRTable({ from, to }) {
           </button>
         </div>
       </div>
+
+      {/* ── Export result (M2 Part D) ── */}
+      {exportNote && (
+        <div role="status" data-testid="cdr-export-note"
+          className={`mx-6 mt-4 px-4 py-2 rounded-lg text-sm border ${exportNote.truncated
+            ? 'bg-lamp-warn/10 border-lamp-warn/30 text-lamp-warn'
+            : 'bg-surface-2 dark:bg-panel-raised border-border dark:border-panel-border text-ink-dim'}`}>
+          {exportNote.text}
+        </div>
+      )}
 
       {/* ── Error ── */}
       {error && (
