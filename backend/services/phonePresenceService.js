@@ -22,6 +22,8 @@ import { effectiveWebrtc } from '../utils/telephony.js';
 
 export const IN_CALL_STATES = new Set(['Receiving', 'In a queue call']);
 export const PHONE_OFFLINE_CODE = 'PHONE_OFFLINE';
+/** The answered-call state; ringing (Receiving) alone never gets a system outcome. */
+const ANSWERED_STATE = 'In a queue call';
 
 /**
  * @param {object} deps
@@ -35,8 +37,11 @@ export const PHONE_OFFLINE_CODE = 'PHONE_OFFLINE';
  * @param {object} [deps.logger]
  * @param {() => number} [deps.now]
  * @param {{ setTimeout: Function, clearTimeout: Function }} [deps.timers]
- * @param {(agentId:string) => Promise<void>} [deps.onCallDisconnected]  the phone dropped during a
- *        call and that call has now ended (M1: records the SYSTEM_DISCONNECTED outcome)
+ * @param {(agentId:string, info:{lostAt:Date}) => Promise<void>} [deps.onCallDisconnected]  the phone
+ *        was lost during an answered queue call and is now declared offline, and that call has ended
+ *        (M1: records the SYSTEM_DISCONNECTED outcome). `lostAt` = when the phone was lost.
+ *        Called once per lost phone, whether the call ended during the grace (usual: FreeSWITCH
+ *        ends the call within seconds of the drop — KF-11) or after the phone was declared offline.
  */
 export const RELOAD_GRACE_MS = 60_000;
 export const RELOAD_COOLDOWN_MS = 5 * 60_000;
@@ -47,13 +52,19 @@ export function createPhonePresence({
   emit = () => {}, relay = null, logger = console, now = Date.now,
   timers = { setTimeout, clearTimeout }, onCallDisconnected = null,
 }) {
-  const agents = new Map(); // agentId -> { phone, since, timer, pendingOffline, pendingClose }
+  // agentId -> { phone, since, timer, pendingOffline, pendingClose,
+  //              inCall, lostAt, callEndedInGrace, outcomeOnCallEnd }  (last four: M1 system outcome)
+  const agents = new Map();
   const reloads = new Map(); // agentId -> { until, lastAt } — page-reload allowance (CP3-E)
   const log = (lvl, msg) => logger[lvl](`[phone] ${msg}`);
 
   function entry(agentId) {
     let e = agents.get(agentId);
-    if (!e) { e = { phone: 'none', since: now(), timer: null, pendingOffline: false, pendingClose: false }; agents.set(agentId, e); }
+    if (!e) {
+      e = { phone: 'none', since: now(), timer: null, pendingOffline: false, pendingClose: false,
+            inCall: false, lostAt: null, callEndedInGrace: false, outcomeOnCallEnd: false };
+      agents.set(agentId, e);
+    }
     return e;
   }
 
@@ -73,6 +84,8 @@ export function createPhonePresence({
     if (e.phone === 'offline') return;          // already offline; nothing to wait for
     if (e.phone === 'grace' && e.timer) return; // flapping must not extend the grace
     setPhone(agentId, e, 'grace');
+    e.lostAt = e.since;
+    e.callEndedInGrace = false;
     clearTimer(e);
     e.timer = timers.setTimeout(() => { e.timer = null; evaluate(agentId).catch((err) => log('error', `evaluate ${agentId}: ${err.message}`)); }, ms);
     log('info', `${agentId} phone lost (${why}); grace ${Math.round(ms / 1000)} s`);
@@ -90,17 +103,29 @@ export function createPhonePresence({
       return;
     }
     setPhone(agentId, e, 'offline');
+    // M1 system outcome (KF-11): the answered call already ended during the grace, or
+    // is still up — then it is written when the call ends. Independent of the status.
+    if (e.callEndedInGrace) { e.callEndedInGrace = false; recordOutcome(agentId, e); }
+    else if (agent.state === ANSWERED_STATE) e.outcomeOnCallEnd = true;
     if (agent.status !== 'Available') {
       log('info', `${agentId} phone offline; status "${agent.status}" kept`);
       return;
     }
     if (IN_CALL_STATES.has(agent.state)) {
       e.pendingOffline = true;
-      e.outcomeRecorded = false;   // M1: one system outcome per dropped call
       log('info', `${agentId} phone offline during a call; PHONE_OFFLINE deferred until the call ends`);
       return;
     }
     await applyOffline(agentId, e);
+  }
+
+  /** M1: hand the dropped call to the outcome writer once; it never overwrites an agent's outcome. */
+  function recordOutcome(agentId, e) {
+    e.outcomeOnCallEnd = false;
+    if (!onCallDisconnected) return;
+    const lostAt = new Date(e.lostAt ?? now());
+    Promise.resolve(onCallDisconnected(agentId, { lostAt }))
+      .catch((err) => log('error', `${agentId} system outcome: ${err.message}`));
   }
 
   async function applyOffline(agentId, e) {
@@ -117,6 +142,8 @@ export function createPhonePresence({
     const was = e.phone;
     clearTimer(e);
     e.pendingOffline = false;
+    e.callEndedInGrace = false;   // phone back in time: the agent records the outcome
+    e.outcomeOnCallEnd = false;
     setPhone(agentId, e, 'online');
     if (was === 'offline' || was === 'grace') log('info', `${agentId} phone recovered (was ${was}); agent status unchanged`);
   }
@@ -167,7 +194,10 @@ export function createPhonePresence({
   // ── Call-state events (existing ESL ccEvents) ────────────────────────────────
   async function onAgentState({ agentId, state }) {
     const e = agents.get(agentId);
-    if (!e || state == null || IN_CALL_STATES.has(state)) return;
+    if (!e || state == null) return;
+    if (IN_CALL_STATES.has(state)) { e.inCall = state === ANSWERED_STATE || e.inCall; return; }
+    const answeredCallEnded = e.inCall;
+    e.inCall = false;
     if (e.pendingClose) {
       e.pendingClose = false;
       relay?.closeAgent(agentId, 'browser phone disabled');
@@ -175,14 +205,10 @@ export function createPhonePresence({
       log('info', `${agentId} browser phone disabled after the call ended`);
       return;
     }
+    // M1 system outcome. Never blocks or changes the PHONE_OFFLINE handling below.
+    if (answeredCallEnded && e.phone === 'grace') e.callEndedInGrace = true; // written if the grace expires
+    if (e.outcomeOnCallEnd && e.phone === 'offline') recordOutcome(agentId, e);
     if (e.pendingOffline && e.phone === 'offline') {
-      // The phone dropped during the call that just ended: record a system outcome
-      // for that call (M1). Never blocks or changes the PHONE_OFFLINE handling below.
-      if (onCallDisconnected && !e.outcomeRecorded) {
-        e.outcomeRecorded = true;
-        Promise.resolve(onCallDisconnected(agentId))
-          .catch((err) => log('error', `${agentId} system outcome: ${err.message}`));
-      }
       const agent = await loadAgent(agentId);
       if (!e.pendingOffline || e.phone !== 'offline') return;
       if (!effectiveWebrtc(agent, getMode()).allowed || agent.status !== 'Available') { e.pendingOffline = false; return; }

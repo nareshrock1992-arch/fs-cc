@@ -314,6 +314,34 @@ describe('recordSystemDisconnect', () => {
     expect(sql).toContain('ON CONFLICT (call_uuid) DO NOTHING');
   });
 
+  it('without lostAt the call query is unchanged (one parameter)', async () => {
+    sqlRouter([['SELECT call_uuid, queue_name FROM calls', { rows: [] }]]);
+    await wrapup.recordSystemDisconnect('alice');
+    const [sql, params] = sqlCalls('SELECT call_uuid, queue_name FROM calls')[0];
+    expect(params).toEqual(['alice']);
+    expect(sql).not.toContain('end_time IS NULL OR');
+  });
+
+  it('with lostAt only a call still open or ended at/after the drop qualifies (KF-11)', async () => {
+    sqlRouter([
+      ['SELECT call_uuid, queue_name FROM calls', { rows: [{ call_uuid: 'c-10', queue_name: 'support@default' }] }],
+      ['FROM disposition_codes WHERE code', { rows: [] }],
+      ['INSERT INTO call_wrapups', { rows: [{ call_uuid: 'c-10' }] }],
+    ]);
+    const lostAt = new Date('2026-11-23T17:33:36Z');
+    expect(await wrapup.recordSystemDisconnect('alice', { lostAt })).toBe(true);
+    const [sql, params] = sqlCalls('SELECT call_uuid, queue_name FROM calls')[0];
+    expect(params).toEqual(['alice', '2026-11-23T17:33:36.000Z']);
+    expect(sql).toContain('end_time IS NULL OR end_time >= $2::timestamptz - make_interval(secs => 5)');
+    expect(sqlCalls('INSERT INTO call_wrapups')[0][1][4]).toBe('Disconnected unexpectedly');
+  });
+
+  it('an invalid lostAt is ignored, never sent to SQL', async () => {
+    sqlRouter([['SELECT call_uuid, queue_name FROM calls', { rows: [] }]]);
+    await wrapup.recordSystemDisconnect('alice', { lostAt: new Date('nope') });
+    expect(sqlCalls('SELECT call_uuid, queue_name FROM calls')[0][1]).toEqual(['alice']);
+  });
+
   it('does nothing without a recent answered call', async () => {
     sqlRouter([['SELECT call_uuid, queue_name FROM calls', { rows: [] }]]);
     expect(await wrapup.recordSystemDisconnect('alice')).toBe(false);

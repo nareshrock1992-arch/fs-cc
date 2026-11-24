@@ -232,7 +232,7 @@ describe('active calls', () => {
     ccEvents.emit('agent:state', { agentId: 'alice', status: 'Available', state: 'Waiting' });
     await flush();
     expect(onCallDisconnected).toHaveBeenCalledTimes(1);
-    expect(onCallDisconnected).toHaveBeenCalledWith('alice');
+    expect(onCallDisconnected).toHaveBeenCalledWith('alice', { lostAt: expect.any(Date) });
     expect(applyPhoneOffline).toHaveBeenCalledTimes(1);          // PHONE_OFFLINE unchanged
   });
 
@@ -284,6 +284,143 @@ describe('active calls', () => {
     ccEvents.emit('agent:state', { agentId: 'alice', state: 'In a queue call' });
     await flush();
     expect(applyPhoneOffline).not.toHaveBeenCalled();
+  });
+});
+
+// KF-11 (lab 2026-11-23): on a real drop FreeSWITCH ends the call ~9 s later, inside the grace.
+describe('M1 system outcome when the call ends during the grace (KF-11)', () => {
+  let onCallDisconnected;
+  function buildWithOutcome() {
+    presence.stop();
+    relayEvents = new EventEmitter(); ccEvents = new EventEmitter();
+    onCallDisconnected = vi.fn().mockResolvedValue(true);
+    presence = createPhonePresence({
+      getMode: () => mode, graceMs: GRACE,
+      loadAgent: vi.fn(async (id) => (db[id] ? { ...db[id] } : null)),
+      applyPhoneOffline, relay, logger: { info() {}, warn() {}, error() {} },
+      onCallDisconnected,
+    });
+    presence.attach({ relayEvents, ccEvents });
+  }
+  const state = (st, status) => { db.alice.state = st; ccEvents.emit('agent:state', { agentId: 'alice', status, state: st }); };
+  beforeEach(() => buildWithOutcome());
+
+  it('call answered, phone drops, call ends 9 s later → outcome once when the grace ends, then PHONE_OFFLINE', async () => {
+    registered();
+    state('In a queue call', 'Available');
+    const dropAt = Date.now();
+    closed();
+    await advance(9_000);
+    state('Waiting', 'Available');
+    await flush();
+    expect(onCallDisconnected).not.toHaveBeenCalled();           // phone may still come back
+    await advance(GRACE - 9_000);
+    expect(presence.getPhoneStatus('alice')).toBe('offline');
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+    const [id, { lostAt }] = onCallDisconnected.mock.calls[0];
+    expect(id).toBe('alice');
+    expect(lostAt.getTime()).toBe(dropAt);
+    expect(applyPhoneOffline).toHaveBeenCalledTimes(1);
+    expect(db.alice).toMatchObject({ status: 'On Break', break_code: PHONE_OFFLINE_CODE });
+    // later state events never write a second outcome
+    state('Waiting', 'On Break');
+    await advance(GRACE);
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+  });
+
+  it('same with the 60 s page-close allowance (the lab case)', async () => {
+    registered();
+    state('In a queue call', 'Available');
+    presence.expectReload('alice');
+    closed();
+    await advance(9_000);
+    state('Waiting', 'Available');
+    await advance(GRACE);
+    expect(onCallDisconnected).not.toHaveBeenCalled();           // still inside 60 s
+    await advance(60_000);
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+  });
+
+  it('phone back inside the grace → no system outcome (agent records it)', async () => {
+    registered();
+    state('In a queue call', 'Available');
+    closed();
+    await advance(5_000);
+    state('Waiting', 'Available');
+    await advance(3_000);
+    registered();
+    await advance(GRACE * 2);
+    expect(onCallDisconnected).not.toHaveBeenCalled();
+    expect(applyPhoneOffline).not.toHaveBeenCalled();
+  });
+
+  it('a call that only rang (never answered) gets no system outcome', async () => {
+    registered();
+    state('Receiving', 'Available');
+    closed();
+    await advance(2_000);
+    state('Waiting', 'Available');
+    await advance(GRACE);
+    expect(onCallDisconnected).not.toHaveBeenCalled();
+    expect(applyPhoneOffline).toHaveBeenCalledTimes(1);          // PHONE_OFFLINE unchanged
+  });
+
+  it('ringing then answered counts as answered', async () => {
+    registered();
+    state('Receiving', 'Available');
+    state('In a queue call', 'Available');
+    closed();
+    await advance(4_000);
+    state('Waiting', 'Available');
+    await advance(GRACE);
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+  });
+
+  it('no call during the loss → no system outcome', async () => {
+    registered();
+    state('In a queue call', 'Available');
+    state('Waiting', 'Available');                               // call ended BEFORE the drop
+    closed();
+    await advance(GRACE);
+    expect(onCallDisconnected).not.toHaveBeenCalled();
+  });
+
+  it('agent was On Break (status) during the call: outcome still written, status untouched', async () => {
+    db.alice.status = 'On Break';
+    registered();
+    state('In a queue call', 'On Break');
+    closed();
+    await advance(3_000);
+    state('Waiting', 'On Break');
+    await advance(GRACE);
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+    expect(applyPhoneOffline).not.toHaveBeenCalled();
+  });
+
+  it('call still up when declared offline, agent On Break → outcome when the call ends', async () => {
+    db.alice.status = 'On Break';
+    registered();
+    state('In a queue call', 'On Break');
+    closed();
+    await advance(GRACE);
+    expect(onCallDisconnected).not.toHaveBeenCalled();
+    state('Waiting', 'On Break');
+    await flush();
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+  });
+
+  it('a second, later drop without a call records nothing more', async () => {
+    registered();
+    state('In a queue call', 'Available');
+    closed();
+    await advance(2_000);
+    state('Waiting', 'Available');
+    await advance(GRACE);
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
+    registered();
+    closed();
+    await advance(GRACE);
+    expect(onCallDisconnected).toHaveBeenCalledTimes(1);
   });
 });
 

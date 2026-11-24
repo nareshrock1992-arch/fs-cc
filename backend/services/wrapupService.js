@@ -190,14 +190,28 @@ export function attachWrapupRestore(ccEvents, logger = console) {
   ccEvents.on('agent:offering', ({ agentId }) => restore(agentId, 'call offered'));
 }
 
-/** The agent's phone dropped during their latest call: record the system outcome. */
-export async function recordSystemDisconnect(agentId) {
+/** Slack between the relay noticing the drop and FreeSWITCH writing the call's end time. */
+export const SYSTEM_LOST_SLACK_SECONDS = 5;
+
+/**
+ * The agent's phone dropped during their latest answered queue call: record the system outcome.
+ * With `lostAt`, only a call still open or ended at/after the drop qualifies, so an older call
+ * the agent is still wrapping up is never marked (KF-11).
+ */
+export async function recordSystemDisconnect(agentId, { lostAt } = {}) {
+  const params = [agentId];
+  let lostCond = '';
+  if (lostAt instanceof Date && !Number.isNaN(lostAt.getTime())) {
+    params.push(lostAt.toISOString());
+    lostCond = `
+        AND (end_time IS NULL OR end_time >= $2::timestamptz - make_interval(secs => ${SYSTEM_LOST_SLACK_SECONDS}))`;
+  }
   const { rows: callRows } = await query(
     `SELECT call_uuid, queue_name FROM calls
       WHERE agent_id = $1 AND agent_answer_time IS NOT NULL AND queue_name IS NOT NULL
-        AND COALESCE(end_time, now()) > now() - make_interval(mins => ${SYSTEM_WINDOW_MINUTES})
+        AND COALESCE(end_time, now()) > now() - make_interval(mins => ${SYSTEM_WINDOW_MINUTES})${lostCond}
       ORDER BY agent_answer_time DESC LIMIT 1`,
-    [agentId]
+    params
   );
   const call = callRows[0];
   if (!call) return false;
