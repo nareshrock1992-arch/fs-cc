@@ -124,6 +124,37 @@ describe('relay reconnect with fresh tickets', () => {
     expect(err).not.toContain('FIRST');
   });
 
+  it('phone signed in on another computer (relay 4409) → this desk stops, explains, never takes it back (lab 2026-11-24)', async () => {
+    const provider = vi.fn(async () => 'wss://cc.example/api/sip-relay?ticket=NEW');
+    const { svc, client } = await signedIn(provider);
+    client.events.onDisconnected(new Error('WebSocket closed wss://cc.example/api/sip-relay?ticket=FIRST (code: 4409)'));
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(provider).not.toHaveBeenCalled();                       // no ping-pong between two desks
+    expect(client.reconnects).toEqual([]);
+    expect(svc.store.get().account).toBeUndefined();
+    expect(svc.store.get().error).toMatch(/signed in on another computer or browser tab/);
+    expect(svc.store.get().error).not.toContain('FIRST');
+  });
+
+  it('replaced DURING a call → the call is not cut, no reconnect', async () => {
+    const provider = vi.fn(async () => 'wss://cc.example/api/sip-relay?ticket=NEW');
+    const { svc, client } = await signedIn(provider);
+    (svc as unknown as Record<string, unknown>).session = { id: 'call-1', state: 'Established', bye: vi.fn() };
+    client.events.onDisconnected(new Error('WebSocket closed wss://x (code: 4409)'));
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(client.stop).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
+    expect(svc.store.get().error).toMatch(/another computer/);
+  });
+
+  it('other drops (e.g. 1006) still reconnect as before', async () => {
+    const provider = vi.fn(async () => 'wss://cc.example/api/sip-relay?ticket=NEW');
+    const { client } = await signedIn(provider);
+    client.events.onDisconnected(new Error('WebSocket closed wss://x (code: 1006)'));
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(client.reconnects).toEqual(['wss://cc.example/api/sip-relay?ticket=NEW']);
+  });
+
   it('the ticket never appears in UI state', async () => {
     const { svc } = await signedIn(async () => 'wss://x?ticket=NEW');
     expect(svc.store.get().account?.wssUrl).toBe('wss://cc.example/api/sip-relay?ticket=***');
