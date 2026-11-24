@@ -462,6 +462,61 @@ describe('SIP relay — limits', () => {
     expect(b.ws.readyState).toBe(WebSocket.OPEN);
   });
 
+  // Lab 2026-11-24: a phone with the RIGHT password was locked. These keep the lock for real refusals only.
+  const authed = (i) => sipRequest('REGISTER', { auth: '1001', cseq: i + 1 });
+  async function answer(b, f, i, response) {
+    b.ws.send(authed(i));
+    await waitFor(() => f.frames.length === i + 1);
+    f.ws.send(response);
+    await sleep(30);
+  }
+
+  it('"code expired" challenges (stale=true) never count, even with credentials', async () => {
+    await setup({ limits: { authFailMax: 2 } });
+    const { b, f } = await connectedPair();
+    const stale = sipResponse(401, 'Unauthorized', 'REGISTER',
+      ['WWW-Authenticate: Digest realm="pbx.example", nonce="abc", algorithm=MD5, qop="auth", stale=true']);
+    for (let i = 0; i < 4; i++) await answer(b, f, i, stale);
+    expect(b.ws.readyState).toBe(WebSocket.OPEN);
+    expect(relay.authLock('alice')).toEqual({ locked: false, retryAfterMs: 0 });
+  });
+
+  it('a fresh 401 challenge to a REGISTER with credentials still counts (wrong password)', async () => {
+    await setup({ limits: { authFailMax: 2 } });
+    const { b, f } = await connectedPair();
+    const fresh = sipResponse(401, 'Unauthorized', 'REGISTER', ['WWW-Authenticate: Digest realm="pbx.example", nonce="n2", qop="auth"']);
+    for (let i = 0; i < 2; i++) await answer(b, f, i, fresh);
+    await waitFor(() => b.closeCode !== null);
+    expect(b.closeCode).toBe(CLOSE.AUTH_LIMIT);
+  });
+
+  it('a successful sign-in clears earlier refusals', async () => {
+    await setup({ limits: { authFailMax: 3 } });
+    const { b, f } = await connectedPair();
+    const forbidden = sipResponse(403, 'Forbidden', 'REGISTER');
+    await answer(b, f, 0, forbidden);
+    await answer(b, f, 1, forbidden);
+    await answer(b, f, 2, sipResponse(200, 'OK', 'REGISTER', ['Contact: <sip:x@y.invalid;transport=ws>;expires=600']));
+    await answer(b, f, 3, forbidden);
+    await answer(b, f, 4, forbidden);
+    expect(b.ws.readyState).toBe(WebSocket.OPEN);               // 2 since the success, not 4
+    expect(relay.authLock('alice').locked).toBe(false);
+  });
+
+  it('authLock says when the phone will be free again', async () => {
+    let t = 1_000_000;
+    await setup({ limits: { authFailMax: 2, authFailWindowMs: 300_000 }, ticketNow: () => t });
+    const { b, f } = await connectedPair();
+    // relay uses its own clock (Date.now); only check shape and bounds here
+    await answer(b, f, 0, sipResponse(403, 'Forbidden', 'REGISTER'));
+    await answer(b, f, 1, sipResponse(403, 'Forbidden', 'REGISTER'));
+    const lock = relay.authLock('alice');
+    expect(lock.locked).toBe(true);
+    expect(lock.retryAfterMs).toBeGreaterThan(290_000);
+    expect(lock.retryAfterMs).toBeLessThanOrEqual(300_000);
+    expect(relay.authLock('bob').locked).toBe(false);
+  });
+
   it('browser that stops answering pings is disconnected', async () => {
     await setup({ limits: { pingIntervalMs: 50, pongTimeoutMs: 80, heartbeatTickMs: 20 } });
     const r = await connect(ticketFor('alice'), { autoPong: false });

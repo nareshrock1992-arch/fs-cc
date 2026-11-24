@@ -47,6 +47,19 @@ export const CLOSE = {
   BAD_FRAME: 4400, FORBIDDEN: 4403, REPLACED: 4409, AUTH_LIMIT: 4429, UPSTREAM_CLOSED: 4502, UPSTREAM_FAILED: 4504,
 };
 
+/**
+ * True when FreeSWITCH refused the phone's credentials: 403, or a new 401/407 challenge to a
+ * REGISTER that already carried them. A challenge marked `stale=true` only means the one-time
+ * sign-in code (nonce) expired — the password was right and the phone simply retries — so it
+ * never counts towards the lock.
+ */
+export function isCredentialRefusal(p, hadAuth) {
+  if (p.status === 403) return true;
+  if ((p.status !== 401 && p.status !== 407) || !hadAuth) return false;
+  const challenges = [...(p.headers?.['www-authenticate'] || []), ...(p.headers?.['proxy-authenticate'] || [])];
+  return !challenges.some((c) => /(^|[\s,])stale\s*=\s*"?true"?/i.test(c));
+}
+
 function rejectUpgrade(socket, status, text) {
   if (!socket.writable) return socket.destroy();
   socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
@@ -104,6 +117,15 @@ export function createSipRelay({
 
   function authBlocked(agentId) {
     return recent(authFails, agentId, L.authFailWindowMs).length >= L.authFailMax;
+  }
+
+  /** Lock state for the ticket service: locked, and ms until the oldest counted failure ages out. */
+  function authLock(agentId) {
+    const list = recent(authFails, agentId, L.authFailWindowMs);
+    if (list.length < L.authFailMax) return { locked: false, retryAfterMs: 0 };
+    // Unlocks when enough failures leave the window: the (n - max + 1)-th oldest one decides.
+    const decisive = list[list.length - L.authFailMax];
+    return { locked: true, retryAfterMs: Math.max(1000, decisive + L.authFailWindowMs - now()) };
   }
 
   // ── Upgrade (synchronous checks only, so the 101 is written immediately) ──────
@@ -340,10 +362,11 @@ export function createSipRelay({
         s.registered = true;
         events.emit('registered', { agentId: s.agentId, extension: s.extension });
       }
+      // The password was accepted: earlier refusals were not a guessing attempt.
+      authFails.delete(s.agentId);
       return;
     }
-    const authFailure = p.status === 403 || ((p.status === 401 || p.status === 407) && s.lastRegisterHadAuth);
-    if (!authFailure) return;
+    if (!isCredentialRefusal(p, s.lastRegisterHadAuth)) return;
     const list = recent(authFails, s.agentId, L.authFailWindowMs);
     list.push(now());
     authFails.set(s.agentId, list);
@@ -410,6 +433,7 @@ export function createSipRelay({
     heartbeat,
     stats: () => ({ sessions: sessions.size, agents: byAgent.size, accepting }),
     hasSession: (agentId) => byAgent.has(agentId),
+    authLock,
     closeAgent: (agentId, reason = 'closed by server') => {
       const s = byAgent.get(agentId);
       if (s) closeSession(s, CLOSE.FORBIDDEN, reason);
@@ -422,9 +446,13 @@ export function createSipRelay({
  * Attach the relay to the HTTP server only when the customer mode allows WebRTC.
  * Returns null (and attaches nothing) for EXTERNAL_PBX.
  */
+let shared = null;
+/** The running relay (null when the mode has no browser phone), for the ticket service. */
+export function getSipRelay() { return shared; }
+
 export function initSipRelay({ server, config, ticketStore, loadAgent, logger }) {
-  if (!modeAllowsWebrtc(config.telephony?.mode)) return null;
-  return createSipRelay({
+  if (!modeAllowsWebrtc(config.telephony?.mode)) { shared = null; return null; }
+  shared = createSipRelay({
     server,
     telephony: config.telephony,
     allowedOrigins: config.cors.origin,
@@ -433,4 +461,5 @@ export function initSipRelay({ server, config, ticketStore, loadAgent, logger })
     logger,
     limits: { maxConnections: config.telephony.relayMaxConnections || DEFAULTS.maxConnections },
   });
+  return shared;
 }

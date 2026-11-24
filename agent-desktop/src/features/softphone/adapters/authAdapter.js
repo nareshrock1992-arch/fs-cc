@@ -31,15 +31,20 @@ export function relayUrlFor(t, apiBase, loc = window.location) {
 
 /** Plain-language message for a ticket request failure. */
 export function ticketErrorMessage(err) {
+  // The relay locked the phone after repeated refused passwords; the server says for how long.
+  if (err?.code === 'PHONE_SIGNIN_LOCKED') return err.message || 'Too many failed phone sign-ins. Check your phone password and try again in a few minutes.';
   if (err?.status === 403 || err?.status === 404) return 'The browser phone is not enabled for you. Use your desk phone or ask your supervisor.';
   if (err?.status === 401) return 'Your session has expired. Sign in to the Agent Desktop again.';
   if (err?.status === 429) return 'Too many phone connection attempts. Wait a moment and try again.';
   return 'Could not reach the server to start the browser phone. Check the network and try again.';
 }
 
-/** 401/403/404 mean "not allowed any more": do not keep retrying. */
+/**
+ * 401/403/404 mean "not allowed any more", and a phone locked after refused passwords
+ * must not keep knocking (each try would be refused): do not keep retrying.
+ */
 export function isFatalTicketError(err) {
-  return err?.status === 401 || err?.status === 403 || err?.status === 404;
+  return err?.status === 401 || err?.status === 403 || err?.status === 404 || err?.code === 'PHONE_SIGNIN_LOCKED';
 }
 
 /**

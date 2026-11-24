@@ -100,6 +100,30 @@ describe('relay reconnect with fresh tickets', () => {
     expect(provider).toHaveBeenCalledTimes(1);
   });
 
+  it('phone locked after refused passwords → stop knocking, sign out, show the lock message (lab 2026-11-24)', async () => {
+    const msg = 'Too many failed phone sign-ins. Check your phone password and try again in 5 minutes.';
+    const provider = vi.fn(async () => { throw new TicketError(msg, true); });
+    const { svc, client } = await signedIn(provider);
+    client.events.onDisconnected(new Error('WebSocket closed (code: 4429)'));
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(svc.store.get().account).toBeUndefined();
+    expect(svc.store.get().error).toBe(msg);
+    await vi.advanceTimersByTimeAsync(600_000);
+    expect(provider).toHaveBeenCalledTimes(1);                   // no retry storm while locked
+  });
+
+  it('connect failure explains both causes, never only "certificate"', async () => {
+    const svc = new PhoneService({ registerExpires: 300, iceGatheringTimeoutMs: 1000, iceServers: [] } as never);
+    const start = vi.spyOn(FakeClient.prototype, 'start').mockRejectedValueOnce(new Error('WebSocket error'));
+    await svc.login({ ...BASE });
+    start.mockRestore();
+    const err = svc.store.get().error ?? '';
+    expect(err).toMatch(/^Could not connect the browser phone to the server \(wss:\/\/cc\.example\/api\/sip-relay\?ticket=\*\*\*\)\./);
+    expect(err).toMatch(/try again in a minute/);
+    expect(err).toMatch(/certificate warning/);
+    expect(err).not.toContain('FIRST');
+  });
+
   it('the ticket never appears in UI state', async () => {
     const { svc } = await signedIn(async () => 'wss://x?ticket=NEW');
     expect(svc.store.get().account?.wssUrl).toBe('wss://cc.example/api/sip-relay?ticket=***');

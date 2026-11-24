@@ -61,6 +61,27 @@ describe('createTicketProvider — reconnects', () => {
   });
 });
 
+describe('phone locked after refused passwords (lab 2026-11-24)', () => {
+  const locked = Object.assign(new Error('Too many failed phone sign-ins. Check your phone password and try again in 4 minutes.'),
+    { status: 429, code: 'PHONE_SIGNIN_LOCKED' });
+
+  it('shows the server message (with minutes), not a certificate or network hint', () => {
+    expect(ticketErrorMessage(locked)).toBe('Too many failed phone sign-ins. Check your phone password and try again in 4 minutes.');
+    expect(ticketErrorMessage({ status: 429, code: 'PHONE_SIGNIN_LOCKED' })).toMatch(/^Too many failed phone sign-ins/);
+  });
+
+  it('is final: the desk stops reconnecting instead of knocking every few seconds', async () => {
+    expect(isFatalTicketError(locked)).toBe(true);
+    expect(isFatalTicketError({ status: 429 })).toBe(false);        // plain rate limit stays temporary
+    const provider = createTicketProvider({ fetchTicket: vi.fn().mockRejectedValue(locked), apiBase: '/api', extension: '1000',
+      loc: { href: 'https://desk.example/' } });
+    const err = await provider('reconnect').catch((e) => e);
+    expect(err).toBeInstanceOf(TicketError);
+    expect(err.fatal).toBe(true);
+    expect(err.message).toMatch(/try again in 4 minutes/);
+  });
+});
+
 describe('redactUrl — tickets never reach logs or UI', () => {
   it('hides ticket values in URLs and in free text', () => {
     expect(redactUrl('wss://h/api/sip-relay?ticket=abc_DEF-123')).toBe('wss://h/api/sip-relay?ticket=***');

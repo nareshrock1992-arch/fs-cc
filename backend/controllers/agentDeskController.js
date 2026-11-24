@@ -9,6 +9,7 @@ import { businessTodayRange } from '../utils/timezone.js';
 import { effectiveWebrtc, modeAllowsWebrtc } from '../utils/telephony.js';
 import { getTicketStore, ticketHint } from '../services/relayTicketStore.js';
 import { getPhonePresence, PHONE_OFFLINE_CODE } from '../services/phonePresenceService.js';
+import { getSipRelay } from '../services/sipRelayService.js';
 import { slaPct } from '../services/metricsSql.js';
 import { writeAudit, staffActor } from '../services/auditService.js';
 
@@ -147,6 +148,19 @@ export async function agentWebrtcTicket(req, res) {
   const eff = effectiveWebrtc(rows[0] || null, mode);
   if (!eff.allowed) {
     return res.status(403).json({ error: 'Browser phone is not enabled for this agent.', code: 'WEBRTC_NOT_ALLOWED' });
+  }
+  // The relay locked this phone after repeated refused passwords: say so plainly and
+  // issue no ticket (the connection would be refused, and the browser cannot see why).
+  const lock = getSipRelay()?.authLock?.(rows[0].agent_id);
+  if (lock?.locked) {
+    const secs = Math.ceil(lock.retryAfterMs / 1000);
+    const mins = Math.max(1, Math.ceil(secs / 60));
+    res.set?.('Retry-After', String(secs));
+    return res.status(429).json({
+      error: `Too many failed phone sign-ins. Check your phone password and try again in ${mins} minute${mins === 1 ? '' : 's'}.`,
+      code: 'PHONE_SIGNIN_LOCKED',
+      retry_after_seconds: secs,
+    });
   }
   const store = getTicketStore(config.telephony.ticketTtlMs);
   const { ticket, expiresInMs } = store.issue({ agentId: rows[0].agent_id, extension: eff.extension, kind });

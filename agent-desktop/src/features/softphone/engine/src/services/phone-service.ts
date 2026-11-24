@@ -190,8 +190,11 @@ export class PhoneService {
         connection: 'disconnected',
         account: undefined,
         error:
-          `Could not open the secure WebSocket (${redactUrl(creds.wssUrl)}). ` +
-          'Check that the server is running and that its certificate is trusted by this computer.',
+          // Not only certificates: the server may also have refused the connection. Say both,
+          // most likely first; the address is shown without the ticket.
+          `Could not connect the browser phone to the server (${redactUrl(creds.wssUrl)}). ` +
+          'Check the network and try again in a minute. If the browser shows a certificate warning for this site, ' +
+          'its certificate is not trusted by this computer.',
       });
     }
   }
