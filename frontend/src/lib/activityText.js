@@ -26,6 +26,35 @@ function diffFields(oldV, newV) {
   return changes.length ? ` (${changes.join('; ')})` : '';
 }
 
+// Queue settings in the words of the Queues page.
+const STRATEGY_WORDS = {
+  'longest-idle-agent': 'Longest Idle Agent', 'agent-with-least-talk-time': 'Least Talk Time',
+  'round-robin': 'Round Robin', 'top-down': 'Top Down (by tier)', 'ring-all': 'Ring All',
+};
+const QUEUE_FIELD_WORDS = {
+  display_name: ['name', q],
+  strategy: ['call distribution', (v) => STRATEGY_WORDS[v] || v],
+  max_wait_time: ['max wait', (v) => (Number(v) === 0 ? 'no limit' : `${v} s`)],
+  max_queue_size: ['max callers waiting', (v) => v],
+  agent_no_answer_status: ['after missed calls the agent is set to', (v) => v],
+  sla_seconds: ['service level target', (v) => `${v} s`],
+  active: ['active', (v) => (v ? 'yes' : 'no')],
+};
+const shown = (fmt, v) => (v == null ? '—' : fmt(v));
+
+/** "call distribution: Ring All → Top Down (by tier); service level target: 20 s → 30 s" */
+function queueDiff(oldV = {}, newV = {}) {
+  const parts = Object.keys(QUEUE_FIELD_WORDS)
+    .filter((k) => k in newV && JSON.stringify(oldV[k]) !== JSON.stringify(newV[k]))
+    .map((k) => { const [word, fmt] = QUEUE_FIELD_WORDS[k]; return `${word}: ${shown(fmt, oldV[k])} → ${shown(fmt, newV[k])}`; });
+  return parts.length ? ` (${parts.join('; ')})` : '';
+}
+const queueName = (r) => {
+  const dn = r.new_value?.display_name || r.old_value?.display_name;
+  return dn ? `${q(dn)} (${r.entity_id})` : r.entity_id;
+};
+const tier = (v) => (v ? `level ${v.level ?? '—'}, position ${v.position ?? '—'}` : '');
+
 const SENTENCES = {
   AGENT_CREATED:        (r) => `Agent ${r.entity_id} added`,
   AGENT_DELETED:        (r) => `Agent ${r.entity_id} removed`,
@@ -49,6 +78,13 @@ const SENTENCES = {
     Array.isArray(r.new_value?.names) ? list(r.new_value.names)
       : Array.isArray(r.new_value?.code_ids) && r.new_value.code_ids.length === 0 ? 'all active outcomes'
       : `${r.new_value?.code_ids?.length ?? 'some'} chosen outcomes`}`,
+  QUEUE_CREATED:        (r) => `Queue ${queueName(r)} added`,
+  QUEUE_UPDATED:        (r) => `Queue ${queueName(r)} changed${queueDiff(r.old_value, r.new_value)}`,
+  QUEUE_DELETED:        (r) => `Queue ${queueName(r)} removed`,
+  QUEUE_AGENT_ADDED:    (r) => `Agent ${r.new_value?.agent_id} added to queue ${r.entity_id} (${tier(r.new_value)})`,
+  QUEUE_AGENT_UPDATED:  (r) => `Agent ${r.new_value?.agent_id} in queue ${r.entity_id}: ${tier(r.old_value)} → ${tier(r.new_value)}`,
+  QUEUE_AGENT_STATE_SET: (r) => `Agent ${r.new_value?.agent_id} in queue ${r.entity_id} set to ${q(r.new_value?.state)}`,
+  QUEUE_AGENT_REMOVED:  (r) => `Agent ${r.old_value?.agent_id} removed from queue ${r.entity_id}`,
   force_hangup:         (r) => `Ended a call${r.new_value?.agent_id ? ` of agent ${r.new_value.agent_id}` : ''} (force hang-up)${r.result && r.result !== 'ok' ? ` — ${r.result}` : ''}`,
 };
 

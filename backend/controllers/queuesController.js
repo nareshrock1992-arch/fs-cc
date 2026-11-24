@@ -1,5 +1,22 @@
 import { query } from '../db/pool.js';
 import { cc } from '../services/eslService.js';
+import { writeAudit, staffActor } from '../services/auditService.js';
+
+// Activity log (M2 follow-up): the queue settings an admin can change, in a fixed order.
+export const QUEUE_AUDIT_FIELDS = ['display_name', 'strategy', 'max_wait_time', 'max_queue_size',
+  'agent_no_answer_status', 'sla_seconds', 'active'];
+const pickQueue = (row) => Object.fromEntries(QUEUE_AUDIT_FIELDS.map((k) => [k, row?.[k] ?? null]));
+
+/** Only the fields whose value changed; null when nothing changed. */
+export function queueChanges(before, after) {
+  const oldV = {}, newV = {};
+  for (const k of QUEUE_AUDIT_FIELDS) {
+    if (JSON.stringify(before?.[k] ?? null) !== JSON.stringify(after?.[k] ?? null)) {
+      oldV[k] = before?.[k] ?? null; newV[k] = after?.[k] ?? null;
+    }
+  }
+  return Object.keys(newV).length ? { oldValue: oldV, newValue: newV } : null;
+}
 
 // Queue auto-action after max-no-answer → mod_callcenter `agent-no-answer-status`.
 // Must be one of the in-scope application statuses (NO "Available (On Demand)").
@@ -86,6 +103,8 @@ export async function createQueue(req, res) {
     console.error('[queues] FreeSWITCH sync failed on create:', err.message);
   }
 
+  await writeAudit({ ...staffActor(req), action: 'QUEUE_CREATED', entityType: 'queue', entityId: name,
+                     newValue: pickQueue(rows[0]) });
   res.status(201).json(rows[0]);
 }
 
@@ -101,8 +120,10 @@ export async function updateQueue(req, res) {
     return res.status(400).json({ error: `agentNoAnswerStatus must be one of: ${QUEUE_NO_ANSWER_STATUSES.join(', ')}` });
   }
 
+  // previous_values: the row as it was, read in the same statement (no extra round trip).
   const { rows } = await query(
-    `UPDATE queues SET
+    `WITH prev AS (SELECT * FROM queues WHERE name = $1)
+     UPDATE queues SET
        display_name = COALESCE($2, display_name),
        strategy = COALESCE($3, strategy),
        max_wait_time = COALESCE($4, max_wait_time),
@@ -110,7 +131,7 @@ export async function updateQueue(req, res) {
        active = COALESCE($6, active),
        agent_no_answer_status = COALESCE($7, agent_no_answer_status),
        sla_seconds = COALESCE($8, sla_seconds)
-     WHERE name = $1 RETURNING *`,
+     WHERE name = $1 RETURNING queues.*, (SELECT row_to_json(prev) FROM prev) AS previous_values`,
     [queueName, displayName, strategy, maxWaitTime, maxQueueSize, active, agentNoAnswerStatus ?? null, slaSeconds == null ? null : Number(slaSeconds)]
   );
   if (!rows[0]) return res.status(404).json({ error: 'Queue not found' });
@@ -123,13 +144,22 @@ export async function updateQueue(req, res) {
     console.error('[queues] FreeSWITCH sync failed on update:', err.message);
   }
 
-  res.json(rows[0]);
+  const { previous_values: before, ...updated } = rows[0];
+  const changes = queueChanges(before, updated);
+  if (changes) {
+    await writeAudit({ ...staffActor(req), action: 'QUEUE_UPDATED', entityType: 'queue', entityId: queueName,
+                       oldValue: { display_name: before?.display_name ?? null, ...changes.oldValue },
+                       newValue: { display_name: updated.display_name, ...changes.newValue } });
+  }
+  res.json(updated);
 }
 
 export async function deleteQueue(req, res) {
   const { queueName } = req.params;
-  const { rowCount } = await query(`DELETE FROM queues WHERE name = $1`, [queueName]);
-  if (!rowCount) return res.status(404).json({ error: 'Queue not found' });
+  const { rows: deleted } = await query(`DELETE FROM queues WHERE name = $1 RETURNING *`, [queueName]);
+  if (!deleted?.[0]) return res.status(404).json({ error: 'Queue not found' });
+  await writeAudit({ ...staffActor(req), action: 'QUEUE_DELETED', entityType: 'queue', entityId: queueName,
+                     oldValue: pickQueue(deleted[0]) });
   try {
     await cc.queueDel(queueName);
   } catch (err) {
@@ -153,11 +183,24 @@ export async function addTier(req, res) {
   if (!queue.rows[0]) return res.status(404).json({ error: 'Queue not found' });
   if (!agent.rows[0]) return res.status(404).json({ error: 'Agent not found' });
 
+  const prevTier = await query(
+    `SELECT level, position FROM agent_tiers WHERE agent_id = $1 AND queue_id = $2`,
+    [agent.rows[0].id, queue.rows[0].id]
+  );
   await query(
     `INSERT INTO agent_tiers (agent_id, queue_id, level, position) VALUES ($1,$2,$3,$4)
      ON CONFLICT (agent_id, queue_id) DO UPDATE SET level = $3, position = $4`,
     [agent.rows[0].id, queue.rows[0].id, level, position]
   );
+  const was = prevTier.rows?.[0];
+  if (!was) {
+    await writeAudit({ ...staffActor(req), action: 'QUEUE_AGENT_ADDED', entityType: 'queue', entityId: queueName,
+                       newValue: { agent_id: agentId, level, position } });
+  } else if (was.level !== level || was.position !== position) {
+    await writeAudit({ ...staffActor(req), action: 'QUEUE_AGENT_UPDATED', entityType: 'queue', entityId: queueName,
+                       oldValue: { agent_id: agentId, level: was.level, position: was.position },
+                       newValue: { agent_id: agentId, level, position } });
+  }
 
   // FreeSWITCH sync: add (idempotent) then enforce level/position so a re-add of
   // an EXISTING tier still live-updates its level/position (tierAdd alone no-ops).
@@ -195,12 +238,24 @@ export async function setTier(req, res) {
 
   // Persist level/position (state is runtime-only).
   if (level !== undefined || position !== undefined) {
-    const { rowCount } = await query(
-      `UPDATE agent_tiers SET level = COALESCE($3, level), position = COALESCE($4, position)
-       WHERE queue_id = $1 AND agent_id = $2`,
+    const { rows: tierRows } = await query(
+      `WITH prev AS (SELECT level, position FROM agent_tiers WHERE queue_id = $1 AND agent_id = $2)
+       UPDATE agent_tiers SET level = COALESCE($3, level), position = COALESCE($4, position)
+       WHERE queue_id = $1 AND agent_id = $2
+       RETURNING level, position, (SELECT level FROM prev) AS prev_level, (SELECT position FROM prev) AS prev_position`,
       [queue.rows[0].id, agent.rows[0].id, level ?? null, position ?? null]
     );
-    if (!rowCount) return res.status(404).json({ error: 'Tier not found (agent is not a member of this queue)' });
+    const t = tierRows?.[0];
+    if (!t) return res.status(404).json({ error: 'Tier not found (agent is not a member of this queue)' });
+    if (t.prev_level !== t.level || t.prev_position !== t.position) {
+      await writeAudit({ ...staffActor(req), action: 'QUEUE_AGENT_UPDATED', entityType: 'queue', entityId: queueName,
+                         oldValue: { agent_id: agentId, level: t.prev_level, position: t.prev_position },
+                         newValue: { agent_id: agentId, level: t.level, position: t.position } });
+    }
+  }
+  if (state !== undefined) {
+    await writeAudit({ ...staffActor(req), action: 'QUEUE_AGENT_STATE_SET', entityType: 'queue', entityId: queueName,
+                       newValue: { agent_id: agentId, state } });
   }
 
   let fsSynced = true, fsError = null;
@@ -225,10 +280,14 @@ export async function removeTier(req, res) {
   const queue = await query(`SELECT id FROM queues WHERE name = $1`, [queueName]);
   const agent = await query(`SELECT id FROM agents WHERE agent_id = $1`, [agentId]);
   if (queue.rows[0] && agent.rows[0]) {
-    await query(`DELETE FROM agent_tiers WHERE queue_id = $1 AND agent_id = $2`, [
-      queue.rows[0].id,
-      agent.rows[0].id
-    ]);
+    const { rows: removed } = await query(
+      `DELETE FROM agent_tiers WHERE queue_id = $1 AND agent_id = $2 RETURNING level, position`,
+      [queue.rows[0].id, agent.rows[0].id]
+    );
+    if (removed?.[0]) {
+      await writeAudit({ ...staffActor(req), action: 'QUEUE_AGENT_REMOVED', entityType: 'queue', entityId: queueName,
+                         oldValue: { agent_id: agentId, level: removed[0].level, position: removed[0].position } });
+    }
   }
   try {
     await cc.tierDel(queueName, agentId);

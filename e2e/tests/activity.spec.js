@@ -77,6 +77,28 @@ test.describe.serial('Activity log', () => {
     await request.post(`${API}/agents/${process.env.E2E_AGENT_ID}/set-pin`, { ...admin, data: { pin: process.env.E2E_AGENT_PIN } });
   });
 
+  test('queue changes and agents in a queue are recorded (real SQL)', async ({ request }) => {
+    const Q = 'e2e_act_q@default', id = process.env.E2E_AGENT_ID;
+    expect((await request.post(`${API}/queues`, { ...admin, data: { name: 'e2e_act_q', displayName: 'Activity Q' } })).status()).toBe(201);
+    const up = await request.put(`${API}/queues/${encodeURIComponent(Q)}`, { ...admin, data: { slaSeconds: 30, strategy: 'ring-all' } });
+    expect(up.status()).toBe(200);
+    const body = await up.json();
+    expect(body.sla_seconds).toBe(30);
+    expect(body).not.toHaveProperty('previous_values');            // helper column never leaks
+    expect((await request.post(`${API}/queues/${encodeURIComponent(Q)}/tiers`, { ...admin, data: { agentId: id, level: 1, position: 1 } })).status()).toBe(201);
+    expect((await request.put(`${API}/queues/${encodeURIComponent(Q)}/tiers/${encodeURIComponent(id)}`, { ...admin, data: { level: 2 } })).status()).toBe(200);
+    expect((await request.delete(`${API}/queues/${encodeURIComponent(Q)}/tiers/${encodeURIComponent(id)}`, admin)).status()).toBe(204);
+    expect((await request.delete(`${API}/queues/${encodeURIComponent(Q)}`, admin)).status()).toBe(204);
+
+    const rows = (await activity(request, admin, 'e2e_act_q')).reverse();   // oldest first
+    expect(rows.map((r) => r.action)).toEqual(['QUEUE_CREATED', 'QUEUE_UPDATED', 'QUEUE_AGENT_ADDED',
+      'QUEUE_AGENT_UPDATED', 'QUEUE_AGENT_REMOVED', 'QUEUE_DELETED']);
+    expect(rows.every((r) => r.actor === process.env.E2E_ADMIN_USER)).toBe(true);
+    expect(rows[1]).toMatchObject({ old_value: { sla_seconds: 20, strategy: 'longest-idle-agent' },
+                                    new_value: { sla_seconds: 30, strategy: 'ring-all' } });
+    expect(rows[3]).toMatchObject({ old_value: { level: 1 }, new_value: { level: 2, agent_id: id } });
+  });
+
   test('search treats % and _ literally', async ({ request }) => {
     expect(await activity(request, admin, '%')).toEqual([]);
   });
@@ -90,6 +112,7 @@ test.describe.serial('Activity log', () => {
     await page.goto(ADMIN + '/activity-log');
     await expect(page.getByText('Break code "Activity test" added')).toBeVisible();
     await expect(page.getByText(`User ${AUDITOR.username} may now: view activity log`)).toBeVisible();
+    await expect(page.getByText('Queue "Activity Q" (e2e_act_q@default) changed (call distribution: Longest Idle Agent → Ring All; service level target: 20 s → 30 s)')).toBeVisible();
 
     await page.evaluate(() => localStorage.clear());
     await page.goto(ADMIN + '/');

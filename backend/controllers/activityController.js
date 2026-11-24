@@ -4,7 +4,7 @@ import { query } from '../db/pool.js';
 // GET /api/activity   (M2 Part B — Activity log, read-only)
 //
 // One list of "who changed what, when":
-//   • audit_log           — settings changes (agents, users, break codes, outcomes, queues' outcome lists)
+//   • audit_log           — settings changes (agents, users, break codes, outcomes, queues, agents in queues)
 //   • supervisor_actions  — live actions on calls (e.g. force hang-up)
 // Query params (all optional):
 //   days   1..90   look-back window (default 7)

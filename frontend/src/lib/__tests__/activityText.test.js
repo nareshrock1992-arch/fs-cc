@@ -18,6 +18,33 @@ describe('Activity log sentences (plain words, not field names)', () => {
       new_value: { permissions: ['view_reports', 'view_activity_log'] } }))
       .toBe('User sup1 may now: view reports, view activity log');
   });
+  it('queue added / removed use the display name and the queue id', () => {
+    expect(describeActivity({ action: 'QUEUE_CREATED', entity_id: 'sales@default', new_value: { display_name: 'Sales' } }))
+      .toBe('Queue "Sales" (sales@default) added');
+    expect(describeActivity({ action: 'QUEUE_DELETED', entity_id: 'sales@default', old_value: { display_name: 'Sales' } }))
+      .toBe('Queue "Sales" (sales@default) removed');
+  });
+  it('queue change in the Queues page words, only what changed', () => {
+    expect(describeActivity({ action: 'QUEUE_UPDATED', entity_id: 'sales@default',
+      old_value: { display_name: 'Sales', strategy: 'ring-all', sla_seconds: 20, max_wait_time: 300, active: true },
+      new_value: { display_name: 'Sales', strategy: 'top-down', sla_seconds: 30, max_wait_time: 0, active: false } }))
+      .toBe('Queue "Sales" (sales@default) changed (call distribution: Ring All → Top Down (by tier); '
+        + 'max wait: 300 s → no limit; service level target: 20 s → 30 s; active: yes → no)');
+  });
+  it('agents in a queue', () => {
+    expect(describeActivity({ action: 'QUEUE_AGENT_ADDED', entity_id: 'sales@default',
+      new_value: { agent_id: 'alice@default', level: 1, position: 2 } }))
+      .toBe('Agent alice@default added to queue sales@default (level 1, position 2)');
+    expect(describeActivity({ action: 'QUEUE_AGENT_UPDATED', entity_id: 'sales@default',
+      old_value: { agent_id: 'alice@default', level: 1, position: 2 }, new_value: { agent_id: 'alice@default', level: 3, position: 2 } }))
+      .toBe('Agent alice@default in queue sales@default: level 1, position 2 → level 3, position 2');
+    expect(describeActivity({ action: 'QUEUE_AGENT_STATE_SET', entity_id: 'sales@default',
+      new_value: { agent_id: 'alice@default', state: 'Standby' } }))
+      .toBe('Agent alice@default in queue sales@default set to "Standby"');
+    expect(describeActivity({ action: 'QUEUE_AGENT_REMOVED', entity_id: 'sales@default',
+      old_value: { agent_id: 'alice@default', level: 1, position: 2 } }))
+      .toBe('Agent alice@default removed from queue sales@default');
+  });
   it('queue outcome list: empty list means all active outcomes', () => {
     expect(describeActivity({ action: 'QUEUE_DISPOSITIONS_SET', entity_id: 'support@default', new_value: { code_ids: [] } }))
       .toBe('Queue support@default now offers: all active outcomes');
