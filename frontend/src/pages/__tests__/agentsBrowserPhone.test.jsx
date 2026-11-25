@@ -115,3 +115,23 @@ describe('Agents page — browser phone setting', () => {
     expect(phoneBox()).toBeUndefined();
   });
 });
+
+// Owner 2026-11-25: browser-phone status next to the agent status.
+describe('Agents page — browser phone status next to the status', () => {
+  it('browser-phone agent shows its phone status; desk-phone agent shows none', async () => {
+    api.agents = [
+      { ...INTERNAL, webrtc_enabled: true, phone_status: 'online' },
+      { ...GATEWAY, phone_status: null },
+    ];
+    await renderPage();
+    const labels = [...document.querySelectorAll('[data-testid="phone-status"]')].map((n) => n.textContent);
+    expect(labels).toEqual(['Phone registered']);
+  });
+
+  it('each state reads plainly', async () => {
+    api.agents = ['grace', 'offline', 'none'].map((s, i) => ({ ...INTERNAL, agent_id: `a${i}@default`, full_name: `A${i}`, webrtc_enabled: true, phone_status: s }));
+    await renderPage();
+    const labels = [...document.querySelectorAll('[data-testid="phone-status"]')].map((n) => n.textContent);
+    expect(labels).toEqual(['Phone reconnecting', 'Phone offline', 'Phone not signed in']);
+  });
+});

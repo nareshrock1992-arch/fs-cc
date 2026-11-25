@@ -9,6 +9,8 @@ import { useAuth } from '../hooks/useAuth.js';
 import Panel, { LiveIndicator } from '../components/Panel.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import PhoneStatus from '../components/PhoneStatus.jsx';
+import { applyPhoneEvent } from '../lib/phoneStatus.js';
 import { HealthStrip, QueuePerformance, AlertsPanel, CallsByHour, AgentOverview } from './liveops/Panels.jsx';
 import { buildQueueRows, buildAlerts, agentStateCounts, overallServiceLevel, overallAvgWait, sumToday } from './liveops/model.js';
 
@@ -225,6 +227,7 @@ function AgentsTable({ rows, allEmpty, canChangeState, onSetStatus, sort, onSort
                     <td className="td">
                       <StatusBadge status={r.operational_state}
                         label={r.operational_state === 'On Break' && r.break_name ? `On Break · ${r.break_name}` : undefined} />
+                      <PhoneStatus status={r.phone_status} className="mt-1 flex" />
                     </td>
                     <td className="td tabular-nums whitespace-nowrap">{fmtDur(r._stateDur)}</td>
                     <td className="td">{queues.length ? (
@@ -455,6 +458,8 @@ export default function LiveOperations() {
   useSocketEvent('call:abandoned',  scheduleRefresh);
   useSocketEvent('channel:hangup',  scheduleRefresh);
   useSocketEvent('agent:status',    scheduleRefresh);
+  const onPhoneEvent = useCallback((evt) => setAgents((prev) => applyPhoneEvent(prev, evt)), []);
+  useSocketEvent('agent:phone',     onPhoneEvent);
   useSocketEvent('agent:state',     scheduleRefresh);
   useSocketEvent('agent:offering',  scheduleRefresh);
   useSocketEvent('agent:no-answer', scheduleRefresh);

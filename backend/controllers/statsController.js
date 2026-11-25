@@ -4,6 +4,7 @@ import { isConnected } from '../services/eslService.js';
 import { businessTodayRange, businessToday } from '../utils/timezone.js';
 import { answered, abandoned, agentMissedExists, slaPct } from '../services/metricsSql.js';
 import { getStateDurations, getCallMetrics } from '../services/agentReportService.js';
+import { phoneStatusOf } from '../services/phonePresenceService.js';
 
 // GET /api/stats/business-date — the server-authoritative business calendar date
 // and configured business timezone, so the frontend seeds date pickers from the
@@ -262,6 +263,10 @@ export async function getLiveAgents(_req, res) {
       a.break_code,
       bc.name                    AS break_name,
       a.break_started_at,
+      -- inputs of the browser-phone status only (not sent to the client)
+      a.agent_type               AS _agent_type,
+      a.webrtc_enabled           AS _webrtc_enabled,
+      a.contact                  AS _contact,
       ase.started_at             AS status_since,
       sl.changed_at              AS state_since,
       sess.login_at,
@@ -349,9 +354,13 @@ export async function getLiveAgents(_req, res) {
     ORDER BY a.full_name ASC
   `);
 
-  const agents = rows.map(r => ({
+  const mode = config.telephony?.mode;
+  const agents = rows.map(({ _agent_type, _webrtc_enabled, _contact, ...r }) => ({
     ...r,
     idle_since: r.operational_state === 'Idle' ? (r.state_since || r.status_since) : null,
+    // Browser-phone status next to the agent status (null for desk-phone agents).
+    phone_status: phoneStatusOf(
+      { agent_id: r.agent_id, agent_type: _agent_type, webrtc_enabled: _webrtc_enabled, contact: _contact, active: true }, mode),
   }));
 
   // server_time lets the client align its local tick to the server clock (UTC).

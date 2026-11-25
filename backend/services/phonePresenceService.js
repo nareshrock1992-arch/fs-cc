@@ -310,3 +310,15 @@ export function makeApplyPhoneOffline({ query, cc, agentSession, ccEvents, logge
 let shared = null;
 export function setPhonePresence(p) { shared = p; }
 export function getPhonePresence() { return shared; }
+
+/**
+ * Browser-phone status of one agent for the admin/supervisor screens (owner 2026-11-25:
+ * "phone registered or not next to Available / Break").
+ * null  = this agent does not use the browser phone (desk phone, gateway, mode off) — show nothing;
+ * 'online' | 'grace' | 'offline' | 'none' (not signed in) otherwise.
+ * @param {{agent_id:string, agent_type:string, webrtc_enabled:boolean, active:boolean, contact:string}} agent
+ */
+export function phoneStatusOf(agent, mode, presence = shared) {
+  if (!effectiveWebrtc(agent, mode).allowed) return null;
+  return presence?.getPhoneStatus(agent.agent_id) ?? 'none';
+}

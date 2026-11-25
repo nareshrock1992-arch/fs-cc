@@ -4,7 +4,7 @@ import { config } from '../config/index.js';
 import * as agentSession from '../services/agentSessionService.js';
 import { writeAudit, staffActor } from '../services/auditService.js';
 import { modeAllowsWebrtc, effectiveWebrtc } from '../utils/telephony.js';
-import { getPhonePresence } from '../services/phonePresenceService.js';
+import { getPhonePresence, phoneStatusOf } from '../services/phonePresenceService.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Browser phone (WebRTC) per-agent permission — CP3.
@@ -172,7 +172,9 @@ export async function listAgents(req, res) {
     GROUP BY a.id, ase.started_at
     ORDER BY a.full_name ASC
   `);
-  res.json(rows);
+  // Browser-phone status next to the agent status (null for desk-phone agents).
+  const mode = config.telephony?.mode;
+  res.json(rows.map((r) => ({ ...r, phone_status: phoneStatusOf(r, mode) })));
 }
 
 export async function getAgent(req, res) {
