@@ -76,4 +76,10 @@ export const api = {
   // ── Call history ──────────────────────────────────────────────────────────
   callHistory:  (params)  => request('GET', `/agent-desk/call-history${qs(params)}`),
   callDetail:   (uuid)    => request('GET', `/agent-desk/call-history/${encodeURIComponent(uuid)}`),
+
+  // ── Wrap-up outcome + notes (M1) ──────────────────────────────────────────
+  wrapups:      ()        => request('GET', '/agent-desk/wrapup'),
+  saveWrapup:   (uuid, code, notes) =>
+    request('POST', `/agent-desk/calls/${encodeURIComponent(uuid)}/wrapup`, { code, notes: notes || null }),
+  readyNow:     ()        => request('POST', '/agent-desk/wrapup/ready'),
 };

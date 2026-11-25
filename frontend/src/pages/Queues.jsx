@@ -219,11 +219,13 @@ export default function Queues() {
                           <Users2 size={14} />
                         </button>
                         <button onClick={() => openEdit(q)}
-                          className="p-1.5 rounded-lg dark:text-ink-dim text-ink-faint hover:text-ink dark:hover:text-ink hover:bg-surface-2 dark:hover:bg-panel-raised transition-colors">
+                          className="p-1.5 rounded-lg dark:text-ink-dim text-ink-faint hover:text-ink dark:hover:text-ink hover:bg-surface-2 dark:hover:bg-panel-raised transition-colors"
+                          title="Edit queue" aria-label={`Edit queue ${q.display_name || q.name}`}>
                           <Pencil size={14} />
                         </button>
                         <button onClick={() => handleDelete(q.name)}
-                          className="p-1.5 rounded-lg dark:text-ink-dim text-ink-faint hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors">
+                          className="p-1.5 rounded-lg dark:text-ink-dim text-ink-faint hover:text-lamp-alert hover:bg-lamp-alert/10 transition-colors"
+                          title="Delete queue" aria-label={`Delete queue ${q.display_name || q.name}`}>
                           <Trash2 size={14} />
                         </button>
                       </div>

@@ -241,6 +241,84 @@ describe('SIP relay', () => {
     });
   });
 
+  // Lab finding 2026-11-23: on a queue call FreeSWITCH sends the INVITE to the phone's
+  // random contact user (sip:i5gk7ss1@…;transport=wss), so the browser's in-dialog
+  // requests carry neither From nor To = extension. They were blocked (4403) and the
+  // phone reconnected during every answered call.
+  describe('calls that belong to this phone (in-dialog requests)', () => {
+    // Caller is an outside number so neither From nor To matches any test extension.
+    const inbound = (callId) => sipRequest('INVITE', { from: '0500000000', to: 'i5gk7ss1', callId, extra: ['Content-Type: application/sdp'], body: 'v=0\r\n' });
+    const fromPhone = (method, callId) => sipRequest(method, { from: 'i5gk7ss1', to: '0500000000', toTag: true, callId });
+
+    it('inbound call to the random contact user: BYE, re-INVITE and INFO are forwarded, connection stays open', async () => {
+      const { b, f } = await connectedPair();
+      f.ws.send(inbound('in-1'));
+      await waitFor(() => b.frames.length === 1);
+      const msgs = [fromPhone('INVITE', 'in-1'), fromPhone('INFO', 'in-1'), fromPhone('BYE', 'in-1')];
+      for (const m of msgs) b.ws.send(m);
+      await waitFor(() => f.frames.length === 3);
+      expect(f.frames).toEqual(msgs);
+      expect(b.closeCode).toBeNull();
+    });
+    it('in-dialog request for a call this phone never saw → 4403, not forwarded', async () => {
+      const { b, f } = await connectedPair();
+      f.ws.send(inbound('in-1'));
+      await waitFor(() => b.frames.length === 1);
+      b.ws.send(fromPhone('BYE', 'someone-elses-call'));
+      await waitFor(() => b.closeCode !== null);
+      expect(b.closeCode).toBe(CLOSE.FORBIDDEN);
+      expect(f.frames).toEqual([]);
+    });
+    it("a call sent to alice's phone cannot be used from bob's connection", async () => {
+      const a = await connectedPair('alice');
+      const bb = await connectedPair('bob');
+      a.f.ws.send(inbound('alice-call'));
+      await waitFor(() => a.b.frames.length === 1);
+      bb.b.ws.send(sipRequest('BYE', { from: 'i5gk7ss1', to: '0500000000', toTag: true, callId: 'alice-call' }));
+      await waitFor(() => bb.b.closeCode !== null);
+      expect(bb.b.closeCode).toBe(CLOSE.FORBIDDEN);
+      expect(bb.f.frames).toEqual([]);
+    });
+    it('a known call never relaxes the identity checks (REGISTER / new INVITE as another extension)', async () => {
+      const p1 = await connectedPair();
+      p1.f.ws.send(inbound('in-1'));
+      await waitFor(() => p1.b.frames.length === 1);
+      p1.b.ws.send(sipRequest('REGISTER', { from: '1002', callId: 'in-1' }));
+      await waitFor(() => p1.b.closeCode !== null);
+      expect(p1.b.closeCode).toBe(CLOSE.FORBIDDEN);
+      expect(p1.f.frames).toEqual([]);
+      const p2 = await connectedPair();
+      p2.f.ws.send(inbound('in-2'));
+      await waitFor(() => p2.b.frames.length === 1);
+      p2.b.ws.send(sipRequest('INVITE', { from: '1002', to: '5000', callId: 'in-2' }));
+      await waitFor(() => p2.b.closeCode !== null);
+      expect(p2.f.frames).toEqual([]);
+    });
+    it('after BYE the call is forgotten (short linger); the list is bounded', async () => {
+      await teardown();
+      await setup({ limits: { dialogLingerMs: 50, maxDialogs: 2 } });
+      const p1 = await connectedPair();
+      p1.f.ws.send(inbound('in-1'));
+      await waitFor(() => p1.b.frames.length === 1);
+      p1.b.ws.send(fromPhone('BYE', 'in-1'));
+      await waitFor(() => p1.f.frames.length === 1);
+      await sleep(120);
+      p1.b.ws.send(fromPhone('INFO', 'in-1'));
+      await waitFor(() => p1.b.closeCode !== null);
+      expect(p1.b.closeCode).toBe(CLOSE.FORBIDDEN);
+
+      const p2 = await connectedPair();
+      for (const id of ['c1', 'c2', 'c3']) p2.f.ws.send(inbound(id));
+      await waitFor(() => p2.b.frames.length === 3);
+      p2.b.ws.send(fromPhone('INFO', 'c3'));          // newest: still known
+      await waitFor(() => p2.f.frames.length === 1);
+      p2.b.ws.send(fromPhone('INFO', 'c1'));          // oldest: dropped by the bound
+      await waitFor(() => p2.b.closeCode !== null);
+      expect(p2.b.closeCode).toBe(CLOSE.FORBIDDEN);
+      expect(p2.f.frames.length).toBe(1);
+    });
+  });
+
   describe('multi-agent isolation', () => {
     it('each agent gets its own upstream; traffic never crosses', async () => {
       const a = await connectedPair('alice');
@@ -382,6 +460,61 @@ describe('SIP relay — limits', () => {
     f.ws.send(sipResponse(401, 'Unauthorized', 'REGISTER'));
     await sleep(100);
     expect(b.ws.readyState).toBe(WebSocket.OPEN);
+  });
+
+  // Lab 2026-11-24: a phone with the RIGHT password was locked. These keep the lock for real refusals only.
+  const authed = (i) => sipRequest('REGISTER', { auth: '1001', cseq: i + 1 });
+  async function answer(b, f, i, response) {
+    b.ws.send(authed(i));
+    await waitFor(() => f.frames.length === i + 1);
+    f.ws.send(response);
+    await sleep(30);
+  }
+
+  it('"code expired" challenges (stale=true) never count, even with credentials', async () => {
+    await setup({ limits: { authFailMax: 2 } });
+    const { b, f } = await connectedPair();
+    const stale = sipResponse(401, 'Unauthorized', 'REGISTER',
+      ['WWW-Authenticate: Digest realm="pbx.example", nonce="abc", algorithm=MD5, qop="auth", stale=true']);
+    for (let i = 0; i < 4; i++) await answer(b, f, i, stale);
+    expect(b.ws.readyState).toBe(WebSocket.OPEN);
+    expect(relay.authLock('alice')).toEqual({ locked: false, retryAfterMs: 0 });
+  });
+
+  it('a fresh 401 challenge to a REGISTER with credentials still counts (wrong password)', async () => {
+    await setup({ limits: { authFailMax: 2 } });
+    const { b, f } = await connectedPair();
+    const fresh = sipResponse(401, 'Unauthorized', 'REGISTER', ['WWW-Authenticate: Digest realm="pbx.example", nonce="n2", qop="auth"']);
+    for (let i = 0; i < 2; i++) await answer(b, f, i, fresh);
+    await waitFor(() => b.closeCode !== null);
+    expect(b.closeCode).toBe(CLOSE.AUTH_LIMIT);
+  });
+
+  it('a successful sign-in clears earlier refusals', async () => {
+    await setup({ limits: { authFailMax: 3 } });
+    const { b, f } = await connectedPair();
+    const forbidden = sipResponse(403, 'Forbidden', 'REGISTER');
+    await answer(b, f, 0, forbidden);
+    await answer(b, f, 1, forbidden);
+    await answer(b, f, 2, sipResponse(200, 'OK', 'REGISTER', ['Contact: <sip:x@y.invalid;transport=ws>;expires=600']));
+    await answer(b, f, 3, forbidden);
+    await answer(b, f, 4, forbidden);
+    expect(b.ws.readyState).toBe(WebSocket.OPEN);               // 2 since the success, not 4
+    expect(relay.authLock('alice').locked).toBe(false);
+  });
+
+  it('authLock says when the phone will be free again', async () => {
+    let t = 1_000_000;
+    await setup({ limits: { authFailMax: 2, authFailWindowMs: 300_000 }, ticketNow: () => t });
+    const { b, f } = await connectedPair();
+    // relay uses its own clock (Date.now); only check shape and bounds here
+    await answer(b, f, 0, sipResponse(403, 'Forbidden', 'REGISTER'));
+    await answer(b, f, 1, sipResponse(403, 'Forbidden', 'REGISTER'));
+    const lock = relay.authLock('alice');
+    expect(lock.locked).toBe(true);
+    expect(lock.retryAfterMs).toBeGreaterThan(290_000);
+    expect(lock.retryAfterMs).toBeLessThanOrEqual(300_000);
+    expect(relay.authLock('bob').locked).toBe(false);
   });
 
   it('browser that stops answering pings is disconnected', async () => {

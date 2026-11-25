@@ -4,7 +4,7 @@ import { config } from '../config/index.js';
 import * as agentSession from '../services/agentSessionService.js';
 import { writeAudit, staffActor } from '../services/auditService.js';
 import { modeAllowsWebrtc, effectiveWebrtc } from '../utils/telephony.js';
-import { getPhonePresence } from '../services/phonePresenceService.js';
+import { getPhonePresence, phoneStatusOf } from '../services/phonePresenceService.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Browser phone (WebRTC) per-agent permission — CP3.
@@ -172,7 +172,9 @@ export async function listAgents(req, res) {
     GROUP BY a.id, ase.started_at
     ORDER BY a.full_name ASC
   `);
-  res.json(rows);
+  // Browser-phone status next to the agent status (null for desk-phone agents).
+  const mode = config.telephony?.mode;
+  res.json(rows.map((r) => ({ ...r, phone_status: phoneStatusOf(r, mode) })));
 }
 
 export async function getAgent(req, res) {
@@ -282,6 +284,8 @@ export async function createAgent(req, res) {
     console.error('[agents] FreeSWITCH sync failed on create:', err.message);
   }
 
+  await writeAudit({ ...staffActor(req), action: 'AGENT_CREATED', entityType: 'agent', entityId: agentId,
+    newValue: { full_name: rows[0]?.full_name, contact: rows[0]?.contact } });
   res.status(201).json(rows[0]);
 }
 
@@ -421,6 +425,7 @@ export async function deleteAgent(req, res) {
   } catch (err) {
     console.error('[agents] FreeSWITCH sync failed on delete:', err.message);
   }
+  await writeAudit({ ...staffActor(req), action: 'AGENT_DELETED', entityType: 'agent', entityId: agentId });
   res.status(204).end();
 }
 
@@ -433,6 +438,7 @@ export async function setAgentStatus(req, res) {
   if (!VALID_STATUSES.includes(status)) {
     return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
   }
+  const { rows: before } = await query(`SELECT status FROM agents WHERE agent_id = $1`, [agentId]);
   try { await cc.agentSetStatus(agentId, status); } catch (e) { /* ESL offline */ }
   // Admin-forced status changes carry no break reason. Keep the agent's current
   // break_code / break_started_at consistent: cleared unless forced On Break.
@@ -440,9 +446,11 @@ export async function setAgentStatus(req, res) {
     `UPDATE agents
         SET status           = $2,
             break_code       = NULL,
-            break_started_at = CASE WHEN $2 = 'On Break' THEN now() ELSE NULL END
+            break_started_at = CASE WHEN $3::bool THEN now() ELSE NULL END
       WHERE agent_id = $1`,
-    [agentId, status]
+    // $3 is separate on purpose: reusing $2 in "$2 = 'On Break'" made PostgreSQL deduce two
+    // types for $2 (varchar column vs text literal) and every call failed with HTTP 500.
+    [agentId, status, status === 'On Break']
   );
   await query(
     `INSERT INTO agent_state_log (agent_id, status, reason) VALUES ($1,$2,'manual')`,
@@ -451,6 +459,8 @@ export async function setAgentStatus(req, res) {
   try { await agentSession.handleStatusTransition(agentId, status, 'manual'); }
   catch (err) { console.error('[sessions] setAgentStatus transition failed:', err.message); }
   if (status === 'Logged Out') getPhonePresence()?.agentLoggedOut(agentId);
+  await writeAudit({ ...staffActor(req), action: 'AGENT_STATUS_SET', entityType: 'agent', entityId: agentId,
+    oldValue: before[0] ? { status: before[0].status } : null, newValue: { status } });
   res.json({ agentId, status });
 }
 

@@ -24,6 +24,11 @@ vi.mock('../../../services/agentSessionService.js', () => ({
   startLoginSession: vi.fn().mockResolvedValue(1),
 }));
 vi.mock('bcryptjs', () => ({ default: { compare: vi.fn().mockResolvedValue(true) } }));
+// Relay lock state for the ticket service (lab 2026-11-24: locked phone looked like a certificate error).
+const relayLock = vi.hoisted(() => ({ value: { locked: false, retryAfterMs: 0 } }));
+vi.mock('../../../services/sipRelayService.js', () => ({
+  getSipRelay: () => ({ authLock: vi.fn(() => relayLock.value) }),
+}));
 
 import { query } from '../../../db/pool.js';
 import { cc } from '../../../services/eslService.js';
@@ -43,11 +48,36 @@ const req = (over = {}) => ({ agentId: 'alice', body: {}, params: {}, query: {},
 
 beforeEach(() => {
   vi.clearAllMocks();
+  relayLock.value = { locked: false, retryAfterMs: 0 };
   cfg.config.telephony.mode = 'EXTERNAL_PBX';
   query.mockResolvedValue({ rows: [] });
 });
 
 describe('POST /webrtc/ticket', () => {
+  it('phone locked after refused passwords: 429 PHONE_SIGNIN_LOCKED with minutes, no ticket', async () => {
+    cfg.config.telephony.mode = 'HYBRID';
+    query.mockResolvedValue({ rows: [internalOn] });
+    relayLock.value = { locked: true, retryAfterMs: 241_000 };
+    const res = makeRes();
+    await agentWebrtcTicket(req(), res);
+    expect(res.statusCode).toBe(429);
+    expect(res.body).toEqual({
+      error: 'Too many failed phone sign-ins. Check your phone password and try again in 5 minutes.',
+      code: 'PHONE_SIGNIN_LOCKED', retry_after_seconds: 241,
+    });
+    expect(res.headers['Retry-After']).toBe('241');
+    expect(res.body.ticket).toBeUndefined();
+  });
+
+  it('lock with under a minute left says "1 minute"', async () => {
+    cfg.config.telephony.mode = 'HYBRID';
+    query.mockResolvedValue({ rows: [internalOn] });
+    relayLock.value = { locked: true, retryAfterMs: 20_000 };
+    const res = makeRes();
+    await agentWebrtcTicket(req(), res);
+    expect(res.body.error).toMatch(/in 1 minute.$/);
+  });
+
   it('EXTERNAL_PBX: 404, no ticket, no DB lookup (scenario 1)', async () => {
     const res = makeRes();
     await agentWebrtcTicket(req(), res);

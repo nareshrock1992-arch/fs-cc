@@ -29,6 +29,18 @@ const ALL_PERMISSIONS = [
     description: 'Create, edit, and enable/disable agent break reasons',
   },
   {
+    key:         'manage_dispositions',
+    group:       'Configuration',
+    label:       'Manage Call Outcomes',
+    description: 'Create, edit, and enable/disable wrap-up outcomes and choose them per queue',
+  },
+  {
+    key:         'view_activity_log',
+    group:       'Oversight',
+    label:       'View Activity Log',
+    description: 'See who changed settings or acted on calls, and when',
+  },
+  {
     key:         'view_caller_id',
     group:       'Operations',
     label:       'View Full Caller ID',

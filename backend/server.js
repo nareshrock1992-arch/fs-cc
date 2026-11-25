@@ -25,6 +25,9 @@ import statsRoutes     from './routes/stats.js';
 import reportsRoutes   from './routes/reports.js';
 import breakCodesRoutes from './routes/breakCodes.js';
 import agentDeskRoutes from './routes/agentDesk.js';
+import dispositionCodesRoutes from './routes/dispositionCodes.js';
+import activityRoutes  from './routes/activity.js';
+import { attachWrapupRestore, recordSystemDisconnect } from './services/wrapupService.js';
 
 const app    = express();
 const server = http.createServer(app);
@@ -67,6 +70,8 @@ app.use('/api/calls',   callsRoutes);
 app.use('/api/stats',   statsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/break-codes', breakCodesRoutes);
+app.use('/api/disposition-codes', dispositionCodesRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Customer telephony mode (CP3) — read-only, lets the admin UI show or hide the
 // per-agent browser-phone setting. Admin JWT required (requireAuth above).
@@ -109,6 +114,11 @@ const sipRelay = initSipRelay({
 });
 if (sipRelay) console.log(`[sip-relay] enabled on ${RELAY_PATH} (mode ${config.telephony.mode})`);
 
+// ── Wrap-up "Ready now" (M1) ──────────────────────────────────────────────────
+// Puts the configured wrap_up_time back in FreeSWITCH on the agent's next call or
+// status change after a "Ready now". No effect for agents who never used it.
+attachWrapupRestore(ccEvents);
+
 // ── Browser-phone presence + PHONE_OFFLINE (CP3-D) ─────────────────────────────
 // Uses the relay lifecycle events and the existing ESL agent-state events. New
 // Socket.IO events are sent through the existing getIO() — socketService.js is
@@ -124,6 +134,7 @@ if (sipRelay) {
     relay: sipRelay,
     loadAgent: async (agentId) => (await query(`${PHONE_AGENT_SQL} WHERE agent_id = $1`, [agentId])).rows[0] || null,
     applyPhoneOffline: makeApplyPhoneOffline({ query, cc, agentSession, ccEvents }),
+    onCallDisconnected: recordSystemDisconnect,   // M1: SYSTEM_DISCONNECTED outcome
     emit: (event, agentId, payload) => {
       try {
         const io = getIO();

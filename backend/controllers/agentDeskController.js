@@ -9,6 +9,9 @@ import { businessTodayRange } from '../utils/timezone.js';
 import { effectiveWebrtc, modeAllowsWebrtc } from '../utils/telephony.js';
 import { getTicketStore, ticketHint } from '../services/relayTicketStore.js';
 import { getPhonePresence, PHONE_OFFLINE_CODE } from '../services/phonePresenceService.js';
+import { getSipRelay } from '../services/sipRelayService.js';
+import { slaPct } from '../services/metricsSql.js';
+import { writeAudit, staffActor } from '../services/auditService.js';
 
 // Browser-phone permission for response bodies (no secrets).
 function webrtcInfo(agent) {
@@ -145,6 +148,19 @@ export async function agentWebrtcTicket(req, res) {
   const eff = effectiveWebrtc(rows[0] || null, mode);
   if (!eff.allowed) {
     return res.status(403).json({ error: 'Browser phone is not enabled for this agent.', code: 'WEBRTC_NOT_ALLOWED' });
+  }
+  // The relay locked this phone after repeated refused passwords: say so plainly and
+  // issue no ticket (the connection would be refused, and the browser cannot see why).
+  const lock = getSipRelay()?.authLock?.(rows[0].agent_id);
+  if (lock?.locked) {
+    const secs = Math.ceil(lock.retryAfterMs / 1000);
+    const mins = Math.max(1, Math.ceil(secs / 60));
+    res.set?.('Retry-After', String(secs));
+    return res.status(429).json({
+      error: `Too many failed phone sign-ins. Check your phone password and try again in ${mins} minute${mins === 1 ? '' : 's'}.`,
+      code: 'PHONE_SIGNIN_LOCKED',
+      retry_after_seconds: secs,
+    });
   }
   const store = getTicketStore(config.telephony.ticketTtlMs);
   const { ticket, expiresInMs } = store.issue({ agentId: rows[0].agent_id, extension: eff.extension, kind });
@@ -351,9 +367,11 @@ export async function agentCallHistory(req, res) {
         ah.call_uuid, c.direction, c.ani, c.cid_name AS caller_name, c.dnis, c.queue_name, ah.agent_id,
         c.start_time, c.queue_enter_time, c.agent_answer_time, c.end_time,
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
-        ah.ring_seconds, ah.talk_seconds AS agent_talk_seconds, ah.missed
+        ah.ring_seconds, ah.talk_seconds AS agent_talk_seconds, ah.missed,
+        w.disposition_code AS outcome_code, w.disposition_name AS outcome_name, w.source AS outcome_source
        FROM agent_history ah
        LEFT JOIN calls c ON c.call_uuid = ah.call_uuid
+       LEFT JOIN call_wrapups w ON w.call_uuid = ah.call_uuid AND w.agent_id = ah.agent_id
        ${where}
        ORDER BY COALESCE(c.start_time, ah.ring_start) DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -384,9 +402,12 @@ export async function agentCallHistoryDetail(req, res) {
         c.wait_seconds, c.talk_seconds, c.abandoned, c.disposition,
         ah.ring_start, ah.ring_end, ah.ring_seconds,
         ah.talk_start, ah.talk_end, ah.talk_seconds AS agent_talk_seconds, ah.missed,
-        EXTRACT(EPOCH FROM (c.end_time - c.start_time))::INT AS total_seconds
+        EXTRACT(EPOCH FROM (c.end_time - c.start_time))::INT AS total_seconds,
+        w.disposition_code AS outcome_code, w.disposition_name AS outcome_name,
+        w.notes AS outcome_notes, w.source AS outcome_source, w.updated_at AS outcome_saved_at
        FROM agent_history ah
        LEFT JOIN calls c ON c.call_uuid = ah.call_uuid
+       LEFT JOIN call_wrapups w ON w.call_uuid = ah.call_uuid AND w.agent_id = ah.agent_id
       WHERE ah.call_uuid = $1 AND ah.agent_id = $2`,
     [callUuid, req.agentId]
   );
@@ -459,19 +480,7 @@ export async function agentQueues(req, res) {
           WHERE (c.start_time >= $2 AND c.start_time < $3) AND c.disposition = 'answered'
         ), 0)::INT AS avg_wait_today,
 
-        COALESCE(
-          100.0
-          * COUNT(*) FILTER (
-              WHERE (c.start_time >= $2 AND c.start_time < $3)
-                AND c.disposition = 'answered'
-                AND c.wait_seconds <= q.sla_seconds
-            )
-          / NULLIF(
-              COUNT(*) FILTER (WHERE (c.start_time >= $2 AND c.start_time < $3) AND c.disposition = 'answered') +
-              COUNT(*) FILTER (WHERE (c.start_time >= $2 AND c.start_time < $3) AND c.abandoned = true),
-              0),
-          0
-        )::NUMERIC(5,1) AS sla_pct_today,
+        ${slaPct({ thr: 'q.sla_seconds', where: 'c.start_time >= $2 AND c.start_time < $3' })} AS sla_pct_today,
 
         COALESCE(MAX(
           EXTRACT(EPOCH FROM (now() - c.queue_enter_time))::INT
@@ -617,5 +626,7 @@ export async function setAgentPin(req, res) {
   );
   if (!rowCount) return res.status(404).json({ error: 'Agent not found' });
 
+  // Activity log (M2): the fact only, never the PIN.
+  await writeAudit({ ...staffActor(req), action: 'AGENT_PIN_SET', entityType: 'agent', entityId: agentId });
   res.json({ ok: true, message: `PIN updated for ${agentId}` });
 }

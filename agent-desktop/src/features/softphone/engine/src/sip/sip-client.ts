@@ -109,6 +109,12 @@ export class SipClient {
   async register(): Promise<void> {
     await this.registerer.register({
       requestDelegate: {
+        // SIP.js only emits stateChange when the state CHANGES. After a WebSocket
+        // reconnect the Registerer is still "Registered", so a successful re-REGISTER
+        // emitted nothing and the desk stayed on "Phone connecting…" while the phone
+        // worked (lab 2026-11-24). SIP.js calls onAccept only after a valid 2xx
+        // (contact + expires checked), so report "registered" from here too.
+        onAccept: () => this.events.onRegistered(),
         onReject: (response) =>
           this.events.onRegistrationFailed(
             response.message.statusCode ?? 0,

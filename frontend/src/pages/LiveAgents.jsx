@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { Stats, Agents as AgentsApi } from '../api/client.js';
 import { useSocketEvent } from '../api/socket.js';
+import PhoneStatus from '../components/PhoneStatus.jsx';
+import { applyPhoneEvent } from '../lib/phoneStatus.js';
 import { useAuth } from '../hooks/useAuth.js';
 import Panel from '../components/Panel.jsx';
 import KpiCard from '../components/KpiCard.jsx';
@@ -96,6 +98,8 @@ export default function LiveAgents() {
   useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   useSocketEvent('agent:status',   scheduleRefresh);
+  const onPhoneEvent = useCallback((evt) => setAgents((prev) => applyPhoneEvent(prev, evt)), []);
+  useSocketEvent('agent:phone',    onPhoneEvent);
   useSocketEvent('agent:state',    scheduleRefresh);
   useSocketEvent('agent:offering', scheduleRefresh);
   useSocketEvent('agent:no-answer',scheduleRefresh);
@@ -274,6 +278,7 @@ export default function LiveAgents() {
                         {meta.label}
                         {r.operational_state === 'On Break' && r.break_name ? ` · ${r.break_name}` : ''}
                       </span>
+                      <PhoneStatus status={r.phone_status} className="mt-1 flex" />
                     </td>
                     <td className="td font-mono tnum text-ink">{fmtDur(r._stateDur)}</td>
                     <td className={`px-4 py-2.5 font-mono tnum ${r._idleDur > 600 ? 'text-amber-600 dark:text-lamp-warn font-semibold' : 'text-ink-dim'}`}>

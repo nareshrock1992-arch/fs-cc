@@ -6,6 +6,8 @@ import { useSocketEvent } from '../api/socket.js';
 import Panel from '../components/Panel.jsx';
 import Modal from '../components/Modal.jsx';
 import StatusLamp from '../components/StatusLamp.jsx';
+import PhoneStatus from '../components/PhoneStatus.jsx';
+import { applyPhoneEvent } from '../lib/phoneStatus.js';
 import EmptyState from '../components/EmptyState.jsx';
 import { FormField, inputClass, buttonPrimary, buttonSecondary } from '../components/form.jsx';
 
@@ -91,6 +93,9 @@ export default function Agents() {
   }, []);
   useSocketEvent('agent:state',  onAgentEvent);
   useSocketEvent('agent:status', onAgentEvent);
+  // Browser-phone status changes live (registered / reconnecting / offline).
+  const onPhoneEvent = useCallback((evt) => setAgents((prev) => applyPhoneEvent(prev, evt)), []);
+  useSocketEvent('agent:phone', onPhoneEvent);
   useSocketEvent('agent:update', load);
 
   const filtered = useMemo(() => {
@@ -389,6 +394,7 @@ export default function Agents() {
                     })() : (
                       <StatusLamp status={a.status} variant="badge" />
                     )}
+                    <PhoneStatus status={a.phone_status} className="mt-1 flex" />
                   </td>
 
                   {/* PIN */}

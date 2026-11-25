@@ -35,6 +35,16 @@ import { ReconnectScheduler } from './reconnect';
 import { Store } from './store';
 
 const AUTH_FAILURE_CODES = new Set([401, 403, 407]);
+/** FS-CC relay close code: this agent's phone was signed in again elsewhere (newest wins). */
+const RELAY_REPLACED = 4409;
+const REPLACED_MESSAGE =
+  'Your browser phone was signed in on another computer or browser tab, so it stopped here. ' +
+  'Close the other one, then sign in to the phone again here.';
+/** WebSocket close code from a SIP.js transport error ("WebSocket closed … (code: 4409)"). */
+export function closeCodeOf(error?: Error): number | undefined {
+  const m = /\(code: (\d{4})\)/.exec(error?.message ?? '');
+  return m ? Number(m[1]) : undefined;
+}
 /** After a REFER is accepted, release the agent's leg(s) even if no final NOTIFY arrives (BUG-007). */
 export const CONSULT_RELEASE_FALLBACK_MS = 10_000;
 
@@ -190,8 +200,11 @@ export class PhoneService {
         connection: 'disconnected',
         account: undefined,
         error:
-          `Could not open the secure WebSocket (${redactUrl(creds.wssUrl)}). ` +
-          'Check that the server is running and that its certificate is trusted by this computer.',
+          // Not only certificates: the server may also have refused the connection. Say both,
+          // most likely first; the address is shown without the ticket.
+          `Could not connect the browser phone to the server (${redactUrl(creds.wssUrl)}). ` +
+          'Check the network and try again in a minute. If the browser shows a certificate warning for this site, ' +
+          'its certificate is not trusted by this computer.',
       });
     }
   }
@@ -252,10 +265,30 @@ export class PhoneService {
       return;
     }
     log('warn', 'phone', `transport lost: ${redactUrl(error?.message ?? "closed")}`);
+    if (closeCodeOf(error) === RELAY_REPLACED) {
+      // The same agent signed the browser phone in on another computer or tab; the
+      // relay keeps only the newest. Reconnecting would take it back and the two
+      // desks would push each other out forever (lab 2026-11-24): stop here instead.
+      this.reconnector.cancel();
+      void this.stopReplaced();
+      return;
+    }
     this.store.update({
       error: 'Connection to the phone server was lost. Reconnecting…',
     });
     this.reconnector.schedule();
+  }
+
+  private async stopReplaced(): Promise<void> {
+    log('warn', 'phone', 'browser phone taken over by another sign-in; not reconnecting');
+    if (this.session) {
+      // Never cut a call from here; the other sign-in now owns the phone.
+      this.store.update({ connection: 'disconnected', error: REPLACED_MESSAGE });
+      return;
+    }
+    this.store.update({ error: REPLACED_MESSAGE });
+    await this.logout();
+    this.store.update({ error: REPLACED_MESSAGE });
   }
 
   private handleRegistrationFailed(code: number, reason: string): void {

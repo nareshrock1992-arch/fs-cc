@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, ChevronLeft, ChevronRight, RefreshCw, Search } from 'lucide-react';
 import { Reports as ReportsApi } from '../../api/client.js';
+import { buildCdrCsv, fetchForExport, exportNotice } from '../../lib/cdrCsv.js';
 
 const PAGE_SIZE = 50;
 
@@ -62,30 +63,33 @@ function AgentCell({ agent, missedBy, disposition }) {
   );
 }
 
-// ── Client-side CSV export ────────────────────────────────────────────────────
+// Wrap-up outcome (M1): answered calls show the saved outcome or "Not set".
+function OutcomeCell({ row }) {
+  if (row.outcome_name) {
+    return (
+      <span className="text-ink dark:text-ink-dim" title={row.outcome_notes || undefined}>
+        {row.outcome_name}
+        {row.outcome_source === 'system' && <span className="ml-1 text-[0.6875rem] text-ink-faint">(system)</span>}
+        {row.outcome_notes && <span className="ml-1 text-[0.6875rem] text-ink-faint">· note</span>}
+      </span>
+    );
+  }
+  if (row.disposition === 'answered') return <span className="text-ink-faint">Not set</span>;
+  return <span className="text-ink-faint">—</span>;
+}
+
+// ── Client-side CSV export (M2 Part D: says so when the limit cuts the period) ──
 
 async function downloadCSV(from, to) {
-  const cols = [
-    'call_uuid', 'ani', 'dnis', 'queue_name', 'agent',
-    'queue_wait_seconds', 'ring_seconds', 'talk_seconds', 'abandoned_seconds',
-    'disposition', 'start_time', 'end_time'
-  ];
-  const rows = await ReportsApi.cdr({ from, to, limit: 5000, offset: 0 });
-  const header = cols.join(',');
-  const body   = rows.map(r =>
-    cols.map(c => {
-      const v = r[c] ?? '';
-      return typeof v === 'string' && (v.includes(',') || v.includes('"'))
-        ? `"${v.replace(/"/g, '""')}"` : v;
-    }).join(',')
-  ).join('\n');
-  const blob = new Blob([`${header}\n${body}`], { type: 'text/csv' });
+  const { rows, truncated } = await fetchForExport(ReportsApi.cdr, { from, to });
+  const blob = new Blob([buildCdrCsv(rows)], { type: 'text/csv' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
   a.download = `cdr-${from}-${to}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+  return { count: rows.length, truncated };
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -97,6 +101,7 @@ export default function CDRTable({ from, to }) {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [exporting,  setExporting]  = useState(false);
+  const [exportNote, setExportNote] = useState(null);   // { text, truncated }
   const [dispFilter, setDispFilter] = useState('');
 
   const load = useCallback(async (pg = 0, disp = dispFilter) => {
@@ -125,7 +130,11 @@ export default function CDRTable({ from, to }) {
 
   async function handleExport() {
     setExporting(true);
-    try { await downloadCSV(from, to); }
+    setExportNote(null);
+    try {
+      const result = await downloadCSV(from, to);
+      setExportNote({ text: exportNotice(result), truncated: result.truncated });
+    }
     catch (err) { setError('CSV export failed: ' + err.message); }
     finally { setExporting(false); }
   }
@@ -197,6 +206,16 @@ export default function CDRTable({ from, to }) {
         </div>
       </div>
 
+      {/* ── Export result (M2 Part D) ── */}
+      {exportNote && (
+        <div role="status" data-testid="cdr-export-note"
+          className={`mx-6 mt-4 px-4 py-2 rounded-lg text-sm border ${exportNote.truncated
+            ? 'bg-lamp-warn/10 border-lamp-warn/30 text-lamp-warn'
+            : 'bg-surface-2 dark:bg-panel-raised border-border dark:border-panel-border text-ink-dim'}`}>
+          {exportNote.text}
+        </div>
+      )}
+
       {/* ── Error ── */}
       {error && (
         <div className="mx-6 mt-4 px-4 py-3 rounded-lg bg-lamp-alert/10 border border-lamp-alert/25 text-sm text-lamp-alert">
@@ -218,6 +237,7 @@ export default function CDRTable({ from, to }) {
               <TH>Talk</TH>
               <TH>Abandoned</TH>
               <TH>Disposition</TH>
+              <TH>Outcome</TH>
               <TH>Start Time</TH>
               <TH>End Time</TH>
             </tr>
@@ -225,7 +245,7 @@ export default function CDRTable({ from, to }) {
           <tbody className="divide-y divide-border dark:divide-panel-border">
             {loading && rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm text-ink-faint">
+                <td colSpan={12} className="py-12 text-center text-sm text-ink-faint">
                   <RefreshCw size={18} className="animate-spin mx-auto mb-2 text-blue-400" />
                   Loading records…
                 </td>
@@ -233,7 +253,7 @@ export default function CDRTable({ from, to }) {
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={11} className="py-12 text-center text-sm text-ink-faint">
+                <td colSpan={12} className="py-12 text-center text-sm text-ink-faint">
                   No records found for the selected date range and filter.
                 </td>
               </tr>
@@ -276,6 +296,9 @@ export default function CDRTable({ from, to }) {
                 </td>
                 <td className="td">
                   <DispositionBadge value={r.disposition} />
+                </td>
+                <td className="td">
+                  <OutcomeCell row={r} />
                 </td>
                 <td className="td text-ink-dim whitespace-nowrap">
                   {fmtTs(r.start_time)}

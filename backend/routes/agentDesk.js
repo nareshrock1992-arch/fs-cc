@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAgentAuth } from '../middleware/auth.js';
 import { asyncHandler }     from '../utils/asyncHandler.js';
 import * as desk from '../controllers/agentDeskController.js';
+import * as wrapupDesk from '../controllers/agentWrapupController.js';
 import { createLoginLimiter } from '../middleware/loginLimiter.js';
 import { config } from '../config/index.js';
 import { modeAllowsWebrtc } from '../utils/telephony.js';
@@ -32,6 +33,11 @@ if (modeAllowsWebrtc(config.telephony?.mode)) {
 // Break management (agent-facing)
 router.get('/break-codes',   asyncHandler(desk.agentBreakCodes));
 router.get('/break-history', asyncHandler(desk.agentBreakHistory));
+
+// Wrap-up outcome + notes and "Ready now" (M1; agent-scoped — always req.agentId)
+router.get('/wrapup',                  asyncHandler(wrapupDesk.agentWrapups));
+router.post('/wrapup/ready',           asyncHandler(wrapupDesk.agentReadyNow));
+router.post('/calls/:callUuid/wrapup', asyncHandler(wrapupDesk.agentSaveWrapup));
 
 // Call history (agent-scoped — always req.agentId)
 router.get('/call-history',           asyncHandler(desk.agentCallHistory));

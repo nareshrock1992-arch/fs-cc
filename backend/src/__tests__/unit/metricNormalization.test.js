@@ -97,19 +97,34 @@ describe('cdr — queue_wait_seconds additive column; ring_seconds unchanged', (
 });
 
 describe('dashboard — sla_pct name-only alias', () => {
-  it('sla_pct equals slaPct exactly; SLA SQL unchanged', async () => {
+  // M2 (owner decision 2026-11-23): the dashboard uses the ONE shared slaPct formula
+  // (one decimal, NULL without calls) instead of its old ::INT copy. Still the global
+  // INNER-JOIN form over calls + queues.
+  it('sla_pct equals slaPct exactly; uses the shared slaPct formula', async () => {
     MOCK = (sql) => {
       if (/GROUP BY status/.test(sql)) return { rows: [] };            // agentCounts
-      if (/AS sla_pct[\s\S]*FROM calls c[\s\S]*JOIN queues q/.test(sql)) return { rows: [{ sla_pct: 87 }] };
+      if (/AS sla_pct[\s\S]*FROM calls c[\s\S]*JOIN queues q/.test(sql)) return { rows: [{ sla_pct: '87.5' }] };
       return { rows: [{}] };
     };
     const res = mockRes();
     await stats.getDashboardStats(mockReq(), res);
     const body = res.json.mock.calls[0][0];
-    expect(body.slaPct).toBe(87);   // unchanged
-    expect(body.sla_pct).toBe(87);  // additive, exact
-    // dashboard SLA SQL still the INNER-JOIN ::INT global form (unchanged)
+    expect(body.slaPct).toBe(87.5);   // NUMERIC string from pg → number
+    expect(body.sla_pct).toBe(87.5);  // name alias, exact
     const all = captured.join('\n');
-    expect(all).toMatch(/\)::INT AS sla_pct[\s\S]*FROM calls c[\s\S]*JOIN queues q ON q\.name = c\.queue_name/);
+    const { slaPct } = await import('../../../services/metricsSql.js');
+    expect(all).toContain(`${slaPct({ thr: 'q.sla_seconds' })} AS sla_pct`);
+    expect(all).toMatch(/AS sla_pct[\s\S]*FROM calls c[\s\S]*JOIN queues q ON q\.name = c\.queue_name/);
+  });
+
+  it('no answered/abandoned calls → slaPct null (shown as "—"), never a fake 0', async () => {
+    MOCK = (sql) => {
+      if (/GROUP BY status/.test(sql)) return { rows: [] };
+      if (/AS sla_pct[\s\S]*FROM calls c[\s\S]*JOIN queues q/.test(sql)) return { rows: [{ sla_pct: null }] };
+      return { rows: [{}] };
+    };
+    const res = mockRes();
+    await stats.getDashboardStats(mockReq(), res);
+    expect(res.json.mock.calls[0][0].slaPct).toBeNull();
   });
 });

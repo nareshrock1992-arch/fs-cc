@@ -1,4 +1,4 @@
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import { Navigate, Routes, Route } from 'react-router-dom';
 // PERF-1: pages are loaded on demand (code splitting); Login and Layout stay in the main bundle.
 import { useAuth } from './hooks/useAuth.js';
@@ -16,6 +16,9 @@ const Reports = lazy(() => import('./pages/Reports.jsx'));
 const AgentPerformanceDashboard = lazy(() => import('./pages/AgentPerformanceDashboard.jsx'));
 const UserManagement = lazy(() => import('./pages/UserManagement.jsx'));
 const BreakCodes = lazy(() => import('./pages/BreakCodes.jsx'));
+const DispositionCodes = lazy(() => import('./pages/DispositionCodes.jsx'));
+const ActivityLog = lazy(() => import('./pages/ActivityLog.jsx'));
+const Wallboard = lazy(() => import('./pages/Wallboard.jsx'));
 const BreakHistoryReport = lazy(() => import('./pages/reports/BreakHistoryReport.jsx'));
 const CallHistoryReport = lazy(() => import('./pages/reports/CallHistoryReport.jsx'));
 
@@ -51,10 +54,36 @@ function BreakCodesRoute({ children }) {
   return children;
 }
 
+function OutcomesRoute({ children }) {
+  const { user, isAuth } = useAuth();
+  if (!isAuth) return <Navigate to="/login" replace />;
+  const canManage =
+    user?.role === 'admin' ||
+    (Array.isArray(user?.permissions) && user.permissions.includes('manage_dispositions'));
+  if (!canManage) return <Navigate to="/" replace />;
+  return children;
+}
+
+function ActivityRoute({ children }) {
+  const { user, isAuth } = useAuth();
+  if (!isAuth) return <Navigate to="/login" replace />;
+  const canView =
+    user?.role === 'admin' ||
+    (Array.isArray(user?.permissions) && user.permissions.includes('view_activity_log'));
+  if (!canView) return <Navigate to="/" replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Full-screen wallboard for a TV (M2): any signed-in admin/supervisor, no sidebar. */}
+      <Route path="/wallboard" element={
+        <ProtectedRoute>
+          <Suspense fallback={<p className="p-4 text-sm text-ink-dim" role="status">Loading…</p>}><Wallboard /></Suspense>
+        </ProtectedRoute>
+      } />
 
       <Route
         element={
@@ -110,6 +139,22 @@ export default function App() {
             <BreakCodesRoute>
               <BreakCodes />
             </BreakCodesRoute>
+          }
+        />
+        <Route
+          path="disposition-codes"
+          element={
+            <OutcomesRoute>
+              <DispositionCodes />
+            </OutcomesRoute>
+          }
+        />
+        <Route
+          path="activity-log"
+          element={
+            <ActivityRoute>
+              <ActivityLog />
+            </ActivityRoute>
           }
         />
         <Route

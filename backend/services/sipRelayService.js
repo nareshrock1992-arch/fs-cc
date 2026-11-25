@@ -37,6 +37,8 @@ export const DEFAULTS = Object.freeze({
   authFailMax: 5,
   authFailWindowMs: 5 * 60_000,
   shutdownGraceMs: 5_000,
+  maxDialogs: 64,          // calls remembered per phone connection
+  dialogLingerMs: 32_000,  // keep a call after BYE/CANCEL for late responses (SIP Timer B/F)
 });
 
 // Close codes sent to the browser (4xxx = application specific).
@@ -44,6 +46,19 @@ export const CLOSE = {
   NORMAL: 1000, GOING_AWAY: 1001, UNSUPPORTED: 1003, POLICY: 1008, TOO_BIG: 1009, UPSTREAM_ERROR: 1011,
   BAD_FRAME: 4400, FORBIDDEN: 4403, REPLACED: 4409, AUTH_LIMIT: 4429, UPSTREAM_CLOSED: 4502, UPSTREAM_FAILED: 4504,
 };
+
+/**
+ * True when FreeSWITCH refused the phone's credentials: 403, or a new 401/407 challenge to a
+ * REGISTER that already carried them. A challenge marked `stale=true` only means the one-time
+ * sign-in code (nonce) expired — the password was right and the phone simply retries — so it
+ * never counts towards the lock.
+ */
+export function isCredentialRefusal(p, hadAuth) {
+  if (p.status === 403) return true;
+  if ((p.status !== 401 && p.status !== 407) || !hadAuth) return false;
+  const challenges = [...(p.headers?.['www-authenticate'] || []), ...(p.headers?.['proxy-authenticate'] || [])];
+  return !challenges.some((c) => /(^|[\s,])stale\s*=\s*"?true"?/i.test(c));
+}
 
 function rejectUpgrade(socket, status, text) {
   if (!socket.writable) return socket.destroy();
@@ -104,6 +119,15 @@ export function createSipRelay({
     return recent(authFails, agentId, L.authFailWindowMs).length >= L.authFailMax;
   }
 
+  /** Lock state for the ticket service: locked, and ms until the oldest counted failure ages out. */
+  function authLock(agentId) {
+    const list = recent(authFails, agentId, L.authFailWindowMs);
+    if (list.length < L.authFailMax) return { locked: false, retryAfterMs: 0 };
+    // Unlocks when enough failures leave the window: the (n - max + 1)-th oldest one decides.
+    const decisive = list[list.length - L.authFailMax];
+    return { locked: true, retryAfterMs: Math.max(1000, decisive + L.authFailWindowMs - now()) };
+  }
+
   // ── Upgrade (synchronous checks only, so the 101 is written immediately) ──────
   function handleUpgrade(req, socket, head) {
     let url;
@@ -158,6 +182,8 @@ export function createSipRelay({
   function closeSession(s, code, reason) {
     if (s.closed) return;
     s.closed = true;
+    for (const t of s.dialogs.values()) if (t) clearTimeout(t);
+    s.dialogs.clear();
     sessions.delete(s.id);
     if (byAgent.get(s.agentId) === s) byAgent.delete(s.agentId);
     const safeReason = String(reason || '').slice(0, 100);
@@ -178,6 +204,7 @@ export function createSipRelay({
       id: randomBytes(6).toString('hex'), agentId: binding.agentId, extension: binding.extension, ip,
       browser, upstream: null, queue: [], queuedBytes: 0, closed: false, registered: false,
       tokens: L.frameBurst, lastRefill: now(), framesUp: 0, framesDown: 0, lastRegisterHadAuth: false,
+      dialogs: new Map(),   // Call-IDs of calls that belong to this phone (see trackDialog)
       alive: { browser: { pingAt: 0, waiting: false }, upstream: { pingAt: 0, waiting: false } },
     };
     sessions.set(s.id, s);
@@ -265,11 +292,13 @@ export function createSipRelay({
       return closeSession(s, CLOSE.POLICY, 'too many messages');
     }
     const text = data.toString('utf8');
-    const verdict = checkOutboundFrame(text, s.extension);
+    const verdict = checkOutboundFrame(text, s.extension, (callId) => s.dialogs.has(callId));
     if (!verdict.allow) {
       log('warn', `blocked frame: ${verdict.reason}`, s);
       return closeSession(s, verdict.code, verdict.reason);
     }
+    // A call this phone starts (passed the identity check above) belongs to it.
+    if (verdict.parsed?.kind === 'request') trackDialog(s, verdict.parsed);
     if (verdict.parsed?.kind === 'request' && verdict.parsed.method === 'REGISTER') {
       s.lastRegisterHadAuth = Boolean(verdict.parsed.headers.authorization);
     }
@@ -291,9 +320,37 @@ export function createSipRelay({
     if (!isKeepAlive(text)) {
       const p = parseSipFrame(text);
       if (p.ok && p.kind === 'response' && p.cseqMethod === 'REGISTER') trackRegister(s, p);
+      // A call FreeSWITCH sends to this phone belongs to it.
+      if (p.ok && p.kind === 'request') trackDialog(s, p);
     }
     s.framesDown++;
     if (s.browser.readyState === WebSocket.OPEN) s.browser.send(text);
+  }
+
+  /**
+   * Remember the calls (Call-IDs) that belong to this phone, so its in-dialog
+   * requests (BYE, re-INVITE, UPDATE, INFO, REFER…) are allowed even though, on a
+   * call FreeSWITCH sent to it, neither From nor To carries the extension.
+   * Only INVITEs create entries: from FreeSWITCH (inbound calls) or from this phone
+   * after the identity check. A BYE or CANCEL lets the entry go after a short delay
+   * (late responses/retransmissions); the list is bounded and dies with the session.
+   */
+  function trackDialog(s, p) {
+    const callId = p.headers['call-id']?.[0];
+    if (!callId) return;
+    if (p.method === 'INVITE') {
+      if (s.dialogs.has(callId)) return;
+      if (s.dialogs.size >= L.maxDialogs) {
+        const [oldest, timer] = s.dialogs.entries().next().value;
+        if (timer) clearTimeout(timer);
+        s.dialogs.delete(oldest);
+      }
+      s.dialogs.set(callId, null);
+    } else if ((p.method === 'BYE' || p.method === 'CANCEL') && s.dialogs.has(callId) && !s.dialogs.get(callId)) {
+      const t = setTimeout(() => s.dialogs.delete(callId), L.dialogLingerMs);
+      t.unref?.();
+      s.dialogs.set(callId, t);
+    }
   }
 
   function trackRegister(s, p) {
@@ -305,10 +362,11 @@ export function createSipRelay({
         s.registered = true;
         events.emit('registered', { agentId: s.agentId, extension: s.extension });
       }
+      // The password was accepted: earlier refusals were not a guessing attempt.
+      authFails.delete(s.agentId);
       return;
     }
-    const authFailure = p.status === 403 || ((p.status === 401 || p.status === 407) && s.lastRegisterHadAuth);
-    if (!authFailure) return;
+    if (!isCredentialRefusal(p, s.lastRegisterHadAuth)) return;
     const list = recent(authFails, s.agentId, L.authFailWindowMs);
     list.push(now());
     authFails.set(s.agentId, list);
@@ -375,6 +433,7 @@ export function createSipRelay({
     heartbeat,
     stats: () => ({ sessions: sessions.size, agents: byAgent.size, accepting }),
     hasSession: (agentId) => byAgent.has(agentId),
+    authLock,
     closeAgent: (agentId, reason = 'closed by server') => {
       const s = byAgent.get(agentId);
       if (s) closeSession(s, CLOSE.FORBIDDEN, reason);
@@ -387,9 +446,13 @@ export function createSipRelay({
  * Attach the relay to the HTTP server only when the customer mode allows WebRTC.
  * Returns null (and attaches nothing) for EXTERNAL_PBX.
  */
+let shared = null;
+/** The running relay (null when the mode has no browser phone), for the ticket service. */
+export function getSipRelay() { return shared; }
+
 export function initSipRelay({ server, config, ticketStore, loadAgent, logger }) {
-  if (!modeAllowsWebrtc(config.telephony?.mode)) return null;
-  return createSipRelay({
+  if (!modeAllowsWebrtc(config.telephony?.mode)) { shared = null; return null; }
+  shared = createSipRelay({
     server,
     telephony: config.telephony,
     allowedOrigins: config.cors.origin,
@@ -398,4 +461,5 @@ export function initSipRelay({ server, config, ticketStore, loadAgent, logger })
     logger,
     limits: { maxConnections: config.telephony.relayMaxConnections || DEFAULTS.maxConnections },
   });
+  return shared;
 }

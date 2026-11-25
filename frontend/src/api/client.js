@@ -128,3 +128,16 @@ export const BreakCodes = {
   update:    (id, payload) => api.put(`/break-codes/${id}`, payload).then(r => r.data),
   setStatus: (id, active)  => api.patch(`/break-codes/${id}/status`, { active }).then(r => r.data),
 };
+
+// ---- Call outcomes / dispositions (requires manage_dispositions; admin implicit) ----
+export const Activity = {
+  list: (params) => api.get('/activity', { params }).then(r => r.data),
+};
+
+export const DispositionCodes = {
+  list:      ()                 => api.get('/disposition-codes').then(r => r.data),
+  create:    (payload)          => api.post('/disposition-codes', payload).then(r => r.data),
+  update:    (id, payload)      => api.put(`/disposition-codes/${id}`, payload).then(r => r.data),
+  setStatus: (id, active)       => api.patch(`/disposition-codes/${id}/status`, { active }).then(r => r.data),
+  setQueue:  (queueId, codeIds) => api.put(`/disposition-codes/queues/${queueId}`, { code_ids: codeIds }).then(r => r.data),
+};

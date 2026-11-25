@@ -10,6 +10,10 @@ function fmtSeconds(s) {
 }
 
 function SlaBar({ pct }) {
+  // null = no answered or abandoned calls yet: show "—", never a fake 0 %.
+  if (pct == null) {
+    return <p className="text-xs text-ink-faint mt-0.5" title="No answered or abandoned calls yet">— no calls yet</p>;
+  }
   const color = pct >= 80 ? 'bg-lamp-ok' : pct >= 60 ? 'bg-lamp-warn' : 'bg-lamp-alert';
   return (
     <div className="flex items-center gap-1.5 mt-0.5">
@@ -65,7 +69,7 @@ function QueueCard({ q }) {
     : abandonRate <= 10   ? 'text-lamp-warn'
     : 'text-lamp-alert';
 
-  const slaVal = Number(q.sla_pct_today) || 0;
+  const slaVal = q.sla_pct_today == null ? null : Number(q.sla_pct_today);
 
   return (
     <div className="rounded-lg border shadow-card dark:bg-panel-surface dark:border-panel-border bg-white border-border">
